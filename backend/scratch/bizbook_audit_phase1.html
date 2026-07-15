@@ -1,0 +1,537 @@
+<title>BizBook Deployment Readiness Audit — Phase 1</title>
+<style>
+  :root {
+    --bg: #F5F6FA;
+    --bg-elevated: #FFFFFF;
+    --ink: #1A2032;
+    --ink-soft: #5B6478;
+    --ink-faint: #8991A3;
+    --border: #E1E4EC;
+    --accent: #4338CA;
+    --accent-soft: #EEF0FE;
+    --pass: #157F3C;
+    --pass-bg: #E9F7EE;
+    --partial: #B4650A;
+    --partial-bg: #FFF6E8;
+    --fail: #C22222;
+    --fail-bg: #FDEDED;
+    --blocker: #7A0E0E;
+    --blocker-bg: #FBE0E0;
+    --blocker-border: #E7A9A9;
+    --mono-bg: #EEF0F4;
+    --shadow: 0 1px 2px rgba(20,24,40,0.04), 0 4px 16px rgba(20,24,40,0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10121A;
+      --bg-elevated: #171A24;
+      --ink: #E7E9F2;
+      --ink-soft: #9CA3B8;
+      --ink-faint: #6B7182;
+      --border: #2A2E3C;
+      --accent: #9691F5;
+      --accent-soft: #201F38;
+      --pass: #4ADE80;
+      --pass-bg: #11301F;
+      --partial: #FBBF61;
+      --partial-bg: #3A2A0E;
+      --fail: #FF6B6B;
+      --fail-bg: #3A1414;
+      --blocker: #FF9090;
+      --blocker-bg: #3E1414;
+      --blocker-border: #6B2A2A;
+      --mono-bg: #1E212C;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 20px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10121A; --bg-elevated: #171A24; --ink: #E7E9F2; --ink-soft: #9CA3B8; --ink-faint: #6B7182;
+    --border: #2A2E3C; --accent: #9691F5; --accent-soft: #201F38;
+    --pass: #4ADE80; --pass-bg: #11301F; --partial: #FBBF61; --partial-bg: #3A2A0E;
+    --fail: #FF6B6B; --fail-bg: #3A1414; --blocker: #FF9090; --blocker-bg: #3E1414; --blocker-border: #6B2A2A;
+    --mono-bg: #1E212C; --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 4px 20px rgba(0,0,0,0.35);
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F6FA; --bg-elevated: #FFFFFF; --ink: #1A2032; --ink-soft: #5B6478; --ink-faint: #8991A3;
+    --border: #E1E4EC; --accent: #4338CA; --accent-soft: #EEF0FE;
+    --pass: #157F3C; --pass-bg: #E9F7EE; --partial: #B4650A; --partial-bg: #FFF6E8;
+    --fail: #C22222; --fail-bg: #FDEDED; --blocker: #7A0E0E; --blocker-bg: #FBE0E0; --blocker-border: #E7A9A9;
+    --mono-bg: #EEF0F4; --shadow: 0 1px 2px rgba(20,24,40,0.04), 0 4px 16px rgba(20,24,40,0.06);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 40px 24px 96px; }
+
+  .font-mono { font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, "Courier New", monospace; }
+  .tab-nums { font-variant-numeric: tabular-nums; }
+
+  h1, h2, h3 { font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; margin: 0; }
+
+  /* ── Header ───────────────────────────────────────────────────────── */
+  header.top { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+  .eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent);
+  }
+  h1 { font-size: clamp(26px, 4vw, 34px); }
+  .subtitle { color: var(--ink-soft); font-size: 15px; max-width: 62ch; }
+  .audit-badge {
+    display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
+    background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent);
+    border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700;
+    letter-spacing: 0.02em; margin-top: 4px;
+  }
+  .audit-badge::before { content: "●"; font-size: 8px; }
+
+  /* ── Summary stat row ─────────────────────────────────────────────── */
+  .stats {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 28px 0 8px;
+  }
+  @media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  .stat {
+    background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .stat .n { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+  .stat .l { font-size: 11.5px; color: var(--ink-soft); font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; margin-top: 6px; }
+  .stat.pass .n { color: var(--pass); }
+  .stat.partial .n { color: var(--partial); }
+  .stat.fail .n { color: var(--fail); }
+  .stat.blocker { background: var(--blocker-bg); border-color: var(--blocker-border); }
+  .stat.blocker .n { color: var(--blocker); }
+  .stat.blocker .l { color: var(--blocker); opacity: 0.85; }
+
+  /* ── Blocker callout ──────────────────────────────────────────────── */
+  .blockers {
+    background: var(--blocker-bg); border: 1px solid var(--blocker-border); border-radius: 16px;
+    padding: 22px 24px; margin: 28px 0 36px;
+  }
+  .blockers h2 { font-size: 17px; color: var(--blocker); margin-bottom: 4px; }
+  .blockers .sub { color: var(--ink-soft); font-size: 13.5px; margin-bottom: 16px; }
+  .blockers ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .blockers li { font-size: 14.5px; }
+  .blockers li b { font-weight: 700; }
+  .blockers li .where { display: block; color: var(--ink-faint); font-size: 12.5px; margin-top: 2px; }
+
+  /* ── Module sections ──────────────────────────────────────────────── */
+  section.module { margin-bottom: 20px; }
+  details.module-card {
+    background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 16px;
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  details.module-card + details.module-card { margin-top: 14px; }
+  summary.module-head {
+    list-style: none; cursor: pointer; padding: 18px 22px; display: flex; align-items: center;
+    gap: 14px; justify-content: space-between;
+  }
+  summary.module-head::-webkit-details-marker { display: none; }
+  summary.module-head .left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  summary.module-head h3 { font-size: 17px; }
+  summary.module-head .count-pills { display: flex; gap: 6px; flex-shrink: 0; }
+  .chev { color: var(--ink-faint); transition: transform 0.15s ease; flex-shrink: 0; }
+  details[open] .chev { transform: rotate(90deg); }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700;
+    padding: 4px 10px; border-radius: 999px; letter-spacing: 0.02em; white-space: nowrap;
+  }
+  .pill.pass { background: var(--pass-bg); color: var(--pass); }
+  .pill.partial { background: var(--partial-bg); color: var(--partial); }
+  .pill.fail { background: var(--fail-bg); color: var(--fail); }
+
+  .module-body { padding: 0 22px 20px; border-top: 1px solid var(--border); }
+  .finding { border-top: 1px solid var(--border); padding: 16px 0; }
+  .finding:first-child { border-top: none; }
+  .finding-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .finding-head .status { font-weight: 700; font-size: 13px; }
+  .finding-head .status.pass { color: var(--pass); }
+  .finding-head .status.partial { color: var(--partial); }
+  .finding-head .status.fail { color: var(--fail); }
+  .finding-head .feat { font-weight: 700; font-size: 14.5px; }
+  .finding p.cause { margin: 4px 0 10px; color: var(--ink-soft); font-size: 14px; max-width: 74ch; }
+  .meta-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 16px;
+    font-size: 12.5px; margin-top: 8px;
+  }
+  .meta-grid .k { color: var(--ink-faint); font-weight: 600; text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.04em; display: block; margin-bottom: 2px; }
+  .meta-grid .v { color: var(--ink); }
+  .meta-grid code { background: var(--mono-bg); padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+  .sev-blocker { color: var(--blocker); font-weight: 700; }
+  .pass-note { color: var(--ink-soft); font-size: 14px; padding: 4px 0; }
+
+  /* ── Residue / footer ─────────────────────────────────────────────── */
+  .residue {
+    background: var(--partial-bg); border: 1px solid var(--partial); border-radius: 14px;
+    padding: 18px 20px; margin: 32px 0; font-size: 14px;
+  }
+  .residue h3 { font-size: 14.5px; color: var(--partial); margin-bottom: 8px; }
+  .residue ul { margin: 8px 0 0; padding-left: 18px; }
+  .residue code { background: var(--mono-bg); padding: 1px 6px; border-radius: 5px; font-size: 12.5px; }
+
+  footer.note { color: var(--ink-faint); font-size: 12.5px; text-align: center; margin-top: 40px; }
+
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+
+  <header class="top">
+    <span class="eyebrow">Release QA — Deployment Readiness Audit</span>
+    <h1>BizBook Audit — Phase 1</h1>
+    <p class="subtitle">Dashboard · Sales · Inventory · Products · Customers · Suppliers · Invoices · Payments · Reports. Verified against the running application over real HTTP and a real browser session — no mocked responses, no code read as a substitute for execution.</p>
+    <span class="audit-badge">Audit only — no code, schema, or data modified by the auditors</span>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="n tab-nums">27</div><div class="l">Features Checked</div></div>
+    <div class="stat pass"><div class="n tab-nums">13</div><div class="l">Pass</div></div>
+    <div class="stat partial"><div class="n tab-nums">5</div><div class="l">Partial</div></div>
+    <div class="stat fail"><div class="n tab-nums">9</div><div class="l">Fail</div></div>
+    <div class="stat blocker"><div class="n tab-nums">9</div><div class="l">Release Blockers</div></div>
+  </div>
+
+  <div class="blockers">
+    <h2>Release Blockers — 9 found</h2>
+    <p class="sub">These fail core, everyday workflows outright. In this reviewer's judgment, none of the audited modules should ship until these are resolved.</p>
+    <ol>
+      <li><b>Sale creation is blocked company-wide.</b> Every company in the live DB has zero rows in <code class="font-mono">branches</code>; <code class="font-mono">POST /api/sales</code> hard-rejects the resulting global scope, and nothing in the frontend sends the branch header to work around it.
+        <span class="where font-mono">backend/src/routes/sales.js — router.post('/')</span></li>
+      <li><b>85% of the product catalog invoices at 0% GST, silently.</b> <code class="font-mono">gst_hsn_master</code> is empty, so rate lookup for any non-custom-GST product defaults to 0 — and 0 passes validation as a legal slab, so nothing errors.
+        <span class="where font-mono">backend/src/services/gstEngine.js — enrichItems()</span></li>
+      <li><b>Sales never decrement stock — and delete/edit assume they did.</b> Creating a sale leaves inventory untouched; deleting or editing one then <em>adds stock back</em> for a decrement that never happened, inflating inventory on every cycle.
+        <span class="where font-mono">backend/src/routes/sales.js — post('/'), delete('/:id'), put('/:id')</span></li>
+      <li><b>Purchases never increment stock.</b> A purchase records cost/GST correctly but never updates <code class="font-mono">inventory</code> — stock stayed at 50 after a +10 purchase.
+        <span class="where font-mono">backend/src/routes/purchases.js — router.post('/')</span></li>
+      <li><b>Any purchase with a supplier attached crashes.</b> Queries a <code class="font-mono">state_code</code> column on <code class="font-mono">suppliers</code> that doesn't exist — 500 on every purchase where a supplier is set.
+        <span class="where font-mono">backend/src/routes/purchases.js — router.post('/'), ~line 63</span></li>
+      <li><b>The Suppliers page crashes on load for every user.</b> <code class="font-mono">ChevronRight</code> is referenced but never imported; React throws, the error boundary swallows it into a blank "Something went wrong" screen.
+        <span class="where font-mono">frontend/src/pages/Suppliers.jsx:202</span></li>
+      <li><b>Editing a product can silently null out its other fields.</b> The update writes every column unconditionally instead of using <code class="font-mono">COALESCE</code>, so any field omitted from a PATCH-style edit (e.g. HSN code, supplier) gets wiped.
+        <span class="where font-mono">backend/src/routes/products.js — router.put('/:id')</span></li>
+      <li><b>Marketing → Reports: half the tabs 500 outright.</b> Executive/Campaign/Customer/Loyalty analytics query columns that don't exist in the current schema (<code class="font-mono">created_at</code>, <code class="font-mono">start_date</code>/<code class="font-mono">end_date</code>, <code class="font-mono">type</code>).
+        <span class="where font-mono">backend/src/services/ReportsService.js</span></li>
+      <li><b>Report CSV export produces a broken file.</b> Rows/headers are joined with the literal two characters <code class="font-mono">"n"</code> instead of a newline — the download is one malformed line, not valid CSV.
+        <span class="where font-mono">backend/src/services/ReportsService.js — generateExport(), ~line 293</span></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════════════ DASHBOARD ═══════════════════════ -->
+  <section class="module">
+  <details class="module-card" open>
+    <summary class="module-head">
+      <div class="left"><h3>Dashboard</h3></div>
+      <div class="count-pills"><span class="pill pass">2 pass</span><span class="pill fail">1 fail</span></div>
+      <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+    </summary>
+    <div class="module-body">
+      <div class="finding">
+        <div class="finding-head"><span class="status pass">PASS</span><span class="feat">KPI tiles (Home.jsx)</span></div>
+        <p class="cause">All 6 data calls return real, well-formed data. Spot-checked 3 figures against raw API JSON — exact matches (Month Revenue ₹57,171.4, −60.3% change, Outstanding Credit ₹7,08,463 / 125 overdue). No console or page errors.</p>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status pass">PASS</span><span class="feat">Charts</span></div>
+        <p class="cause">No chart components exist on this page by design (stat tiles only) — not a defect. All 16 <code class="font-mono">/api/analytics/*</code> endpoints backing charts elsewhere return 200 with real data.</p>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status fail">FAIL</span><span class="feat">Recent Activity feed</span></div>
+        <p class="cause">No recent-activity/transaction feed exists anywhere on the Home page — the checklist item has no corresponding implementation.</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">frontend/src/pages/Home.jsx</span></div>
+          <div><span class="k">Function</span><span class="v font-mono">component body</span></div>
+          <div><span class="k">Severity</span><span class="v">Low</span></div>
+          <div><span class="k">Release Blocker</span><span class="v">No</span></div>
+        </div>
+      </div>
+    </div>
+  </details>
+  </section>
+
+  <!-- ═══════════════════════ REPORTS ═══════════════════════ -->
+  <section class="module">
+  <details class="module-card">
+    <summary class="module-head">
+      <div class="left"><h3>Reports</h3></div>
+      <div class="count-pills"><span class="pill fail">3 fail</span><span class="pill partial">1 partial</span></div>
+      <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+    </summary>
+    <div class="module-body">
+      <div class="finding">
+        <div class="finding-head"><span class="status fail">FAIL</span><span class="feat">Top-level "Reports" nav tab</span></div>
+        <p class="cause">Confirmed still a stub that immediately redirects to GST Filing on mount. Worse — it's now unreachable dead code: no nav path (bottom nav or "More" menu) links to it anymore; <code class="font-mono">App.jsx</code>'s <code class="font-mono">PAGES</code> map still points the string at it, but nothing navigates there.</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">frontend/src/pages/Reports.jsx, App.jsx:47</span></div>
+          <div><span class="k">Function</span><span class="v font-mono">Reports()</span></div>
+          <div><span class="k">Severity</span><span class="v">Low</span></div>
+          <div><span class="k">Release Blocker</span><span class="v">No</span></div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status fail sev-blocker">FAIL</span><span class="feat">Marketing → Reports: Executive / Campaigns / Customers / Loyalty</span></div>
+        <p class="cause">All 4 endpoints return HTTP 500 <code class="font-mono">"no such column"</code> — they query <code class="font-mono">created_at</code> on <code class="font-mono">customers</code>/<code class="font-mono">marketing_campaigns</code>, <code class="font-mono">start_date</code>/<code class="font-mono">end_date</code> on campaigns, and <code class="font-mono">type</code> on <code class="font-mono">wallet_transactions</code> (actual column: <code class="font-mono">transaction_type</code>) — none of which exist in the current schema. This is the sub-tab actually reachable and used from the Marketing/Spend Intelligence pages.</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">backend/src/services/ReportsService.js</span></div>
+          <div><span class="k">Function</span><span class="v font-mono">getExecutiveSummary, getCampaignAnalytics, getCustomerAnalytics, getLoyaltyAnalytics</span></div>
+          <div><span class="k">Severity</span><span class="v">High</span></div>
+          <div><span class="k">Release Blocker</span><span class="v sev-blocker">Yes</span></div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status partial">PARTIAL</span><span class="feat">Coupons / Referrals / Surveys / Communications tabs</span></div>
+        <p class="cause">Return 200, but blend real (mostly-zero) aggregates with hardcoded mock fixtures — e.g. survey rating distribution is a static 45/20/10/5/2 array with a code comment reading "Mock until real logic"; referral top-referrers and loyalty wallet-trend are similarly fixed, unrelated to actual company data.</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">backend/src/services/ReportsService.js:186-227</span></div>
+          <div><span class="k">Severity</span><span class="v">Medium</span></div>
+          <div><span class="k">Release Blocker</span><span class="v">No</span></div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status fail sev-blocker">FAIL</span><span class="feat">CSV export</span></div>
+        <p class="cause"><code class="font-mono">GET /api/reports/export/:type?format=csv</code> returns 200 with a file, but rows and headers are joined with the literal two-character string <code class="font-mono">"n"</code> instead of a newline. The downloaded file is one malformed line — not valid CSV in any spreadsheet tool.</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">backend/src/services/ReportsService.js:293-294</span></div>
+          <div><span class="k">Function</span><span class="v font-mono">generateExport</span></div>
+          <div><span class="k">Severity</span><span class="v">Medium</span></div>
+          <div><span class="k">Release Blocker</span><span class="v sev-blocker">Yes</span></div>
+        </div>
+      </div>
+    </div>
+  </details>
+  </section>
+
+  <!-- ═══════════════════════ SALES / INVOICES / PAYMENTS ═══════════════════════ -->
+  <section class="module">
+  <details class="module-card" open>
+    <summary class="module-head">
+      <div class="left"><h3>Sales, Invoices &amp; Payments</h3></div>
+      <div class="count-pills"><span class="pill pass">5 pass</span><span class="pill fail">5 fail</span></div>
+      <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+    </summary>
+    <div class="module-body">
+      <div class="finding">
+        <div class="finding-head"><span class="status pass">PASS</span><span class="feat">GST engine — CGST/SGST/IGST split</span></div>
+        <p class="cause">Intrastate sale correctly split CGST=SGST (half rate each side, inclusive pricing back-calculated correctly); interstate sale correctly classified with the right place-of-supply — <em>where rate data exists</em> (see the blocker below on empty HSN master data).</p>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status pass">PASS</span><span class="feat">Invoice PDF download</span></div>
+        <p class="cause">Valid 133KB PDF, correct content-type and file header.</p>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status pass">PASS</span><span class="feat">Filters (sales/invoices by customer, date, search)</span></div>
+        <p class="cause">All narrow results correctly; counts changed as expected per filter.</p>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status pass">PASS</span><span class="feat">Frontend — Sales page &amp; Credit Ledger</span></div>
+        <p class="cause">Both render real data with zero console/page errors.</p>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status pass">PASS</span><span class="feat">Credit CRUD</span></div>
+        <p class="cause">Create / pay / delete round-tripped correctly in isolation.</p>
+      </div>
+
+      <div class="finding">
+        <div class="finding-head"><span class="status fail sev-blocker">FAIL</span><span class="feat">Sale creation — blocked for every company</span></div>
+        <p class="cause">All 10 companies in the live DB have zero rows in <code class="font-mono">branches</code>. <code class="font-mono">POST /api/sales</code> hard-rejects when scope resolves to <code class="font-mono">global</code> (the default when no branch is configured and no <code class="font-mono">X-Branch-ID</code> header is sent), and the frontend never sends that header anywhere in the sales flow. A fresh or existing company with no branch set up cannot create a sale, full stop — via the UI or the API. Also found while working around this: <code class="font-mono">POST /api/branches</code> throws an uncaught 500 if optional fields are omitted (undefined not coalesced to null).</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">backend/src/routes/sales.js:73-79, middleware/branchAuth.js</span></div>
+          <div><span class="k">Function</span><span class="v font-mono">router.post('/')</span></div>
+          <div><span class="k">Severity</span><span class="v">Critical</span></div>
+          <div><span class="k">Release Blocker</span><span class="v sev-blocker">Yes</span></div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status fail sev-blocker">FAIL</span><span class="feat">Non-custom-GST products invoice at 0% tax</span></div>
+        <p class="cause"><code class="font-mono">gst_hsn_master</code> has 0 rows in the live DB. Rate lookup for any of the 85% of products not flagged custom-GST silently defaults to 0% — and 0 is a legal slab, so validation never flags it. Reproduced live: an 18%-GST product invoiced a ₹10,000 interstate sale at ₹0 CGST/SGST/IGST.</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">backend/src/services/gstEngine.js</span></div>
+          <div><span class="k">Function</span><span class="v font-mono">enrichItems()</span></div>
+          <div><span class="k">Severity</span><span class="v">Critical</span></div>
+          <div><span class="k">Release Blocker</span><span class="v sev-blocker">Yes</span></div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status fail sev-blocker">FAIL</span><span class="feat">Sales never decrement stock; delete/edit inflate it</span></div>
+        <p class="cause">Creating a sale validates available stock but never decrements <code class="font-mono">inventory.stock_quantity</code>. Both <code class="font-mono">DELETE</code> and <code class="font-mono">PUT</code> then unconditionally <em>restore</em> quantity, assuming a decrement happened. Verified: a 5-unit sale left stock unchanged, then deleting that same (never-decremented) sale added the quantity back anyway — inventory inflates on every sale+delete cycle.</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">backend/src/routes/sales.js</span></div>
+          <div><span class="k">Function</span><span class="v font-mono">post('/') · delete('/:id') · put('/:id')</span></div>
+          <div><span class="k">Severity</span><span class="v">Critical</span></div>
+          <div><span class="k">Release Blocker</span><span class="v sev-blocker">Yes</span></div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status fail">FAIL</span><span class="feat">Editing a sale doesn't recalculate its invoice</span></div>
+        <p class="cause"><code class="font-mono">PUT /api/sales/:id</code> updates only the sales ledger row — never touches <code class="font-mono">invoices</code>/<code class="font-mono">invoice_items</code> or regenerates the PDF snapshot. Verified: sale revenue changed 3998→5997, invoice stayed at 3998.</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">backend/src/routes/sales.js</span></div>
+          <div><span class="k">Function</span><span class="v font-mono">router.put('/:id')</span></div>
+          <div><span class="k">Severity</span><span class="v">High</span></div>
+          <div><span class="k">Release Blocker</span><span class="v">No</span></div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status fail">FAIL</span><span class="feat">Credit payoff never reconciles to the sale</span></div>
+        <p class="cause">Credits auto-created from the primary <code class="font-mono">POST /api/sales</code> path always insert <code class="font-mono">sale_id = NULL</code>, so the pay handler's <code class="font-mono">if (credit.sale_id...)</code> guard never fires for them. Verified: fully paying a ₹10,000 credit left its linked sale permanently marked unpaid.</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">backend/src/routes/sales.js:305-307, routes/credits.js</span></div>
+          <div><span class="k">Function</span><span class="v font-mono">router.put('/:id/pay')</span></div>
+          <div><span class="k">Severity</span><span class="v">High</span></div>
+          <div><span class="k">Release Blocker</span><span class="v">No</span></div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status fail">FAIL</span><span class="feat">Deleting a sale orphans its invoice</span></div>
+        <p class="cause"><code class="font-mono">DELETE /api/sales/:id</code> removes the sale and linked credit rows but never deletes the invoice — leaving a fetchable, downloadable PDF with no backing sale.</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">backend/src/routes/sales.js</span></div>
+          <div><span class="k">Function</span><span class="v font-mono">router.delete('/:id')</span></div>
+          <div><span class="k">Severity</span><span class="v">Medium</span></div>
+          <div><span class="k">Release Blocker</span><span class="v">No</span></div>
+        </div>
+      </div>
+    </div>
+  </details>
+  </section>
+
+  <!-- ═══════════════════════ INVENTORY / PRODUCTS / SUPPLIERS ═══════════════════════ -->
+  <section class="module">
+  <details class="module-card" open>
+    <summary class="module-head">
+      <div class="left"><h3>Inventory, Products, Suppliers &amp; Purchases</h3></div>
+      <div class="count-pills"><span class="pill pass">3 pass</span><span class="pill partial">2 partial</span><span class="pill fail">5 fail</span></div>
+      <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+    </summary>
+    <div class="module-body">
+      <div class="finding">
+        <div class="finding-head"><span class="status pass">PASS</span><span class="feat">Suppliers CRUD (backend)</span></div>
+        <p class="cause">Create, read, search filter, update, delete all verified via full API round-trip.</p>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status pass">PASS</span><span class="feat">POST /api/stock/bulk</span></div>
+        <p class="cause">Verified base(50) + adjustment(7) = 57 exactly.</p>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status pass">PASS</span><span class="feat">Product Groups filter on Stock page</span></div>
+        <p class="cause">Category dropdown populated from real groups; changing it correctly re-fetches filtered results.</p>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status partial">PARTIAL</span><span class="feat">Products CRUD</span></div>
+        <p class="cause">Create/Read/Delete pass. Update has two distinct bugs: (1) omitted optional fields (e.g. <code class="font-mono">gst_rate</code>) are treated as <code class="font-mono">NaN</code> rather than "unchanged," causing spurious 400s; (2) unlike suppliers.js (uses COALESCE), the UPDATE writes every column unconditionally — any field omitted from a PUT body gets silently overwritten to null. Reproduced live: updating only name/price wiped <code class="font-mono">hsn_code</code> and <code class="font-mono">supplier_id</code>.</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">backend/src/routes/products.js</span></div>
+          <div><span class="k">Function</span><span class="v font-mono">router.put('/:id')</span></div>
+          <div><span class="k">Severity</span><span class="v">High</span></div>
+          <div><span class="k">Release Blocker</span><span class="v sev-blocker">Yes</span></div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status partial">PARTIAL</span><span class="feat">Search / Filters (Products &amp; Suppliers)</span></div>
+        <p class="cause">Search and group filters work correctly; neither route implements page/limit pagination at all (same gap as Customers, below).</p>
+        <div class="meta-grid">
+          <div><span class="k">Severity</span><span class="v">Low</span></div>
+          <div><span class="k">Release Blocker</span><span class="v">No</span></div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status fail sev-blocker">FAIL</span><span class="feat">Suppliers page crashes for every user</span></div>
+        <p class="cause"><code class="font-mono">ChevronRight</code> is used at line 202 but never imported from <code class="font-mono">lucide-react</code>. Throws a <code class="font-mono">ReferenceError</code>, caught by the error boundary, rendering a full "Something went wrong" screen — the page is completely unusable.</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">frontend/src/pages/Suppliers.jsx:202</span></div>
+          <div><span class="k">Severity</span><span class="v">Critical</span></div>
+          <div><span class="k">Release Blocker</span><span class="v sev-blocker">Yes</span></div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status fail sev-blocker">FAIL</span><span class="feat">Purchases never increment stock</span></div>
+        <p class="cause"><code class="font-mono">POST /api/purchases</code> correctly computes and stores GST/tax fields but never issues an <code class="font-mono">UPDATE inventory</code>. Verified live: stock stayed at 50 after a purchase of qty 10 (expected 60).</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">backend/src/routes/purchases.js</span></div>
+          <div><span class="k">Function</span><span class="v font-mono">router.post('/')</span></div>
+          <div><span class="k">Severity</span><span class="v">Critical</span></div>
+          <div><span class="k">Release Blocker</span><span class="v sev-blocker">Yes</span></div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status fail sev-blocker">FAIL</span><span class="feat">Purchases crash when a supplier is attached</span></div>
+        <p class="cause">Queries <code class="font-mono">state_code</code> on <code class="font-mono">suppliers</code> — a column that doesn't exist (table only has <code class="font-mono">state</code>). Any purchase with <code class="font-mono">supplier_id</code> set throws a SQL error and the request 500s outright.</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">backend/src/routes/purchases.js:~63</span></div>
+          <div><span class="k">Function</span><span class="v font-mono">router.post('/')</span></div>
+          <div><span class="k">Severity</span><span class="v">Critical</span></div>
+          <div><span class="k">Release Blocker</span><span class="v sev-blocker">Yes</span></div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status fail">FAIL</span><span class="feat">Purchases frontend page — unreachable</span></div>
+        <p class="cause"><code class="font-mono">Purchases.jsx</code> exists and calls real APIs, but is not imported into <code class="font-mono">App.jsx</code>'s <code class="font-mono">PAGES</code> map, not in <code class="font-mono">BottomNav</code>, and not linked from <code class="font-mono">More.jsx</code>. It's dead code — the feature isn't actually shipped in the running app, despite a working backend behind it.</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">frontend/src/App.jsx (PAGES map), pages/Purchases.jsx</span></div>
+          <div><span class="k">Severity</span><span class="v">Medium</span></div>
+          <div><span class="k">Release Blocker</span><span class="v">No</span></div>
+        </div>
+      </div>
+    </div>
+  </details>
+  </section>
+
+  <!-- ═══════════════════════ CUSTOMERS ═══════════════════════ -->
+  <section class="module">
+  <details class="module-card">
+    <summary class="module-head">
+      <div class="left"><h3>Customers</h3></div>
+      <div class="count-pills"><span class="pill pass">3 pass</span><span class="pill partial">1 partial</span><span class="pill fail">1 fail</span></div>
+      <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>
+    </summary>
+    <div class="module-body">
+      <div class="finding">
+        <div class="finding-head"><span class="status pass">PASS</span><span class="feat">CRUD</span></div>
+        <p class="cause">Full create → read → update → delete round-trip verified over API. Delete-guard correctly blocks removal of customers with existing sales/invoices/credits.</p>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status pass">PASS</span><span class="feat">Search (name / GSTIN / phone)</span></div>
+        <p class="cause">Partial name and phone matches both correct; a nonsense query correctly returned zero results. Frontend search box wired to the same param, live updates, no console errors.</p>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status pass">PASS</span><span class="feat">Customer detail view &amp; create form (frontend)</span></div>
+        <p class="cause">Detail view shows real invoices, purchase history, and outstanding credit — not a placeholder. Create-customer modal (including GSTIN validation) works end-to-end via the actual UI, zero console/page errors.</p>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status partial">PARTIAL</span><span class="feat">Filters</span></div>
+        <p class="cause">Only free-text search exists — no segment/state/branch filter in the API or UI, though branch scoping infrastructure exists server-side and simply isn't exposed here.</p>
+        <div class="meta-grid">
+          <div><span class="k">Severity</span><span class="v">Low</span></div>
+          <div><span class="k">Release Blocker</span><span class="v">No</span></div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-head"><span class="status fail">FAIL</span><span class="feat">Pagination</span></div>
+        <p class="cause"><code class="font-mono">GET /api/customers</code> has no page/limit/offset handling — confirmed <code class="font-mono">?page=2&amp;limit=5</code> is silently ignored and all rows are always returned. Only 20 seeded rows today, so not user-visible yet, but will not scale.</p>
+        <div class="meta-grid">
+          <div><span class="k">File</span><span class="v font-mono">backend/src/routes/customers.js:23-45</span></div>
+          <div><span class="k">Function</span><span class="v font-mono">router.get('/')</span></div>
+          <div><span class="k">Severity</span><span class="v">Low</span></div>
+          <div><span class="k">Release Blocker</span><span class="v">No</span></div>
+        </div>
+      </div>
+    </div>
+  </details>
+  </section>
+
+  <div class="residue">
+    <h3>Test-data residue left in the live database</h3>
+    <p>Both write-testing agents deleted everything they could, but the app's own delete-guards blocked two cleanups — flagging rather than forcing past them, since forcing would mean bypassing app logic, not auditing it:</p>
+    <ul>
+      <li><code>QA_AUDIT_Customer</code> (id 92) — has real sales/invoice history from the CRUD test; the customer delete-guard correctly refuses removal while that history exists.</li>
+      <li><code>QA_AUDIT_Product_Updated2</code> (id 61) — blocked by an <code>invoice_items</code> foreign-key constraint that <code>DELETE /api/products/:id</code> doesn't check for (only guards against <code>sales</code> rows) — surfaces as a raw 500 rather than a clean "can't delete" message, which is itself a minor consistency gap worth noting alongside the residue.</li>
+    </ul>
+    <p style="margin-bottom:0">Left in place, clearly prefixed <code>QA_AUDIT_</code>. Let me know if you'd like these removed — that would need a direct decision from you, since it's outside this audit's read-only scope.</p>
+  </div>
+
+  <footer class="note">Phase 1 audit compiled from four parallel real-HTTP / real-browser verification passes. No source file, schema, or migration was modified in the course of this audit.</footer>
+
+</div>

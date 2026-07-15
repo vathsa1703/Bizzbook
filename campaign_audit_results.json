@@ -1,0 +1,60 @@
+{
+  "dead_stock_liquidation": {
+    "campaignName": "Dead Stock Liquidation - Validation audit objective",
+    "opportunitySummary": "We detected this opportunity because 1 products have ₹2,50,000 in locked capital and 0 sales in the last 60 days.",
+    "whyThisMatters": "Capturing this opportunity could yield ₹2,12,500 in revenue. Acting now prevents further decay or locked capital.",
+    "recommendedStrategy": [
+      "Review the target list and prioritize by value.",
+      "Send personalized messages to top targets.",
+      "Follow up with a phone call after 2 days."
+    ],
+    "whyThisWorks": "Direct engagement works best for MSME businesses. Customers appreciate personal touch over automated blasts.",
+    "expectedImpact": {
+      "conservative": "₹50,000",
+      "expected": "₹2,12,500",
+      "optimistic": "₹3,40,000"
+    },
+    "successMetrics": [
+      "Response Rate",
+      "Conversion Rate",
+      "Revenue Generated"
+    ],
+    "risks": [
+      "Message fatigue if contacted too often",
+      "Lower than expected conversion"
+    ],
+    "generatedMessage": {
+      "whatsapp": "Namaste! We have a special offer just for you...",
+      "sms": "Special offer inside! Visit us today."
+    }
+  },
+  "revenue_recovery": {
+    "campaignName": "Revenue Recovery - Validation audit objective",
+    "opportunitySummary": "We detected this opportunity because 15 customers have unpaid invoices older than 15 days totaling ₹2,05,207.",
+    "whyThisMatters": "Capturing this opportunity could yield ₹96,635 in revenue. Acting now prevents further decay or locked capital.",
+    "recommendedStrategy": [
+      "Review the target list and prioritize by value.",
+      "Send personalized messages to top targets.",
+      "Follow up with a phone call after 2 days."
+    ],
+    "whyThisWorks": "Direct engagement works best for MSME businesses. Customers appreciate personal touch over automated blasts.",
+    "expectedImpact": {
+      "conservative": "₹48,318",
+      "expected": "₹96,635",
+      "optimistic": "₹1,44,763"
+    },
+    "successMetrics": [
+      "Response Rate",
+      "Conversion Rate",
+      "Revenue Generated"
+    ],
+    "risks": [
+      "Message fatigue if contacted too often",
+      "Lower than expected conversion"
+    ],
+    "generatedMessage": {
+      "whatsapp": "Namaste! We have a special offer just for you...",
+      "sms": "Special offer inside! Visit us today."
+    }
+  }
+}

@@ -1,0 +1,37 @@
+--- BEFORE TRANSACTION ---
+Product: Wireless Earbuds (41 in stock)
+Customer: Rohan Mehta (Total Purchases: 29275)
+
+--- TEST 5: GST Calculation ---
+{
+  "taxable_value": 3000,
+  "gst_amount": 540,
+  "cgst": 270,
+  "sgst": 270,
+  "igst": 0
+}
+
+--- AFTER TRANSACTION ---
+Inventory for Wireless Earbuds: 41 -> 39 (Delta: -2)
+Customer Purchases: 29275 -> 32275
+Credit Entry Created: Amount 3000, Status: pending
+
+--- TEST 6: Opportunity Engine ---
+Opportunities Before: 2, Opportunities After: 2
+Top Opportunity: Dead Stock Liquidation (Score: 95)
+
+--- TEST 7: AI Assistant ---
+AI Response: 
+You currently have 2 high-impact opportunities.
+1. Dead Stock Liquidation
+   Score: 95
+   Confidence: 90%
+
+Detected Because:
+1 products have ₹2,50,000 in locked capital and 0 sales in the last 60 days.
+
+Expected Recovery:
+₹2,12,500
+
+I recommend addressing Dead Stock Liquidation first due to its higher opportunity score and larger impact.
+You can generate a complete execution strategy from the Marketing tab.

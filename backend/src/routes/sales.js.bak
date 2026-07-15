@@ -1,0 +1,334 @@
+const express = require('express');
+const { getDb } = require('../config/db');
+const gstService = require('../services/gstService');
+
+const router = express.Router();
+
+// GET all sales with pagination & filters
+router.get('/', (req, res, next) => {
+  const db = getDb();
+  try {
+    const search = req.query.search || '';
+    const customerId = req.query.customerId || '';
+    const date = req.query.date || '';
+    
+    let query = `
+      SELECT s.*, p.name as product_name, c.name as customer_name, e.name as employee_name
+      FROM sales s
+      LEFT JOIN products p ON s.product_id = p.id
+      LEFT JOIN customers c ON s.customer_id = c.id
+      LEFT JOIN employees e ON s.employee_id = e.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (search) {
+      query += ` AND (p.name LIKE ? OR c.name LIKE ? OR s.invoice_number LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+    if (customerId) {
+      query += ` AND s.customer_id = ?`;
+      params.push(customerId);
+    }
+    if (date) {
+      query += ` AND s.sale_date = ?`;
+      params.push(date);
+    }
+
+    query += ` ORDER BY s.sale_date DESC, s.id DESC`;
+
+    const sales = db.prepare(query).all(...params);
+    res.json(sales);
+  } catch (err) {
+    next(err);
+  } finally {
+    db.close();
+  }
+});
+
+// GET single sale
+router.get('/:id', (req, res, next) => {
+  const db = getDb();
+  try {
+    const sale = db.prepare(`
+      SELECT s.*, p.name as product_name, c.name as customer_name, e.name as employee_name
+      FROM sales s
+      LEFT JOIN products p ON s.product_id = p.id
+      LEFT JOIN customers c ON s.customer_id = c.id
+      LEFT JOIN employees e ON s.employee_id = e.id
+      WHERE s.id = ?
+    `).get(req.params.id);
+
+    if (!sale) {
+      return res.status(404).json({ error: 'Sale not found' });
+    }
+    res.json(sale);
+  } catch (err) {
+    next(err);
+  } finally {
+    db.close();
+  }
+});
+
+// POST create sale with transactions cascade
+router.post('/', (req, res, next) => {
+  const db = getDb();
+  try {
+    const { product_id, customer_id, employee_id, quantity, revenue, sale_date, payment_status = 'paid', invoice_number, due_date } = req.body;
+
+    if (!product_id || !quantity || !revenue || !sale_date) {
+      return res.status(400).json({ error: 'Missing required sale parameters' });
+    }
+
+    // 1. Validate inventory stock
+    const inv = db.prepare('SELECT stock_quantity FROM inventory WHERE product_id = ?').get(product_id);
+    if (!inv) {
+      return res.status(400).json({ error: 'Product inventory record not found' });
+    }
+    if (inv.stock_quantity < quantity) {
+      return res.status(400).json({ error: `Insufficient stock. Available: ${inv.stock_quantity}` });
+    }
+
+    db.exec('BEGIN TRANSACTION');
+
+    // Generate invoice number if not provided
+    let finalInvoiceNumber = invoice_number;
+    if (!finalInvoiceNumber) {
+      const yearMonth = sale_date.substring(0, 7).replace('-', '');
+      const countRes = db.prepare(`SELECT COUNT(*) as cnt FROM sales WHERE sale_date LIKE ?`).get(`${sale_date.substring(0, 7)}%`);
+      finalInvoiceNumber = `INV-${yearMonth}-${String(countRes.cnt + 1).padStart(4, '0')}`;
+    }
+
+    // 2. Calculate GST fields using gstService
+    const taxData = gstService.calculateSaleTax({
+      product_id,
+      customer_id,
+      revenue,
+      discount_amount: req.body.discount_amount,
+    });
+    // 3. Create Sale with tax fields
+    const saleRes = db.prepare(`
+      INSERT INTO sales (
+        product_id,
+        customer_id,
+        employee_id,
+        quantity,
+        revenue,
+        sale_date,
+        payment_status,
+        invoice_number,
+        taxable_value,
+        gst_amount,
+        cgst,
+        sgst,
+        igst
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      product_id,
+      customer_id || null,
+      employee_id || null,
+      quantity,
+      revenue,
+      sale_date,
+      payment_status,
+      finalInvoiceNumber,
+      taxData.taxable_value,
+      taxData.gst_amount,
+      taxData.cgst,
+      taxData.sgst,
+      taxData.igst
+    );
+
+    const saleId = saleRes.lastInsertRowid;
+
+    // 3. Decrement Inventory stock
+    db.prepare('UPDATE inventory SET stock_quantity = stock_quantity - ? WHERE product_id = ?')
+      .run(quantity, product_id);
+
+    // 4. Update Customer purchase totals
+    if (customer_id) {
+      db.prepare(`
+        UPDATE customers 
+        SET total_purchases = total_purchases + ?, 
+            last_purchase_date = ?
+        WHERE id = ?
+      `).run(revenue, sale_date, customer_id);
+    }
+
+    // 5. Update Employee generated revenue
+    if (employee_id) {
+      db.prepare('UPDATE employees SET revenue_generated = revenue_generated + ? WHERE id = ?')
+        .run(revenue, employee_id);
+    }
+
+    // 6. If unpaid payment status, create a Credit record
+    if (payment_status === 'unpaid' && customer_id) {
+      const finalDueDate = due_date || new Date(new Date(sale_date).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      db.prepare(`
+        INSERT INTO credits (customer_id, sale_id, total_amount, paid_amount, due_date, status, notes)
+        VALUES (?, ?, ?, 0, ?, 'pending', ?)
+      `).run(customer_id, saleId, revenue, finalDueDate, `Credit for invoice ${finalInvoiceNumber}`);
+    }
+
+    db.exec('COMMIT');
+    res.status(201).json({ id: saleId, invoice_number: finalInvoiceNumber });
+  } catch (err) {
+    try { db.exec('ROLLBACK'); } catch (_) {}
+    next(err);
+  } finally {
+    db.close();
+  }
+});
+
+// PUT update sale with reverse + forward cascade
+router.put('/:id', (req, res, next) => {
+  const db = getDb();
+  try {
+    const saleId = req.params.id;
+    const oldSale = db.prepare('SELECT * FROM sales WHERE id = ?').get(saleId);
+
+    if (!oldSale) {
+      return res.status(404).json({ error: 'Sale not found' });
+    }
+
+    const { product_id, customer_id, employee_id, quantity, revenue, sale_date, payment_status = 'paid', invoice_number, due_date } = req.body;
+
+    if (!product_id || !quantity || !revenue || !sale_date) {
+      return res.status(400).json({ error: 'Missing required sale parameters' });
+    }
+
+    // Calculate available stock (restore old quantity first, then check)
+    const inv = db.prepare('SELECT stock_quantity FROM inventory WHERE product_id = ?').get(product_id);
+    if (!inv) {
+      return res.status(400).json({ error: 'Product inventory record not found' });
+    }
+    let availableStock = inv.stock_quantity;
+    // If same product, add back old quantity to available pool
+    if (Number(product_id) === oldSale.product_id) {
+      availableStock += oldSale.quantity;
+    }
+    if (availableStock < quantity) {
+      return res.status(400).json({ error: `Insufficient stock. Available: ${availableStock}` });
+    }
+
+    db.exec('BEGIN TRANSACTION');
+
+    // --- REVERSE old sale side-effects ---
+
+    // 1. Restore old inventory
+    db.prepare('UPDATE inventory SET stock_quantity = stock_quantity + ? WHERE product_id = ?')
+      .run(oldSale.quantity, oldSale.product_id);
+
+    // 2. Reverse old customer purchase totals
+    if (oldSale.customer_id) {
+      db.prepare('UPDATE customers SET total_purchases = MAX(0, total_purchases - ?) WHERE id = ?')
+        .run(oldSale.revenue, oldSale.customer_id);
+    }
+
+    // 3. Reverse old employee revenue
+    if (oldSale.employee_id) {
+      db.prepare('UPDATE employees SET revenue_generated = MAX(0, revenue_generated - ?) WHERE id = ?')
+        .run(oldSale.revenue, oldSale.employee_id);
+    }
+
+    // 4. Delete old linked credits
+    db.prepare('DELETE FROM credits WHERE sale_id = ?').run(saleId);
+
+    // --- APPLY new sale values ---
+
+    const finalInvoiceNumber = invoice_number || oldSale.invoice_number;
+
+    // 5. Update sale record
+    db.prepare(`
+      UPDATE sales
+      SET product_id = ?, customer_id = ?, employee_id = ?, quantity = ?, revenue = ?,
+          sale_date = ?, payment_status = ?, invoice_number = ?
+      WHERE id = ?
+    `).run(product_id, customer_id || null, employee_id || null, quantity, revenue,
+           sale_date, payment_status, finalInvoiceNumber, saleId);
+
+    // 6. Decrement new inventory
+    db.prepare('UPDATE inventory SET stock_quantity = stock_quantity - ? WHERE product_id = ?')
+      .run(quantity, product_id);
+
+    // 7. Update new customer purchase totals
+    if (customer_id) {
+      db.prepare(`
+        UPDATE customers
+        SET total_purchases = total_purchases + ?,
+            last_purchase_date = ?
+        WHERE id = ?
+      `).run(revenue, sale_date, customer_id);
+    }
+
+    // 8. Update new employee revenue
+    if (employee_id) {
+      db.prepare('UPDATE employees SET revenue_generated = revenue_generated + ? WHERE id = ?')
+        .run(revenue, employee_id);
+    }
+
+    // 9. If unpaid, create new credit record
+    if (payment_status === 'unpaid' && customer_id) {
+      const finalDueDate = due_date || new Date(new Date(sale_date).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      db.prepare(`
+        INSERT INTO credits (customer_id, sale_id, total_amount, paid_amount, due_date, status, notes)
+        VALUES (?, ?, ?, 0, ?, 'pending', ?)
+      `).run(customer_id, saleId, revenue, finalDueDate, `Credit for invoice ${finalInvoiceNumber}`);
+    }
+
+    db.exec('COMMIT');
+    res.json({ message: 'Sale updated successfully', id: saleId, invoice_number: finalInvoiceNumber });
+  } catch (err) {
+    try { db.exec('ROLLBACK'); } catch (_) {}
+    next(err);
+  } finally {
+    db.close();
+  }
+});
+
+// DELETE sale with reverse cascade
+router.delete('/:id', (req, res, next) => {
+  const db = getDb();
+  try {
+    const saleId = req.params.id;
+    const sale = db.prepare('SELECT * FROM sales WHERE id = ?').get(saleId);
+
+    if (!sale) {
+      return res.status(404).json({ error: 'Sale not found' });
+    }
+
+    db.exec('BEGIN TRANSACTION');
+
+    // 1. Restore inventory quantity
+    db.prepare('UPDATE inventory SET stock_quantity = stock_quantity + ? WHERE product_id = ?')
+      .run(sale.quantity, sale.product_id);
+
+    // 2. Reduce Customer purchase totals
+    if (sale.customer_id) {
+      db.prepare('UPDATE customers SET total_purchases = MAX(0, total_purchases - ?) WHERE id = ?')
+        .run(sale.revenue, sale.customer_id);
+    }
+
+    // 3. Reduce Employee generated revenue
+    if (sale.employee_id) {
+      db.prepare('UPDATE employees SET revenue_generated = MAX(0, revenue_generated - ?) WHERE id = ?')
+        .run(sale.revenue, sale.employee_id);
+    }
+
+    // 4. Delete linked credit record
+    db.prepare('DELETE FROM credits WHERE sale_id = ?').run(saleId);
+
+    // 5. Delete sale record
+    db.prepare('DELETE FROM sales WHERE id = ?').run(saleId);
+
+    db.exec('COMMIT');
+    res.status(204).end();
+  } catch (err) {
+    try { db.exec('ROLLBACK'); } catch (_) {}
+    next(err);
+  } finally {
+    db.close();
+  }
+});
+
+module.exports = router;

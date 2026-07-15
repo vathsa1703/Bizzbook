@@ -1,0 +1,256 @@
+import React, { useState, useEffect } from 'react';
+import { DollarSign, Play, CheckCircle, Search, RefreshCw, FileText, ChevronRight, X, User } from 'lucide-react';
+import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../components/ToastContext';
+import Modal from '../../components/Modal';
+import FormField from '../../components/FormField';
+import ConfirmDialog from '../../components/ConfirmDialog';
+
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+export default function PayrollPage() {
+  const { user } = useAuth();
+  const { showToast } = useToast();
+  const [runs, setRuns] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({ month: new Date().getMonth() + 1, year: new Date().getFullYear(), branch_id: '' });
+  const [branches, setBranches] = useState([]);
+
+  const [selectedRun, setSelectedRun] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const [rData, bData] = await Promise.allSettled([
+        api.getPayrollRuns(),
+        api.getBranches()
+      ]);
+      setRuns(rData.status === 'fulfilled' ? rData.value : []);
+      setBranches(bData.status === 'fulfilled' ? bData.value : []);
+    } catch (e) {
+      showToast('Failed to load payroll data', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleRunPayroll = async () => {
+    setSubmitting(true);
+    try {
+      await api.createPayrollRun(form);
+      showToast('Payroll processed successfully', 'success');
+      setShowModal(false);
+      load();
+    } catch (e) {
+      showToast(e.message, 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleApprove = async (id) => {
+    try {
+      await api.approvePayrollRun(id);
+      showToast('Payroll approved', 'success');
+      load();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  };
+
+  const handlePay = async (id) => {
+    try {
+      await api.payPayrollRun(id);
+      showToast('Payroll marked as paid', 'success');
+      load();
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
+  };
+
+  const openRunDetails = async (run) => {
+    try {
+      const data = await api.getPayrollRun(run.id);
+      setSelectedRun(data);
+    } catch (e) {
+      showToast('Failed to load run details', 'error');
+    }
+  };
+
+  const formatCurrency = (amt) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amt || 0);
+
+  if (selectedRun) {
+    return (
+      <div className="p-4 lg:p-6 space-y-5">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setSelectedRun(null)} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-white">Payroll Run Details</h1>
+            <p className="text-sm text-slate-400 mt-0.5">{MONTHS[selectedRun.month - 1]} {selectedRun.year}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+            <div className="text-sm text-slate-400 mb-1">Total Net Pay</div>
+            <div className="text-2xl font-bold text-emerald-400">{formatCurrency(selectedRun.total_net)}</div>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+            <div className="text-sm text-slate-400 mb-1">Total Deductions</div>
+            <div className="text-2xl font-bold text-red-400">{formatCurrency(selectedRun.total_deductions)}</div>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+            <div className="text-sm text-slate-400 mb-1">Total Gross</div>
+            <div className="text-2xl font-bold text-blue-400">{formatCurrency(selectedRun.total_gross)}</div>
+          </div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase bg-slate-900/50">
+                  <th className="px-5 py-3">Employee</th>
+                  <th className="px-5 py-3">Days (Pres/Work)</th>
+                  <th className="px-5 py-3">Gross</th>
+                  <th className="px-5 py-3">Deductions</th>
+                  <th className="px-5 py-3 text-emerald-400">Net Pay</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm divide-y divide-slate-800/50">
+                {selectedRun.slips.map(slip => (
+                  <tr key={slip.id} className="hover:bg-slate-800/30 transition-colors">
+                    <td className="px-5 py-3">
+                      <div className="font-bold text-white">{slip.employee_name}</div>
+                      <div className="text-[10px] text-slate-500">{slip.employee_code || slip.job_title}</div>
+                    </td>
+                    <td className="px-5 py-3 text-slate-300">
+                      {slip.present_days} / {slip.working_days}
+                      {slip.lop_days > 0 && <span className="ml-2 text-xs text-red-400">({slip.lop_days} LOP)</span>}
+                    </td>
+                    <td className="px-5 py-3 text-slate-300">{formatCurrency(slip.gross_salary)}</td>
+                    <td className="px-5 py-3 text-red-400/90">{formatCurrency(slip.pf_employee + slip.esi_employee + slip.professional_tax + slip.tds + slip.other_deductions)}</td>
+                    <td className="px-5 py-3 font-bold text-emerald-400">{formatCurrency(slip.net_salary)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 lg:p-6 space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-white">Payroll Runs</h1>
+          <p className="text-sm text-slate-400 mt-0.5">Process and manage monthly employee salaries</p>
+        </div>
+        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+          <Play className="w-4 h-4" fill="currentColor" /> Run Payroll
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-10 text-slate-500">Loading payroll history...</div>
+      ) : runs.length === 0 ? (
+        <div className="text-center py-20 text-slate-500 bg-slate-900 border border-slate-800 rounded-2xl">
+          <DollarSign className="w-12 h-12 mx-auto mb-3 opacity-30 text-blue-500" />
+          <p className="font-medium text-white">No payroll runs found</p>
+          <p className="text-sm mt-1">Start by running payroll for the current month</p>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {runs.map(run => (
+            <div key={run.id} onClick={() => openRunDetails(run)} className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer transition-all hover:shadow-lg hover:shadow-blue-500/5 group">
+              <div className="flex items-center gap-4">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${run.status === 'paid' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                  <DollarSign className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-white">{MONTHS[run.month - 1]} {run.year}</h3>
+                  <div className="flex items-center gap-3 mt-1 text-sm text-slate-400">
+                    <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" /> {run.total_employees} Employees</span>
+                    <span className="text-slate-600">|</span>
+                    <span className="font-medium text-slate-300">Total Net: {formatCurrency(run.total_net)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between md:justify-end gap-6 w-full md:w-auto mt-2 md:mt-0 pt-3 md:pt-0 border-t border-slate-800 md:border-0" onClick={e => e.stopPropagation()}>
+                <div className={`px-3 py-1 rounded-full text-xs font-bold border capitalize
+                  ${run.status === 'processed' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : ''}
+                  ${run.status === 'approved' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : ''}
+                  ${run.status === 'paid' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : ''}
+                `}>
+                  {run.status}
+                </div>
+
+                <div className="flex gap-2">
+                  {run.status === 'processed' && (
+                    <button onClick={() => handleApprove(run.id)} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors">Approve</button>
+                  )}
+                  {run.status === 'approved' && (
+                    <button onClick={() => handlePay(run.id)} className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors">Mark Paid</button>
+                  )}
+                  <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-blue-500 ml-2" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Run Payroll">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Month</label>
+              <select value={form.month} onChange={e => setForm(f => ({ ...f, month: parseInt(e.target.value) }))}
+                className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+                {MONTHS.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1">Year</label>
+              <select value={form.year} onChange={e => setForm(f => ({ ...f, year: parseInt(e.target.value) }))}
+                className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+                {[new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1].map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Branch (Optional)</label>
+            <select value={form.branch_id} onChange={e => setForm(f => ({ ...f, branch_id: e.target.value }))}
+              className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+              <option value="">All Branches</option>
+              {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
+          <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+            <h4 className="text-sm font-bold text-amber-400 mb-1">Important</h4>
+            <p className="text-xs text-amber-200/70">
+              This will calculate salaries for all active employees based on their current salary structure and attendance/LOP for the selected period. This cannot be easily undone once processed.
+            </p>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button onClick={() => setShowModal(false)} className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-xl transition-colors">Cancel</button>
+            <button onClick={handleRunPayroll} disabled={submitting} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50">
+              {submitting ? 'Processing...' : 'Process Payroll'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}

@@ -1,0 +1,49 @@
+# Environment files
+.env
+.env.*
+*.env
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+coverage/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# Databases
+*.sqlite
+*.sqlite-journal
+*.db
+*.db-journal
+
+# Keys and certificates
+*.pem
+*.key
+*.crt
+
+# Secrets / uploads / temp
+secrets/
+uploads/
+temp/
+tmp/
+
+# Generated invoices / OCR uploads / compliance & trade documents
+backend/data/invoices/
+backend/data/uploads/
+backend/data/compliance/
+backend/data/trade/
+
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json

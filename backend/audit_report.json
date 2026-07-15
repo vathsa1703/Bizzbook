@@ -1,0 +1,32 @@
+{
+  "passed": [
+    "GET /marketing/dashboard",
+    "GET /marketing/health-score",
+    "GET /marketing/channel-roi",
+    "GET /marketing/segment-priority?timeframe=30",
+    "GET /marketing/break-even?timeframe=1year",
+    "GET /marketing/weekly-recommendation",
+    "GET /marketing/report-cards",
+    "GET /marketing/flags",
+    "POST /marketing/budget-split",
+    "GET /marketing-copilot/copilot",
+    "GET /marketing-copilot/recommendations",
+    "GET /marketing-copilot/insights",
+    "GET /marketing-copilot/opportunities",
+    "GET /marketing-copilot/calendar",
+    "GET /marketing-copilot/experiments",
+    "GET /marketing/segments",
+    "POST /marketing/segments (Create Custom)",
+    "GET /marketing/campaigns",
+    "POST /marketing/campaigns/generate",
+    "PUT /marketing/campaigns/:id",
+    "DELETE /marketing/campaigns/:id",
+    "GET /marketing/coupons",
+    "POST /marketing/coupons (Create)",
+    "POST /marketing/coupons/validate",
+    "GET /marketing/referrals/:customerId",
+    "GET /marketing/wallet/:customerId",
+    "POST /marketing/wallet/adjust"
+  ],
+  "failed": []
+}

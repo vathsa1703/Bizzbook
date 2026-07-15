@@ -1,0 +1,164 @@
+const express = require('express');
+const { getDb } = require('../config/db');
+const router = express.Router();
+
+// ─── GET /api/gst-master/hsn ──────────────────────────────────────────────────
+router.get('/hsn', (req, res, next) => {
+  const db = getDb();
+  try {
+    const { search = '', active_only = 'false' } = req.query;
+    let query = 'SELECT * FROM gst_hsn_master';
+    const params = [];
+    const conditions = [];
+
+    if (active_only === 'true') {
+      conditions.push('is_active = 1');
+    }
+    
+    if (search.trim()) {
+      conditions.push('(hsn_code LIKE ? OR description LIKE ?)');
+      const like = `%${search.trim()}%`;
+      params.push(like, like);
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+    query += ' ORDER BY hsn_code ASC';
+
+    const records = db.prepare(query).all(...params);
+    res.json(records);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── GET /api/gst-master/hsn/:hsn_code ─────────────────────────────────────────
+router.get('/hsn/:hsn_code', (req, res, next) => {
+  const db = getDb();
+  try {
+    const record = db.prepare('SELECT * FROM gst_hsn_master WHERE hsn_code = ?').get(req.params.hsn_code);
+    if (!record) return res.status(404).json({ error: 'HSN code not found' });
+    res.json(record);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── POST /api/gst-master/hsn ─────────────────────────────────────────────────
+router.post('/hsn', (req, res, next) => {
+  const db = getDb();
+  try {
+    const { hsn_code, description, gst_rate, uqc, cess_rate, is_active } = req.body;
+    
+    if (!hsn_code || !/^(\d{4}|\d{6}|\d{8})$/.test(hsn_code)) {
+      return res.status(400).json({ error: 'HSN code must be exactly 4, 6, or 8 digits' });
+    }
+    
+    const rate = Number(gst_rate) || 0;
+    if (![0, 5, 12, 18, 28].includes(rate)) {
+      return res.status(400).json({ error: 'Invalid GST rate. Allowed slabs: 0, 5, 12, 18, 28' });
+    }
+
+    const cess = Number(cess_rate) || 0;
+    if (cess < 0) {
+      return res.status(400).json({ error: 'CESS rate cannot be negative' });
+    }
+
+    const active = is_active !== undefined ? (is_active ? 1 : 0) : 1;
+
+    try {
+      db.prepare(`
+        INSERT INTO gst_hsn_master (hsn_code, description, gst_rate, uqc, cess_rate, is_active)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(hsn_code, description || '', rate, uqc || 'NOS', cess, active);
+      
+      const record = db.prepare('SELECT * FROM gst_hsn_master WHERE hsn_code = ?').get(hsn_code);
+      res.status(201).json(record);
+    } catch (e) {
+      if (e.message.includes('UNIQUE constraint failed')) {
+        return res.status(409).json({ error: 'HSN code already exists' });
+      }
+      throw e;
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── PUT /api/gst-master/hsn/:hsn_code ─────────────────────────────────────────
+router.put('/hsn/:hsn_code', (req, res, next) => {
+  const db = getDb();
+  try {
+    const hsnCode = req.params.hsn_code;
+    const existing = db.prepare('SELECT * FROM gst_hsn_master WHERE hsn_code = ?').get(hsnCode);
+    if (!existing) return res.status(404).json({ error: 'HSN code not found' });
+
+    const {
+      description = existing.description,
+      gst_rate = existing.gst_rate,
+      uqc = existing.uqc,
+      cess_rate = existing.cess_rate,
+      is_active = existing.is_active
+    } = req.body;
+    
+    const rate = Number(gst_rate);
+    if (![0, 5, 12, 18, 28].includes(rate)) {
+      return res.status(400).json({ error: 'Invalid GST rate. Allowed slabs: 0, 5, 12, 18, 28' });
+    }
+
+    const cess = Number(cess_rate);
+    if (cess < 0) {
+      return res.status(400).json({ error: 'CESS rate cannot be negative' });
+    }
+
+    const active = is_active ? 1 : 0;
+
+    db.prepare(`
+      UPDATE gst_hsn_master 
+      SET description = ?, gst_rate = ?, uqc = ?, cess_rate = ?, is_active = ?
+      WHERE hsn_code = ?
+    `).run(description, rate, uqc, cess, active, hsnCode);
+
+    const record = db.prepare('SELECT * FROM gst_hsn_master WHERE hsn_code = ?').get(hsnCode);
+    res.json(record);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── DELETE /api/gst-master/hsn/:hsn_code ──────────────────────────────────────
+router.delete('/hsn/:hsn_code', (req, res, next) => {
+  const db = getDb();
+  try {
+    const hsnCode = req.params.hsn_code;
+    const existing = db.prepare('SELECT * FROM gst_hsn_master WHERE hsn_code = ?').get(hsnCode);
+    if (!existing) return res.status(404).json({ error: 'HSN code not found' });
+
+    // Check if referenced by products
+    const refCount = db.prepare('SELECT COUNT(*) as cnt FROM products WHERE hsn_code = ?').get(hsnCode);
+    if (refCount.cnt > 0) {
+      return res.status(400).json({ 
+        error: `Cannot delete HSN code because it is used by ${refCount.cnt} product(s). Please deactivate it instead.` 
+      });
+    }
+
+    db.prepare('DELETE FROM gst_hsn_master WHERE hsn_code = ?').run(hsnCode);
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── GET /api/gst-master/uqc ───────────────────────────────────────────────────
+router.get('/uqc', (req, res, next) => {
+  const db = getDb();
+  try {
+    const records = db.prepare('SELECT * FROM gst_uqc_master ORDER BY code ASC').all();
+    res.json(records);
+  } catch (err) {
+    next(err);
+  }
+});
+
+module.exports = router;

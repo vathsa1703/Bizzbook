@@ -1,0 +1,23 @@
+=== PHASE 1: BEFORE OPPORTUNITIES ===
+[dead_stock_liquidation] Dead Stock Liquidation
+  Score: 95 | Confidence: 90% | Expected Rev: ₹212500
+  Detected Because: 1 products have ₹2,50,000 in locked capital and 0 sales in the last 60 days.
+[revenue_recovery] Revenue Recovery
+  Score: 68 | Confidence: 95% | Expected Rev: ₹100544
+  Detected Because: 15 customers have unpaid invoices older than 15 days totaling ₹2,18,475.
+
+=== PHASE 2: EXECUTING TRANSACTIONS ===
+Action: Selling 10 units of dead stock item ID 37 (wireless  headphone)
+Action: Creating massive unpaid invoice for Customer 49 to trigger revenue recovery opp...
+Action: Marking all existing credits for customer Aditya Sharma (ID 57) as paid to resolve opportunity
+
+=== PHASE 3: RECOMPUTING OPPORTUNITIES ===
+
+=== PHASE 4: AFTER OPPORTUNITIES ===
+[revenue_recovery] Revenue Recovery
+  Score: 95 | Confidence: 95% | Expected Rev: ₹326680
+  Detected Because: 14 customers have unpaid invoices older than 15 days totaling ₹6,88,952.
+
+=== PHASE 5: CAMPAIGN GENERATION VALIDATION ===
+Simulating API Call POST /api/marketing/campaigns/generate with opportunity ID: opp_revenue_recovery_01
+Failed to generate strategy: generateOpportunityStrategy is not a function
