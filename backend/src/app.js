@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 const errorHandler = require('./middleware/errorHandler');
 const { authenticate, hasPermission } = require('./middleware/auth');
@@ -171,7 +172,20 @@ registerOptionalRoute('/api/company', () => require('./routes/company'));
 registerOptionalRoute('/api/growth', () => require('./routes/growth'));
 registerOptionalRoute('/api/trade', () => require('./routes/trade'));
 
-// ─── 4. Fallbacks & Error Handling ────────────────────────────────────────────
+// ─── 4. Serve built frontend (single-URL deployment) ──────────────────────────
+// frontend/dist is produced by the build command (vite build), not committed to git.
+// Only affects non-/api paths — unmatched /api/* requests still fall through to the
+// JSON 404 below instead of getting index.html.
+
+const frontendDistPath = path.join(__dirname, '..', '..', 'frontend', 'dist');
+app.use(express.static(frontendDistPath));
+app.get(/^\/(?!api\/).*/, (req, res, next) => {
+  res.sendFile(path.join(frontendDistPath, 'index.html'), (err) => {
+    if (err) next();
+  });
+});
+
+// ─── 5. Fallbacks & Error Handling ────────────────────────────────────────────
 
 app.use((req, res) => res.status(404).json({ success: false, error: 'Endpoint not found', code: 'NOT_FOUND' }));
 
