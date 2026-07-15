@@ -2,7 +2,11 @@ const path = require('path');
 const fs = require('fs');
 const { DatabaseSync } = require('node:sqlite');
 
-const DB_PATH = path.join(__dirname, '..', '..', 'data', 'business.db');
+// DB_PATH is intentionally isolated behind an env var (falling back to the historical
+// on-disk location) so the storage location — and, later, the storage engine itself —
+// can be swapped from deployment config alone. See docs/postgres-migration-checklist.md
+// for what changes when this becomes a Postgres DATABASE_URL instead of a file path.
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', '..', 'data', 'business.db');
 const SCHEMA_PATH = path.join(__dirname, '..', 'db', 'schema.sql');
 
 function addColumnIfNotExists(db, tableName, columnName, columnDef) {
@@ -1155,6 +1159,7 @@ function runMigrations(db) {
 }
 
 function getDb() {
+  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
   const db = new DatabaseSync(DB_PATH);
   
   // 1. Always execute base schema (IF NOT EXISTS prevents overrides)
