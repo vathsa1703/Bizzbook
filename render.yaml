@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: bizbook
+    runtime: node
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build && cd ../backend && npm install
+    startCommand: node backend/src/server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: CHAT_MODEL
+        value: llama-3.3-70b-versatile
+      - key: WHISPER_MODEL
+        value: whisper-large-v3
+
+# PORT is injected automatically by Render for web services; the app already reads
+# process.env.PORT, so it does not need to be declared here.
+#
+# DB_PATH is intentionally NOT set here. It defaults to backend/data/business.db inside
+# the service's own filesystem, which works fine on the free plan for demo/testing. If
+# you later add a Render persistent disk (paid plan required), mount it and set DB_PATH
+# to a path on that disk — no code change needed, see backend/src/config/db.js.
