@@ -1,6 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
-const { getDb } = require('../config/db');
+const { getDb, ensureOwnerRole, assignUserToRole } = require('../config/db');
 const { hashPassword, comparePassword, generateToken } = require('../services/authService');
 const { authenticate } = require('../middleware/auth');
 
@@ -48,6 +48,11 @@ router.post('/signup', async (req, res, next) => {
 
       // Back-link owner to company
       db.prepare('UPDATE companies SET owner_user_id = ? WHERE id = ?').run(userId, companyId);
+
+      // Provision the granular-RBAC Owner role (same seeding migration 16 ran for
+      // existing companies) so /api/roles and permission checks work from day one.
+      const ownerRoleId = ensureOwnerRole(db, companyId);
+      assignUserToRole(db, userId, ownerRoleId, companyId);
 
       // Initialize setup wizard progress — all 6 steps as 'pending' (Resolution 2)
       const insertProgress = db.prepare(`

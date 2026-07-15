@@ -195,8 +195,8 @@ export default function LeavesPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="Start Date *" type="date" value={form.start_date} onChange={v => setForm(f => ({ ...f, start_date: v }))} />
-            <FormField label="End Date *" type="date" value={form.end_date} onChange={v => setForm(f => ({ ...f, end_date: v }))} />
+            <FormField label="Start Date *" type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} />
+            <FormField label="End Date *" type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} />
           </div>
           
           <div>

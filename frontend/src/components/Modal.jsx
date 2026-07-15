@@ -2,9 +2,11 @@ import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 
 export default function Modal({ isOpen = true, title, children, onClose, size = 'md' }) {
-  if (!isOpen) return null;
-
+  // useEffect must run unconditionally on every render (Rules of Hooks) — the isOpen
+  // check has to happen after it, not before, or the hook is conditionally skipped
+  // depending on isOpen, which corrupts React's hook-order bookkeeping across renders.
   useEffect(() => {
+    if (!isOpen) return undefined;
     const handleEscape = (e) => {
       if (e.key === 'Escape') onClose();
     };
@@ -14,7 +16,9 @@ export default function Modal({ isOpen = true, title, children, onClose, size = 
       window.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = 'unset';
     };
-  }, [onClose]);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
 
   const sizeClasses = {
     sm: 'max-w-sm',

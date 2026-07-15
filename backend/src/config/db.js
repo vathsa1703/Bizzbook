@@ -813,26 +813,14 @@ function runMigrations(db) {
 
       // 4. Seed System Roles for existing companies
       const companies = db.prepare('SELECT id FROM companies').all();
-      const insertRole = db.prepare("INSERT INTO roles (company_id, name, description, is_system, color) VALUES (?, ?, ?, 1, ?)");
-      const allPerms = db.prepare('SELECT id FROM permissions').all();
-      const assignPerm = db.prepare('INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)');
-      const assignUserRole = db.prepare('INSERT OR IGNORE INTO user_roles (user_id, role_id, company_id) VALUES (?, ?, ?)');
 
       for (const comp of companies) {
-        // Create Owner role
-        let ownerRole = db.prepare("SELECT id FROM roles WHERE company_id = ? AND name = 'Owner'").get(comp.id);
-        if (!ownerRole) {
-          const info = insertRole.run(comp.id, 'Owner', 'Full system access', '#ef4444');
-          ownerRole = { id: info.lastInsertRowid };
-          for (const perm of allPerms) {
-            assignPerm.run(ownerRole.id, perm.id);
-          }
-        }
+        const ownerRoleId = ensureOwnerRole(db, comp.id);
 
         // Migrate existing OWNER users to the new granular Owner role
         const ownerUsers = db.prepare("SELECT id FROM users WHERE company_id = ? AND role = 'OWNER'").all(comp.id);
         for (const user of ownerUsers) {
-          assignUserRole.run(user.id, ownerRole.id, comp.id);
+          assignUserToRole(db, user.id, ownerRoleId, comp.id);
         }
       }
 
@@ -1156,6 +1144,61 @@ function runMigrations(db) {
       console.error('[DB] Migration 27 FAILED — rolled back:', e.message);
     }
   }
+
+  // Version 28: Backfill missing Owner roles (fixes companies signed up between migration
+  // 16's one-time backfill and the signup handler being wired to call ensureOwnerRole —
+  // those companies had zero rows in `roles`, which a since-fixed bug in GET /api/roles
+  // papered over by leaking every other company's Owner role instead of an empty list).
+  if (!hasVersion(28)) {
+    console.log('[DB] Running Migration 28: Backfill missing per-company Owner roles');
+    db.exec('BEGIN TRANSACTION');
+    try {
+      const companies = db.prepare('SELECT id FROM companies').all();
+      let backfilled = 0;
+      for (const comp of companies) {
+        const existing = db.prepare("SELECT id FROM roles WHERE company_id = ? AND name = 'Owner'").get(comp.id);
+        if (existing) continue;
+        const ownerRoleId = ensureOwnerRole(db, comp.id);
+        const ownerUsers = db.prepare("SELECT id FROM users WHERE company_id = ? AND role = 'OWNER'").all(comp.id);
+        for (const user of ownerUsers) {
+          assignUserToRole(db, user.id, ownerRoleId, comp.id);
+        }
+        backfilled++;
+      }
+      console.log(`[DB] Migration 28: backfilled Owner role for ${backfilled} company(ies).`);
+
+      markVersion(28, 'Backfill missing per-company Owner roles');
+      db.exec('COMMIT');
+      console.log('[DB] Migration 28 complete.');
+    } catch (e) {
+      db.exec('ROLLBACK');
+      console.error('[DB] Migration 28 FAILED — rolled back:', e.message);
+    }
+  }
+}
+
+// Finds or creates the per-company "Owner" system role (all permissions granted) and
+// returns its id. Used both by migration 16's one-time backfill and by signup, so new
+// companies get the same granular-RBAC baseline that migration 16 gave existing ones —
+// see routes/auth.js signup handler.
+function ensureOwnerRole(db, companyId) {
+  let ownerRole = db.prepare("SELECT id FROM roles WHERE company_id = ? AND name = 'Owner'").get(companyId);
+  if (!ownerRole) {
+    const info = db.prepare(
+      "INSERT INTO roles (company_id, name, description, is_system, color) VALUES (?, 'Owner', 'Full system access', 1, '#ef4444')"
+    ).run(companyId);
+    ownerRole = { id: info.lastInsertRowid };
+    const allPerms = db.prepare('SELECT id FROM permissions').all();
+    const assignPerm = db.prepare('INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)');
+    for (const perm of allPerms) {
+      assignPerm.run(ownerRole.id, perm.id);
+    }
+  }
+  return ownerRole.id;
+}
+
+function assignUserToRole(db, userId, roleId, companyId) {
+  db.prepare('INSERT OR IGNORE INTO user_roles (user_id, role_id, company_id) VALUES (?, ?, ?)').run(userId, roleId, companyId);
 }
 
 function getDb() {
@@ -1182,4 +1225,4 @@ function getDb() {
   return db;
 }
 
-module.exports = { getDb, DB_PATH };
+module.exports = { getDb, DB_PATH, ensureOwnerRole, assignUserToRole };

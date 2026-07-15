@@ -206,17 +206,17 @@ export default function EmployeeProfileFull({ employee, onBack, onRefresh }) {
                 {editSalaryMode ? (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <FormField label="Basic" type="number" value={salaryForm.basic || 0} onChange={v => setSalaryForm(f => ({ ...f, basic: Number(v) }))} />
-                      <FormField label="HRA" type="number" value={salaryForm.hra || 0} onChange={v => setSalaryForm(f => ({ ...f, hra: Number(v) }))} />
-                      <FormField label="DA" type="number" value={salaryForm.da || 0} onChange={v => setSalaryForm(f => ({ ...f, da: Number(v) }))} />
-                      <FormField label="Medical" type="number" value={salaryForm.medical || 0} onChange={v => setSalaryForm(f => ({ ...f, medical: Number(v) }))} />
-                      <FormField label="Travel" type="number" value={salaryForm.travel || 0} onChange={v => setSalaryForm(f => ({ ...f, travel: Number(v) }))} />
+                      <FormField label="Basic" type="number" value={salaryForm.basic || 0} onChange={e => setSalaryForm(f => ({ ...f, basic: Number(e.target.value) }))} />
+                      <FormField label="HRA" type="number" value={salaryForm.hra || 0} onChange={e => setSalaryForm(f => ({ ...f, hra: Number(e.target.value) }))} />
+                      <FormField label="DA" type="number" value={salaryForm.da || 0} onChange={e => setSalaryForm(f => ({ ...f, da: Number(e.target.value) }))} />
+                      <FormField label="Medical" type="number" value={salaryForm.medical || 0} onChange={e => setSalaryForm(f => ({ ...f, medical: Number(e.target.value) }))} />
+                      <FormField label="Travel" type="number" value={salaryForm.travel || 0} onChange={e => setSalaryForm(f => ({ ...f, travel: Number(e.target.value) }))} />
                     </div>
                     <div className="border-t border-slate-800 pt-4 mt-4 grid grid-cols-2 gap-4">
-                      <FormField label="PF (Employee)" type="number" value={salaryForm.pf_employee || 0} onChange={v => setSalaryForm(f => ({ ...f, pf_employee: Number(v) }))} />
-                      <FormField label="ESI (Employee)" type="number" value={salaryForm.esi_employee || 0} onChange={v => setSalaryForm(f => ({ ...f, esi_employee: Number(v) }))} />
-                      <FormField label="TDS" type="number" value={salaryForm.tds || 0} onChange={v => setSalaryForm(f => ({ ...f, tds: Number(v) }))} />
-                      <FormField label="Prof. Tax" type="number" value={salaryForm.professional_tax || 0} onChange={v => setSalaryForm(f => ({ ...f, professional_tax: Number(v) }))} />
+                      <FormField label="PF (Employee)" type="number" value={salaryForm.pf_employee || 0} onChange={e => setSalaryForm(f => ({ ...f, pf_employee: Number(e.target.value) }))} />
+                      <FormField label="ESI (Employee)" type="number" value={salaryForm.esi_employee || 0} onChange={e => setSalaryForm(f => ({ ...f, esi_employee: Number(e.target.value) }))} />
+                      <FormField label="TDS" type="number" value={salaryForm.tds || 0} onChange={e => setSalaryForm(f => ({ ...f, tds: Number(e.target.value) }))} />
+                      <FormField label="Prof. Tax" type="number" value={salaryForm.professional_tax || 0} onChange={e => setSalaryForm(f => ({ ...f, professional_tax: Number(e.target.value) }))} />
                     </div>
                   </div>
                 ) : salaryStructure ? (

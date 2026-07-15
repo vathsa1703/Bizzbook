@@ -47,7 +47,6 @@ export default function EmployeeDirectory({ onViewChange }) {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [employees, setEmployees] = useState([]);
-  const [analytics, setAnalytics] = useState(null);
   const [departments, setDepartments] = useState([]);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -68,16 +67,14 @@ export default function EmployeeDirectory({ onViewChange }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [emps, depts, brnch, anly] = await Promise.allSettled([
+      const [emps, depts, brnch] = await Promise.allSettled([
         api.getEmployees(statusFilter !== 'All' ? { status: statusFilter } : {}),
         api.getDepartments(),
-        api.getBranches(),
-        api.getEmployeeAnalytics()
+        api.getBranches()
       ]);
       setEmployees(emps.status === 'fulfilled' ? (emps.value || []) : []);
       setDepartments(depts.status === 'fulfilled' ? (depts.value || []) : []);
       setBranches(brnch.status === 'fulfilled' ? (brnch.value || []) : []);
-      setAnalytics(anly.status === 'fulfilled' ? anly.value : null);
     } catch { showToast('Failed to load employees', 'error'); }
     finally { setLoading(false); }
   }, [statusFilter]);
@@ -149,14 +146,20 @@ export default function EmployeeDirectory({ onViewChange }) {
         </button>
       </div>
 
-      {/* Stats Row */}
-      {analytics && (
+      {/* Stats Row — derived directly from the loaded employees list rather than the
+          analytics endpoint, whose response shape (deptBreakdown/rankings/attendance/
+          roleBreakdown/empTypeBreakdown) never actually had total_employees/
+          active_employees/status_breakdown/avg_performance fields to begin with. */}
+      {employees.length > 0 && (() => {
+        const ratings = employees.map(e => e.performance_rating).filter(r => r > 0);
+        const avgRating = ratings.length > 0 ? (ratings.reduce((s, r) => s + r, 0) / ratings.length) : null;
+        return (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: 'Total', value: analytics.total_employees, color: 'blue' },
-            { label: 'Active', value: analytics.active_employees || analytics.status_breakdown?.find(s => s.status === 'Active')?.count, color: 'emerald' },
-            { label: 'On Leave', value: analytics.status_breakdown?.find(s => s.status === 'On Leave')?.count || 0, color: 'amber' },
-            { label: 'Avg Rating', value: analytics.avg_performance?.toFixed(1) || '—', color: 'violet' },
+            { label: 'Total', value: employees.length, color: 'blue' },
+            { label: 'Active', value: employees.filter(e => e.status === 'Active').length, color: 'emerald' },
+            { label: 'On Leave', value: employees.filter(e => e.status === 'On Leave').length, color: 'amber' },
+            { label: 'Avg Rating', value: avgRating !== null ? avgRating.toFixed(1) : '—', color: 'violet' },
           ].map(({ label, value, color }) => (
             <div key={label} className={`bg-${color}-500/10 border border-${color}-500/20 rounded-xl p-4`}>
               <div className={`text-2xl font-bold text-${color}-400`}>{value ?? '—'}</div>
@@ -164,7 +167,8 @@ export default function EmployeeDirectory({ onViewChange }) {
             </div>
           ))}
         </div>
-      )}
+        );
+      })()}
 
       {/* Search & Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -259,8 +263,8 @@ export default function EmployeeDirectory({ onViewChange }) {
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingEmp ? 'Edit Employee' : 'Add New Employee'}>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="Full Name *" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} placeholder="Rahul Sharma" />
-            <FormField label="Job Title" value={form.job_title} onChange={v => setForm(f => ({ ...f, job_title: v }))} placeholder="Sales Manager" />
+            <FormField label="Full Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Rahul Sharma" />
+            <FormField label="Job Title" value={form.job_title} onChange={e => setForm(f => ({ ...f, job_title: e.target.value }))} placeholder="Sales Manager" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -281,12 +285,12 @@ export default function EmployeeDirectory({ onViewChange }) {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="Salary (₹) *" type="number" value={form.salary} onChange={v => setForm(f => ({ ...f, salary: v }))} placeholder="50000" />
-            <FormField label="Joining Date *" type="date" value={form.joining_date} onChange={v => setForm(f => ({ ...f, joining_date: v }))} />
+            <FormField label="Salary (₹) *" type="number" value={form.salary} onChange={e => setForm(f => ({ ...f, salary: e.target.value }))} placeholder="50000" />
+            <FormField label="Joining Date *" type="date" value={form.joining_date} onChange={e => setForm(f => ({ ...f, joining_date: e.target.value }))} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="Email" type="email" value={form.email} onChange={v => setForm(f => ({ ...f, email: v }))} placeholder="rahul@company.com" />
-            <FormField label="Phone" value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} placeholder="+91 9876543210" />
+            <FormField label="Email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="rahul@company.com" />
+            <FormField label="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+91 9876543210" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

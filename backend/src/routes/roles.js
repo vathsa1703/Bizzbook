@@ -7,7 +7,7 @@ const { requirePermission, clearPermissionCache } = require('../middleware/auth'
 router.get('/', requirePermission('settings.view'), (req, res, next) => {
   const db = getDb();
   try {
-    const roles = db.prepare('SELECT * FROM roles WHERE company_id = ? OR is_system = 1 ORDER BY is_system DESC, name ASC').all(req.user.companyId);
+    const roles = db.prepare('SELECT * FROM roles WHERE company_id = ? ORDER BY is_system DESC, name ASC').all(req.user.companyId);
     
     // Add member counts
     const counts = db.prepare('SELECT role_id, count(*) as count FROM user_roles WHERE company_id = ? GROUP BY role_id').all(req.user.companyId);
@@ -76,8 +76,9 @@ router.get('/:id/permissions', requirePermission('settings.view'), (req, res, ne
   const db = getDb();
   try {
     const roleId = req.params.id;
-    // Verify role belongs to company or is system
-    const role = db.prepare('SELECT * FROM roles WHERE id = ? AND (company_id = ? OR is_system = 1)').get(roleId, req.user.companyId);
+    // Verify role belongs to this company (system roles are per-company, not global —
+    // an OR is_system=1 check here would leak/authorize other tenants' roles)
+    const role = db.prepare('SELECT * FROM roles WHERE id = ? AND company_id = ?').get(roleId, req.user.companyId);
     if (!role) return res.status(404).json({ error: 'Role not found' });
     
     const perms = db.prepare('SELECT permission_id FROM role_permissions WHERE role_id = ?').all(roleId);
@@ -171,7 +172,7 @@ router.post('/assign', requirePermission('settings.manage'), (req, res, next) =>
     
     // Verify user and role belong to company
     const user = db.prepare('SELECT id FROM users WHERE id = ? AND company_id = ?').get(userId, req.user.companyId);
-    const role = db.prepare('SELECT id FROM roles WHERE id = ? AND (company_id = ? OR is_system = 1)').get(roleId, req.user.companyId);
+    const role = db.prepare('SELECT id FROM roles WHERE id = ? AND company_id = ?').get(roleId, req.user.companyId);
     
     if (!user || !role) return res.status(400).json({ error: 'Invalid user or role' });
 

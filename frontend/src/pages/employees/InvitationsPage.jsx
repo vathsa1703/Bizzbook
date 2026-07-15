@@ -173,7 +173,7 @@ export default function InvitationsPage() {
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Send Invitation">
         <div className="space-y-4">
-          <FormField label="Email Address *" type="email" value={form.email} onChange={v => setForm(f => ({ ...f, email: v }))} placeholder="employee@company.com" />
+          <FormField label="Email Address *" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="employee@company.com" />
           
           <div>
             <label className="block text-xs font-medium text-slate-400 mb-1">Role *</label>
@@ -193,7 +193,7 @@ export default function InvitationsPage() {
             </select>
           </div>
 
-          <FormField label="Expires In (Days)" type="number" value={form.expires_in_days} onChange={v => setForm(f => ({ ...f, expires_in_days: v }))} />
+          <FormField label="Expires In (Days)" type="number" value={form.expires_in_days} onChange={e => setForm(f => ({ ...f, expires_in_days: e.target.value }))} />
 
           <div className="flex gap-3 pt-2">
             <button onClick={() => setShowModal(false)} className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-xl transition-colors">Cancel</button>

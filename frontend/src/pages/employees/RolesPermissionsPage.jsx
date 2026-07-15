@@ -249,8 +249,8 @@ export default function RolesPermissionsPage() {
       {/* Role Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingRole ? 'Edit Role' : 'Create Custom Role'}>
         <div className="space-y-4">
-          <FormField label="Role Name *" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} placeholder="e.g. Regional Manager" />
-          <FormField label="Description" value={form.description} onChange={v => setForm(f => ({ ...f, description: v }))} placeholder="Brief description of responsibilities..." />
+          <FormField label="Role Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Regional Manager" />
+          <FormField label="Description" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief description of responsibilities..." />
           <div>
             <label className="block text-xs font-medium text-slate-400 mb-1">Role Color Indicator</label>
             <div className="flex gap-2">

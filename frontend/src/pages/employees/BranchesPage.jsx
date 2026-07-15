@@ -158,15 +158,15 @@ export default function BranchesPage() {
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingBranch ? 'Edit Branch' : 'Add Branch'}>
         <div className="space-y-4">
-          <FormField label="Branch Name *" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} placeholder="E.g., North Regional Office" />
+          <FormField label="Branch Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="E.g., North Regional Office" />
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="Branch Code" value={form.code} onChange={v => setForm(f => ({ ...f, code: v }))} placeholder="NRO-01" />
-            <FormField label="Location (City/State)" value={form.location} onChange={v => setForm(f => ({ ...f, location: v }))} placeholder="New Delhi" />
+            <FormField label="Branch Code" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} placeholder="NRO-01" />
+            <FormField label="Location (City/State)" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="New Delhi" />
           </div>
-          <FormField label="Full Address" value={form.address} onChange={v => setForm(f => ({ ...f, address: v }))} placeholder="123 Corporate Park, Block B..." />
+          <FormField label="Full Address" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="123 Corporate Park, Block B..." />
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="Phone" value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} placeholder="+91 11 2345 6789" />
-            <FormField label="GSTIN (Optional)" value={form.gstin} onChange={v => setForm(f => ({ ...f, gstin: v }))} placeholder="07XXXXX0000X1Z5" />
+            <FormField label="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+91 11 2345 6789" />
+            <FormField label="GSTIN (Optional)" value={form.gstin} onChange={e => setForm(f => ({ ...f, gstin: e.target.value }))} placeholder="07XXXXX0000X1Z5" />
           </div>
           <div className="flex items-center gap-2">
             <input type="checkbox" id="is_hq" checked={form.is_hq} onChange={e => setForm(f => ({ ...f, is_hq: e.target.checked }))} className="rounded border-slate-700 bg-slate-800 text-blue-500 focus:ring-blue-500" />

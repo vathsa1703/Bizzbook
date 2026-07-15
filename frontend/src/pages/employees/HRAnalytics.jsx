@@ -38,6 +38,21 @@ export default function HRAnalytics() {
 
   const formatCurrency = (amt) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amt || 0);
 
+  // Backend (/employees/analytics) returns { deptBreakdown, rankings, attendance,
+  // roleBreakdown, empTypeBreakdown } — rankings is the full employee list (each row
+  // includes status/joining_date), so headcount/active-count/this-month-hires are all
+  // derived from it rather than from fields the API doesn't actually return.
+  const allEmployees = employees?.rankings || [];
+  const totalEmployees = allEmployees.length;
+  const activeEmployees = allEmployees.filter(e => e.status === 'Active').length;
+  const now = new Date();
+  const hiresThisMonth = allEmployees.filter(e => {
+    if (!e.joining_date) return false;
+    const d = new Date(e.joining_date);
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }).length;
+  const deptBreakdown = employees?.deptBreakdown || [];
+
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div>
@@ -47,28 +62,26 @@ export default function HRAnalytics() {
 
       {/* Top Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard 
-          title="Total Headcount" 
-          value={employees?.total_employees || 0} 
-          icon={Users} color="blue" 
-          trend="+2 this month" trendUp={true}
+        <StatCard
+          title="Total Headcount"
+          value={totalEmployees}
+          icon={Users} color="blue"
+          trend={hiresThisMonth > 0 ? `+${hiresThisMonth} this month` : null} trendUp={true}
         />
-        <StatCard 
-          title="Active Employees" 
-          value={employees?.active_employees || employees?.status_breakdown?.find(s => s.status === 'Active')?.count || 0} 
-          icon={CheckIcon} color="emerald" 
-          trend="98% retention" trendUp={true}
+        <StatCard
+          title="Active Employees"
+          value={activeEmployees}
+          icon={CheckIcon} color="emerald"
         />
-        <StatCard 
-          title="Avg Payroll (Monthly)" 
-          value={payrollHistory.length > 0 ? formatCurrency(payrollHistory.reduce((s, r) => s + r.total_net, 0) / payrollHistory.length) : '₹0'} 
-          icon={DollarSign} color="violet" 
-          trend="+5.2% YoY" trendUp={true}
+        <StatCard
+          title="Avg Payroll (Monthly)"
+          value={payrollHistory.length > 0 ? formatCurrency(payrollHistory.reduce((s, r) => s + r.total_net, 0) / payrollHistory.length) : '₹0'}
+          icon={DollarSign} color="violet"
         />
-        <StatCard 
-          title="Absent Today" 
-          value={todayAttendance?.absent || 0} 
-          icon={Clock} color="amber" 
+        <StatCard
+          title="Absent Today"
+          value={todayAttendance?.absent || 0}
+          icon={Clock} color="amber"
           trend={todayAttendance?.absent > 0 ? 'Action needed' : 'All good'} trendUp={todayAttendance?.absent === 0}
         />
       </div>
@@ -77,16 +90,16 @@ export default function HRAnalytics() {
         {/* Department Breakdown */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-blue-400" /> Headcount by Department</h3>
-          {employees?.dept_breakdown ? (
+          {deptBreakdown.length > 0 ? (
             <div className="space-y-4">
-              {employees.dept_breakdown.map((d, i) => (
+              {deptBreakdown.map((d, i) => (
                 <div key={i}>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-slate-300 font-medium">{d.department}</span>
-                    <span className="text-slate-400">{d.count} ({Math.round((d.count / employees.total_employees) * 100)}%)</span>
+                    <span className="text-slate-400">{d.count} ({Math.round((d.count / totalEmployees) * 100)}%)</span>
                   </div>
                   <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(d.count / employees.total_employees) * 100}%` }} />
+                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(d.count / totalEmployees) * 100}%` }} />
                   </div>
                 </div>
               ))}
