@@ -3,7 +3,7 @@ services:
     name: bizbook
     runtime: node
     plan: free
-    buildCommand: cd frontend && npm install && npm run build && cd ../backend && npm install
+    buildCommand: cd frontend && npm install --include=dev && npm run build && cd ../backend && npm install
     startCommand: node backend/src/server.js
     healthCheckPath: /api/health
     envVars:
@@ -22,6 +22,15 @@ services:
       - key: WHISPER_MODEL
         value: whisper-large-v3
 
+# The frontend install uses --include=dev deliberately: NODE_ENV=production (set below)
+# is applied by Render during the build phase too, and npm omits devDependencies by
+# default when NODE_ENV=production. vite/@vitejs/plugin-react/tailwindcss/postcss/
+# autoprefixer are (correctly) devDependencies in frontend/package.json since they're
+# build-time-only tools — without --include=dev, `vite` never gets installed and
+# `npm run build` fails with "vite: not found". The backend install does NOT need this
+# flag: its only devDependency (nodemon) is dev-server tooling, not needed to run
+# `node src/server.js`.
+#
 # PORT is injected automatically by Render for web services; the app already reads
 # process.env.PORT, so it does not need to be declared here.
 #
