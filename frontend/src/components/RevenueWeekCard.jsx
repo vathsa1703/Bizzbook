@@ -8,17 +8,17 @@ export default function RevenueWeekCard({ label, value, percentChange, data = []
   const isPositive = percentChange >= 0;
 
   return (
-    <div className="bg-white rounded-2xl shadow-card p-4">
+    <div className="bg-panel dark:bg-panel-dark rounded-2xl shadow-card p-4">
       <div className="flex items-start justify-between mb-3">
         <div>
-          <p className="text-xs text-gray-500 font-medium">{label}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-0.5">{value}</p>
+          <p className="text-xs text-inkB dark:text-inkB-dark font-medium">{label}</p>
+          <p className="text-2xl font-bold text-inkA dark:text-inkA-dark mt-0.5">{value}</p>
         </div>
         <span
           className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ${
             isPositive
-              ? 'bg-brand-greenSoft text-brand-green'
-              : 'bg-brand-redSoft text-brand-red'
+              ? 'bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400'
+              : 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400'
           }`}
         >
           {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
@@ -34,12 +34,12 @@ export default function RevenueWeekCard({ label, value, percentChange, data = []
               <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1">
                 <div
                   className={`w-full rounded-t-sm transition-all ${
-                    isHighlight ? 'bg-brand-blue' : 'bg-blue-100'
+                    isHighlight ? 'bg-accent' : 'bg-blue-100 dark:bg-blue-500/15'
                   }`}
                   style={{ height: `${h}px` }}
                 />
                 {d.day && (
-                  <span className={`text-[9px] font-medium ${isHighlight ? 'text-brand-blue' : 'text-gray-400'}`}>
+                  <span className={`text-[9px] font-medium ${isHighlight ? 'text-accent' : 'text-gray-400 dark:text-slate-500'}`}>
                     {d.day}
                   </span>
                 )}

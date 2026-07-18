@@ -30,7 +30,7 @@ export default function VoiceButton({ recording, transcribing, onStart, onStop, 
         {/* Cancel button */}
         <button
           onClick={onCancel}
-          className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-200 text-gray-500 transition-colors active:bg-gray-300"
+          className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-200 text-inkB dark:text-inkB-dark transition-colors active:bg-gray-300"
           title="Cancel recording"
         >
           <X size={14} />
@@ -52,7 +52,7 @@ export default function VoiceButton({ recording, transcribing, onStart, onStop, 
   return (
     <button
       onClick={onStart}
-      className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-brand-blueSoft text-brand-blue transition-colors active:bg-blue-100"
+      className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-accent/10 dark:bg-accent/15 text-accent transition-colors active:bg-blue-100"
       title="Tap to record"
     >
       <Mic size={18} />

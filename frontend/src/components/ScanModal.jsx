@@ -134,11 +134,11 @@ export default function ScanModal({ type, onClose, onParsed }) {
 
   return (
     <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden animate-fade-in-up flex flex-col max-h-full">
+      <div className="bg-panel dark:bg-panel-dark rounded-3xl w-full max-w-md overflow-hidden animate-fade-in-up flex flex-col max-h-full">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center shrink-0">
-          <h3 className="font-bold text-gray-900">Scan {type === 'sales' ? 'Sale' : 'Stock'} Invoice</h3>
-          <button onClick={handleClose} disabled={isProcessing} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200">
+        <div className="px-5 py-4 border-b border-edge dark:border-edge-dark flex justify-between items-center shrink-0">
+          <h3 className="font-bold text-inkA dark:text-inkA-dark">Scan {type === 'sales' ? 'Sale' : 'Stock'} Invoice</h3>
+          <button onClick={handleClose} disabled={isProcessing} className="w-8 h-8 flex items-center justify-center rounded-full bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark hover:bg-gray-200">
             <X size={18} />
           </button>
         </div>
@@ -147,9 +147,9 @@ export default function ScanModal({ type, onClose, onParsed }) {
         <div className="p-6 flex-1 overflow-y-auto">
           {isProcessing ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="w-12 h-12 text-brand-blue animate-spin mb-4" />
-              <p className="text-base font-bold text-gray-900">Analyzing Document...</p>
-              <p className="text-sm text-gray-500 mt-2 text-center max-w-xs">Extracting items, matching products, and preparing your draft.</p>
+              <Loader2 className="w-12 h-12 text-accent animate-spin mb-4" />
+              <p className="text-base font-bold text-inkA dark:text-inkA-dark">Analyzing Document...</p>
+              <p className="text-sm text-inkB dark:text-inkB-dark mt-2 text-center max-w-xs">Extracting items, matching products, and preparing your draft.</p>
             </div>
           ) : isCameraLive ? (
             <div className="flex flex-col items-center gap-4">
@@ -162,7 +162,7 @@ export default function ScanModal({ type, onClose, onParsed }) {
                   muted 
                 />
                 {/* Scanner overlay effect */}
-                <div className="absolute inset-0 pointer-events-none border-2 border-brand-blue/30 rounded-2xl">
+                <div className="absolute inset-0 pointer-events-none border-2 border-accent/30 rounded-2xl">
                   <div className="w-full h-0.5 bg-brand-blue/50 shadow-[0_0_8px_rgba(59,130,246,0.8)] animate-scan" />
                 </div>
               </div>
@@ -170,13 +170,13 @@ export default function ScanModal({ type, onClose, onParsed }) {
               <div className="flex gap-3 w-full">
                 <button 
                   onClick={() => { setIsCameraLive(false); stopCamera(); }}
-                  className="flex-1 py-3.5 bg-gray-100 text-gray-700 font-bold rounded-xl active:scale-95 transition-transform"
+                  className="flex-1 py-3.5 bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark font-bold rounded-xl active:scale-95 transition-transform"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={handleCapture}
-                  className="flex-[2] flex items-center justify-center gap-2 py-3.5 bg-brand-blue text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 active:scale-95 transition-transform"
+                  className="flex-[2] flex items-center justify-center gap-2 py-3.5 bg-accent text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 active:scale-95 transition-transform"
                 >
                   <Camera size={20} /> Capture
                 </button>
@@ -184,14 +184,14 @@ export default function ScanModal({ type, onClose, onParsed }) {
             </div>
           ) : previewImage ? (
             <div className="flex flex-col items-center gap-4">
-              <p className="text-sm font-bold text-gray-800">Preview Image</p>
-              <div className="relative w-full aspect-[3/4] bg-gray-100 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center">
+              <p className="text-sm font-bold text-inkA dark:text-inkA-dark">Preview Image</p>
+              <div className="relative w-full aspect-[3/4] bg-panel2 dark:bg-panel2-dark rounded-2xl overflow-hidden shadow-inner flex items-center justify-center">
                 <img src={previewImage} alt="Preview" className="w-full h-full object-contain" />
               </div>
               <div className="flex gap-3 w-full">
                 <button 
                   onClick={handleRetake}
-                  className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-gray-100 text-gray-700 font-bold rounded-xl active:scale-95 transition-transform"
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark font-bold rounded-xl active:scale-95 transition-transform"
                 >
                   <RotateCcw size={18} /> Retake
                 </button>
@@ -205,7 +205,7 @@ export default function ScanModal({ type, onClose, onParsed }) {
             </div>
           ) : (
             <div className="space-y-4">
-              <p className="text-sm text-gray-600 text-center mb-6">Choose how you want to provide the invoice image.</p>
+              <p className="text-sm text-inkB dark:text-inkB-dark text-center mb-6">Choose how you want to provide the invoice image.</p>
               
               <input 
                 type="file" 
@@ -217,16 +217,16 @@ export default function ScanModal({ type, onClose, onParsed }) {
               />
               <button 
                 onClick={handleOpenCamera}
-                className="w-full flex items-center justify-center gap-3 py-4 bg-brand-blue text-white rounded-2xl font-bold shadow-lg shadow-blue-500/20 active:scale-95 transition-transform"
+                className="w-full flex items-center justify-center gap-3 py-4 bg-accent text-white rounded-2xl font-bold shadow-lg shadow-blue-500/20 active:scale-95 transition-transform"
               >
                 <Camera size={24} />
                 Open Camera
               </button>
 
               <div className="relative flex items-center py-2">
-                <div className="flex-grow border-t border-gray-200"></div>
-                <span className="flex-shrink-0 mx-4 text-xs text-gray-400 font-medium">OR</span>
-                <div className="flex-grow border-t border-gray-200"></div>
+                <div className="flex-grow border-t border-edge dark:border-edge-dark"></div>
+                <span className="flex-shrink-0 mx-4 text-xs text-gray-400 dark:text-slate-500 font-medium">OR</span>
+                <div className="flex-grow border-t border-edge dark:border-edge-dark"></div>
               </div>
 
               <input 
@@ -238,7 +238,7 @@ export default function ScanModal({ type, onClose, onParsed }) {
               />
               <button 
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full flex items-center justify-center gap-3 py-4 bg-gray-50 text-gray-700 border border-gray-200 rounded-2xl font-bold active:bg-gray-100 transition-colors"
+                className="w-full flex items-center justify-center gap-3 py-4 bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark border border-edge dark:border-edge-dark rounded-2xl font-bold active:bg-panel2 dark:active:bg-panel2-dark transition-colors"
               >
                 <Upload size={20} />
                 Upload from Gallery

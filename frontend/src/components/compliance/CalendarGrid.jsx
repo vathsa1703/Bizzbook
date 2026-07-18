@@ -40,17 +40,17 @@ export default function CalendarGrid({ items = [], onOpen }) {
   const selItems = byDate[selected] || [];
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3">
+    <div className="bg-panel dark:bg-panel-dark rounded-2xl border border-edge dark:border-edge-dark shadow-sm p-3">
       <div className="flex items-center justify-between mb-3">
-        <button onClick={() => step(-1)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"><ChevronLeft size={18} /></button>
-        <p className="text-sm font-bold text-gray-900">{mode === 'month' ? monthLabel : `Week of ${cursor.toLocaleDateString('en-IN')}`}</p>
-        <button onClick={() => step(1)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500"><ChevronRight size={18} /></button>
+        <button onClick={() => step(-1)} className="p-1.5 rounded-lg hover:bg-panel2 dark:hover:bg-panel2-dark text-inkB dark:text-inkB-dark"><ChevronLeft size={18} /></button>
+        <p className="text-sm font-bold text-inkA dark:text-inkA-dark">{mode === 'month' ? monthLabel : `Week of ${cursor.toLocaleDateString('en-IN')}`}</p>
+        <button onClick={() => step(1)} className="p-1.5 rounded-lg hover:bg-panel2 dark:hover:bg-panel2-dark text-inkB dark:text-inkB-dark"><ChevronRight size={18} /></button>
       </div>
       <div className="flex justify-center gap-1 mb-3">
-        {['month', 'week'].map(m => <button key={m} onClick={() => setMode(m)} className={`px-3 py-1 rounded-full text-[11px] font-bold capitalize ${mode === m ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'}`}>{m}</button>)}
+        {['month', 'week'].map(m => <button key={m} onClick={() => setMode(m)} className={`px-3 py-1 rounded-full text-[11px] font-bold capitalize ${mode === m ? 'bg-gray-900 text-inkA dark:text-inkA-dark' : 'bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark'}`}>{m}</button>)}
       </div>
 
-      <div className="grid grid-cols-7 gap-1 mb-1">{WEEKDAYS.map(w => <div key={w} className="text-center text-[10px] font-bold text-gray-400">{w}</div>)}</div>
+      <div className="grid grid-cols-7 gap-1 mb-1">{WEEKDAYS.map(w => <div key={w} className="text-center text-[10px] font-bold text-gray-400 dark:text-slate-500">{w}</div>)}</div>
       <div className="grid grid-cols-7 gap-1">
         {cells.map((d, i) => {
           if (!d) return <div key={i} />;
@@ -60,8 +60,8 @@ export default function CalendarGrid({ items = [], onOpen }) {
           const isSel = key === selected;
           const overdue = dayItems.some(it => it.daysRemaining < 0);
           return (
-            <button key={i} onClick={() => setSelected(key)} className={`aspect-square rounded-lg flex flex-col items-center justify-center relative ${isSel ? 'bg-gray-900 text-white' : isToday ? 'bg-brand-blueSoft' : 'hover:bg-gray-50'}`}>
-              <span className={`text-[11px] font-semibold ${isSel ? 'text-white' : overdue ? 'text-brand-red' : 'text-gray-700'}`}>{d.getDate()}</span>
+            <button key={i} onClick={() => setSelected(key)} className={`aspect-square rounded-lg flex flex-col items-center justify-center relative ${isSel ? 'bg-gray-900 text-white' : isToday ? 'bg-accent/10 dark:bg-accent/15' : 'hover:bg-panel2 dark:hover:bg-panel2-dark'}`}>
+              <span className={`text-[11px] font-semibold ${isSel ? 'text-inkA dark:text-inkA-dark' : overdue ? 'text-red-600 dark:text-red-400' : 'text-inkB dark:text-inkB-dark'}`}>{d.getDate()}</span>
               {dayItems.length > 0 && (
                 <div className="flex gap-0.5 mt-0.5">
                   {dayItems.slice(0, 3).map((it, j) => <span key={j} className="w-1.5 h-1.5 rounded-full" style={{ background: isSel ? '#fff' : (CAT_COLOR[it.category_key] || '#94a3b8') }} />)}
@@ -73,13 +73,13 @@ export default function CalendarGrid({ items = [], onOpen }) {
       </div>
 
       {/* Selected-day agenda */}
-      <div className="mt-3 pt-3 border-t border-gray-100">
-        <p className="text-[11px] font-bold text-gray-500 mb-2">{new Date(selected).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-        {selItems.length === 0 ? <p className="text-xs text-gray-400">Nothing due this day.</p> : selItems.map(it => (
-          <button key={it.id} onClick={() => onOpen(it.id)} className="w-full text-left flex items-center gap-2 py-2 border-b border-gray-50 last:border-0">
+      <div className="mt-3 pt-3 border-t border-edge dark:border-edge-dark">
+        <p className="text-[11px] font-bold text-inkB dark:text-inkB-dark mb-2">{new Date(selected).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+        {selItems.length === 0 ? <p className="text-xs text-gray-400 dark:text-slate-500">Nothing due this day.</p> : selItems.map(it => (
+          <button key={it.id} onClick={() => onOpen(it.id)} className="w-full text-left flex items-center gap-2 py-2 border-b border-edge dark:border-edge-dark last:border-0">
             <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: CAT_COLOR[it.category_key] || '#94a3b8' }} />
-            <span className="text-xs font-semibold text-gray-800 flex-1 truncate">{it.title}</span>
-            <span className={`text-[10px] font-bold ${it.daysRemaining < 0 ? 'text-brand-red' : 'text-gray-400'}`}>{it.daysRemaining < 0 ? `${Math.abs(it.daysRemaining)}d late` : `${it.daysRemaining}d`}</span>
+            <span className="text-xs font-semibold text-inkA dark:text-inkA-dark flex-1 truncate">{it.title}</span>
+            <span className={`text-[10px] font-bold ${it.daysRemaining < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-slate-500'}`}>{it.daysRemaining < 0 ? `${Math.abs(it.daysRemaining)}d late` : `${it.daysRemaining}d`}</span>
           </button>
         ))}
       </div>

@@ -16,8 +16,8 @@ function OrgNode({ employee, childrenMap, level = 0 }) {
       )}
 
       {/* Node Card */}
-      <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg shadow-sm p-3 hover:shadow-md transition-shadow relative z-10 w-fit pr-6">
-        <div className="w-10 h-10 bg-blue-100 text-blue-700 font-bold rounded-full flex items-center justify-center shrink-0 text-sm">
+      <div className="flex items-center gap-3 bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-lg shadow-sm p-3 hover:shadow-md transition-shadow relative z-10 w-fit pr-6">
+        <div className="w-10 h-10 bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-400 font-bold rounded-full flex items-center justify-center shrink-0 text-sm">
           {employee.avatar ? (
             <img src={employee.avatar} className="w-full h-full rounded-full object-cover" alt="" />
           ) : (
@@ -25,11 +25,11 @@ function OrgNode({ employee, childrenMap, level = 0 }) {
           )}
         </div>
         <div>
-          <h4 className="text-sm font-bold text-gray-900">{employee.name}</h4>
-          <p className="text-xs text-gray-500">{employee.job_title || 'Employee'} • {employee.department_name || 'No Dept'}</p>
+          <h4 className="text-sm font-bold text-inkA dark:text-inkA-dark">{employee.name}</h4>
+          <p className="text-xs text-inkB dark:text-inkB-dark">{employee.job_title || 'Employee'} • {employee.department_name || 'No Dept'}</p>
         </div>
         {directReports.length > 0 && (
-          <div className="ml-4 flex items-center gap-1 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+          <div className="ml-4 flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-2 py-0.5 rounded-full">
             <Users className="w-3 h-3" /> {directReports.length}
           </div>
         )}
@@ -68,13 +68,13 @@ export default function OrganizationTab({ employees }) {
   }, [employees]);
 
   if (employees.length === 0) {
-    return <div className="p-8 text-center text-gray-500">No employees found in the organization.</div>;
+    return <div className="p-8 text-center text-inkB dark:text-inkB-dark">No employees found in the organization.</div>;
   }
 
   return (
-    <div className="bg-gray-50/50 rounded-xl border border-gray-200 p-8 overflow-x-auto">
-      <div className="flex items-center gap-2 mb-6 text-gray-500 font-medium">
-        <Network className="w-5 h-5 text-gray-400" />
+    <div className="bg-panel2/50 dark:bg-panel2-dark/50 rounded-xl border border-edge dark:border-edge-dark p-8 overflow-x-auto">
+      <div className="flex items-center gap-2 mb-6 text-inkB dark:text-inkB-dark font-medium">
+        <Network className="w-5 h-5 text-gray-400 dark:text-slate-500" />
         Organization Hierarchy
       </div>
       
@@ -83,7 +83,7 @@ export default function OrganizationTab({ employees }) {
           <OrgNode key={root.id} employee={root} childrenMap={childrenMap} level={0} />
         ))}
         {rootNodes.length === 0 && (
-          <div className="p-4 text-amber-600 bg-amber-50 rounded-lg">
+          <div className="p-4 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 rounded-lg">
             Could not find any root employees (employees without a manager). Ensure at least one employee is at the top of the hierarchy.
           </div>
         )}

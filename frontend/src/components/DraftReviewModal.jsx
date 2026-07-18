@@ -89,45 +89,45 @@ export default function DraftReviewModal({ type, data, products, onClose, onSucc
       <div className="p-4 max-h-[70vh] overflow-y-auto">
         
         {data.supplier_name && (
-          <div className="mb-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
-            <p className="text-xs text-gray-500 font-bold uppercase mb-1">Invoice Details</p>
+          <div className="mb-4 bg-panel2 dark:bg-panel2-dark p-3 rounded-xl border border-edge dark:border-edge-dark">
+            <p className="text-xs text-inkB dark:text-inkB-dark font-bold uppercase mb-1">Invoice Details</p>
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <p><span className="text-gray-500">Supplier:</span> {data.supplier_name}</p>
-              <p><span className="text-gray-500">Invoice:</span> {data.invoice_number || 'N/A'}</p>
-              <p><span className="text-gray-500">Date:</span> {data.date || 'N/A'}</p>
-              <p><span className="text-gray-500">Extracted Total:</span> ₹{data.total || 0}</p>
+              <p><span className="text-inkB dark:text-inkB-dark">Supplier:</span> {data.supplier_name}</p>
+              <p><span className="text-inkB dark:text-inkB-dark">Invoice:</span> {data.invoice_number || 'N/A'}</p>
+              <p><span className="text-inkB dark:text-inkB-dark">Date:</span> {data.date || 'N/A'}</p>
+              <p><span className="text-inkB dark:text-inkB-dark">Extracted Total:</span> ₹{data.total || 0}</p>
             </div>
           </div>
         )}
 
         <div className="space-y-3">
           {items.map((item, index) => (
-            <div key={index} className={`p-4 rounded-xl border ${item.is_matched ? 'border-gray-200 bg-white' : 'border-amber-200 bg-amber-50'}`}>
+            <div key={index} className={`p-4 rounded-xl border ${item.is_matched ? 'border-edge dark:border-edge-dark bg-panel dark:bg-panel-dark' : 'border-amber-200 dark:border-amber-500/25 bg-amber-50 dark:bg-amber-500/10'}`}>
               
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <h4 className="font-bold text-gray-900">{item.product_name || 'Unknown Item'}</h4>
+                  <h4 className="font-bold text-inkA dark:text-inkA-dark">{item.product_name || 'Unknown Item'}</h4>
                   {item.is_matched ? (
-                    <p className="text-xs text-brand-green font-semibold flex items-center gap-1 mt-0.5">
+                    <p className="text-xs text-green-600 dark:text-green-400 font-semibold flex items-center gap-1 mt-0.5">
                       <Check size={12} /> Matched to: {item.matched_name}
                     </p>
                   ) : (
-                    <p className="text-xs text-brand-amber font-semibold flex items-center gap-1 mt-0.5">
+                    <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1 mt-0.5">
                       <AlertTriangle size={12} /> Unknown Product
                     </p>
                   )}
                 </div>
-                <button onClick={() => handleRemoveItem(index)} className="text-xs text-red-500 font-semibold hover:underline">
+                <button onClick={() => handleRemoveItem(index)} className="text-xs text-red-500 dark:text-red-400 font-semibold hover:underline">
                   Remove
                 </button>
               </div>
 
               {!item.is_matched && (
                 <div className="mb-3">
-                  <label className="text-xs text-gray-600 font-semibold mb-1 block">Map to existing product {type === 'stock' ? '(or leave empty to create new)' : ''}</label>
+                  <label className="text-xs text-inkB dark:text-inkB-dark font-semibold mb-1 block">Map to existing product {type === 'stock' ? '(or leave empty to create new)' : ''}</label>
                   <select 
                     onChange={(e) => handleMatchProduct(index, e.target.value)}
-                    className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800 focus:outline-brand-blue"
+                    className="w-full bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-lg px-2 py-1.5 text-xs text-inkA dark:text-inkA-dark focus:outline-brand-blue"
                   >
                     <option value="">-- Select Product --</option>
                     {products.map(p => (
@@ -139,21 +139,21 @@ export default function DraftReviewModal({ type, data, products, onClose, onSucc
 
               <div className="grid grid-cols-2 gap-3 mt-2">
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-gray-500">Quantity</label>
+                  <label className="text-[10px] uppercase font-bold text-inkB dark:text-inkB-dark">Quantity</label>
                   <input 
                     type="number" 
                     value={item.quantity || 0}
                     onChange={(e) => handleUpdateItem(index, 'quantity', parseInt(e.target.value) || 0)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-brand-blue"
+                    className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-lg px-3 py-1.5 text-sm focus:outline-brand-blue"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-gray-500">Price (₹)</label>
+                  <label className="text-[10px] uppercase font-bold text-inkB dark:text-inkB-dark">Price (₹)</label>
                   <input 
                     type="number" 
                     value={item.price || 0}
                     onChange={(e) => handleUpdateItem(index, 'price', parseFloat(e.target.value) || 0)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-brand-blue"
+                    className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-lg px-3 py-1.5 text-sm focus:outline-brand-blue"
                   />
                 </div>
               </div>
@@ -162,23 +162,23 @@ export default function DraftReviewModal({ type, data, products, onClose, onSucc
           ))}
 
           {items.length === 0 && (
-            <div className="text-center py-8 text-gray-400">
+            <div className="text-center py-8 text-gray-400 dark:text-slate-500">
               No items extracted.
             </div>
           )}
         </div>
 
-        <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-100">
+        <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-edge dark:border-edge-dark">
           <button 
             onClick={onClose}
-            className="px-4 py-2 border border-gray-200 text-sm font-semibold text-gray-700 rounded-xl hover:bg-gray-50"
+            className="px-4 py-2 border border-edge dark:border-edge-dark text-sm font-semibold text-inkB dark:text-inkB-dark rounded-xl hover:bg-panel2 dark:hover:bg-panel2-dark"
           >
             Cancel
           </button>
           <button 
             onClick={handleSubmit}
             disabled={submitting || items.length === 0}
-            className="px-6 py-2 bg-brand-blue text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+            className="px-6 py-2 bg-accent text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
           >
             {submitting ? 'Saving...' : `Confirm & Save ${type === 'sales' ? 'Sale' : 'Inventory'}`}
           </button>
