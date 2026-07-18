@@ -143,24 +143,24 @@ export default function Purchases({ onNavigate }) {
   };
 
   return (
-    <div className="pb-20 bg-surface min-h-screen">
-      <div className="bg-white px-5 pt-12 pb-4 border-b border-gray-100 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Purchases</h1>
+    <div className="pb-20 bg-canvas dark:bg-canvas-dark min-h-screen">
+      <div className="bg-panel dark:bg-panel-dark px-5 pt-12 pb-4 border-b border-edge dark:border-edge-dark flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-inkA dark:text-inkA-dark">Purchases</h1>
         {isAdmin && (
-          <button onClick={openCreate} className="flex items-center gap-1 bg-brand-blue text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm">
+          <button onClick={openCreate} className="flex items-center gap-1 bg-accent text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm">
             <Plus size={14} /> Add Purchase
           </button>
         )}
       </div>
       <div className="px-4 pt-4">
         {loading ? (
-          <p className="text-xs text-gray-400 text-center py-6">Loading purchases...</p>
+          <p className="text-xs text-gray-400 dark:text-slate-500 text-center py-6">Loading purchases...</p>
         ) : purchases.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-6">No purchases recorded.</p>
+          <p className="text-xs text-gray-400 dark:text-slate-500 text-center py-6">No purchases recorded.</p>
         ) : (
           <SectionCard>
             <table className="min-w-full text-xs">
-              <thead className="bg-gray-50">
+              <thead className="bg-panel2 dark:bg-panel2-dark">
                 <tr>
                   <th className="p-2 text-left">Product</th>
                   <th className="p-2 text-left">Qty</th>
@@ -173,7 +173,7 @@ export default function Purchases({ onNavigate }) {
               </thead>
               <tbody>
                 {purchases.map(p => (
-                  <tr key={p.id} className="border-b border-gray-100">
+                  <tr key={p.id} className="border-b border-edge dark:border-edge-dark">
                     <td className="p-2">{products.find(pr => pr.id === p.product_id)?.name || p.product_id}</td>
                     <td className="p-2">{p.quantity}</td>
                     <td className="p-2">₹{p.cost_price}</td>
@@ -182,10 +182,10 @@ export default function Purchases({ onNavigate }) {
                     <td className="p-2">{p.invoice_number || '-'}</td>
                     {isAdmin && (
                       <td className="p-2 space-x-1">
-                        <button onClick={() => openEdit(p)} className="p-1 text-gray-400 hover:text-brand-blue hover:bg-gray-100 rounded-lg">
+                        <button onClick={() => openEdit(p)} className="p-1 text-gray-400 dark:text-slate-500 hover:text-accent hover:bg-panel2 dark:hover:bg-panel2-dark rounded-lg">
                           <Edit2 size={13} />
                         </button>
-                        <button onClick={() => setConfirmDelete(p)} className="p-1 text-gray-400 hover:text-brand-red hover:bg-gray-100 rounded-lg">
+                        <button onClick={() => setConfirmDelete(p)} className="p-1 text-gray-400 dark:text-slate-500 hover:text-brand-red hover:bg-panel2 dark:hover:bg-panel2-dark rounded-lg">
                           <Trash2 size={13} />
                         </button>
                       </td>
@@ -202,10 +202,10 @@ export default function Purchases({ onNavigate }) {
       {modalOpen && (
         <Modal title={editing ? 'Edit Purchase' : 'New Purchase'} onClose={() => setModalOpen(false)}>
           {setupError && (
-            <div className="mb-4 bg-brand-redSoft border border-brand-red/20 rounded-xl p-6 flex flex-col items-center justify-center text-center">
-              <AlertTriangle size={32} className="text-brand-red mb-3" />
-              <p className="text-brand-red font-bold text-base mb-2">Company Setup Required</p>
-              <p className="text-brand-red/80 text-sm mb-4">Please configure your company information before creating taxable transactions.</p>
+            <div className="mb-4 bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 border border-brand-red/20 rounded-xl p-6 flex flex-col items-center justify-center text-center">
+              <AlertTriangle size={32} className="text-red-600 dark:text-red-400 dark:text-red-400 mb-3" />
+              <p className="text-red-600 dark:text-red-400 dark:text-red-400 font-bold text-base mb-2">Company Setup Required</p>
+              <p className="text-red-600 dark:text-red-400 dark:text-red-400/80 text-sm mb-4">Please configure your company information before creating taxable transactions.</p>
               <button 
                 type="button"
                 onClick={() => {
@@ -229,9 +229,9 @@ export default function Purchases({ onNavigate }) {
             <FormField label="GST Amount (₹)" name="gst_amount" type="number" value={form.gst_amount} onChange={handleChange} error={errors.gst_amount} required />
             <FormField label="Purchase Date" name="purchase_date" type="date" value={form.purchase_date} onChange={handleChange} error={errors.purchase_date} required />
             <FormField label="Invoice Number" name="invoice_number" value={form.invoice_number} onChange={handleChange} />
-            <div className="flex justify-end space-x-2 pt-2 border-t border-gray-100">
-              <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 border border-gray-200 rounded-xl text-sm">Cancel</button>
-              <button type="submit" disabled={submitting} className="px-4 py-2 bg-brand-blue text-white rounded-xl text-sm disabled:opacity-50">
+            <div className="flex justify-end space-x-2 pt-2 border-t border-edge dark:border-edge-dark">
+              <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 border border-edge dark:border-edge-dark rounded-xl text-sm">Cancel</button>
+              <button type="submit" disabled={submitting} className="px-4 py-2 bg-accent text-white rounded-xl text-sm disabled:opacity-50">
                 {submitting ? 'Saving...' : editing ? 'Update' : 'Create'}
               </button>
             </div>

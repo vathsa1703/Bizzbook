@@ -174,14 +174,14 @@ export default function Credit() {
   };
 
   return (
-    <div className="pb-20 min-h-screen bg-surface">
+    <div className="pb-20 min-h-screen bg-canvas dark:bg-canvas-dark">
       {/* Header */}
-      <div className="bg-white px-5 pt-12 pb-4 border-b border-gray-100 flex flex-col gap-3">
+      <div className="bg-panel dark:bg-panel-dark px-5 pt-12 pb-4 border-b border-edge dark:border-edge-dark flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Credit Ledger</h1>
+          <h1 className="text-2xl font-bold text-inkA dark:text-inkA-dark">Credit Ledger</h1>
           <button
             onClick={handleOpenCreate}
-            className="flex items-center gap-1 bg-brand-blue text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm"
+            className="flex items-center gap-1 bg-accent text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm"
           >
             <Plus size={14} /> Add Credit
           </button>
@@ -190,17 +190,17 @@ export default function Credit() {
         {/* Dynamic Metric indicators */}
         {!loading && summary && (
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="bg-brand-redSoft rounded-xl p-2.5">
-              <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Outstanding</p>
-              <p className="text-xs font-extrabold text-brand-red mt-0.5">₹{summary.outstanding_amount.toLocaleString('en-IN')}</p>
+            <div className="bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 rounded-xl p-2.5">
+              <p className="text-[10px] text-inkB dark:text-inkB-dark font-semibold uppercase tracking-wider">Outstanding</p>
+              <p className="text-xs font-extrabold text-red-600 dark:text-red-400 dark:text-red-400 mt-0.5">₹{summary.outstanding_amount.toLocaleString('en-IN')}</p>
             </div>
-            <div className="bg-brand-greenSoft rounded-xl p-2.5">
-              <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Total Paid</p>
-              <p className="text-xs font-extrabold text-brand-green mt-0.5">₹{summary.paid_amount.toLocaleString('en-IN')}</p>
+            <div className="bg-green-50 dark:bg-green-500/10 dark:bg-green-500/10 rounded-xl p-2.5">
+              <p className="text-[10px] text-inkB dark:text-inkB-dark font-semibold uppercase tracking-wider">Total Paid</p>
+              <p className="text-xs font-extrabold text-green-600 dark:text-green-400 dark:text-green-400 mt-0.5">₹{summary.paid_amount.toLocaleString('en-IN')}</p>
             </div>
-            <div className="bg-brand-amberSoft rounded-xl p-2.5">
-              <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Overdue</p>
-              <p className="text-xs font-extrabold text-brand-amber mt-0.5">{summary.overdue_count} items</p>
+            <div className="bg-amber-50 dark:bg-amber-500/10 dark:bg-amber-500/10 rounded-xl p-2.5">
+              <p className="text-[10px] text-inkB dark:text-inkB-dark font-semibold uppercase tracking-wider">Overdue</p>
+              <p className="text-xs font-extrabold text-amber-600 dark:text-amber-400 dark:text-amber-400 mt-0.5">{summary.overdue_count} items</p>
             </div>
           </div>
         )}
@@ -210,13 +210,13 @@ export default function Credit() {
         {/* Filters & Search */}
         <div className="flex gap-2 items-center">
           <div className="flex-1 relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" />
             <input
               type="text"
               placeholder="Search customer..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-brand-blue shadow-sm"
+              className="w-full pl-9 pr-4 py-2 bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-xl text-xs outline-none focus:border-accent shadow-sm"
             />
           </div>
         </div>
@@ -228,7 +228,7 @@ export default function Credit() {
               key={t}
               onClick={() => setStatusTab(t)}
               className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors shadow-sm ${
-                statusTab === t ? 'bg-brand-blue text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+                statusTab === t ? 'bg-accent text-white' : 'bg-panel dark:bg-panel-dark text-inkB dark:text-inkB-dark hover:bg-panel2 dark:hover:bg-panel2-dark'
               }`}
             >
               {t}
@@ -239,47 +239,47 @@ export default function Credit() {
         {/* Credit logs */}
         <SectionCard className="p-0 overflow-hidden">
           {loading && credits.length === 0 ? (
-            <div className="py-12 text-center text-xs text-gray-400">
+            <div className="py-12 text-center text-xs text-gray-400 dark:text-slate-500">
               <RefreshCw size={16} className="animate-spin inline mr-2" /> Loading ledger logs...
             </div>
           ) : credits.length === 0 ? (
-            <div className="py-12 text-center text-xs text-gray-400">No credit entries found.</div>
+            <div className="py-12 text-center text-xs text-gray-400 dark:text-slate-500">No credit entries found.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100 text-[10px] uppercase font-bold text-gray-500 tracking-wider">
+                  <tr className="bg-panel2 dark:bg-panel2-dark border-b border-edge dark:border-edge-dark text-[10px] uppercase font-bold text-inkB dark:text-inkB-dark tracking-wider">
                     <th className="px-4 py-3">Customer / Invoice</th>
                     <th className="px-4 py-3 text-right">Outstanding / Total</th>
                     <th className="px-4 py-3">Due Date</th>
                     <th className="px-4 py-3 text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50 text-xs">
+                <tbody className="divide-y divide-edge dark:divide-edge-dark text-xs">
                   {credits.map((cr) => {
                     const outstanding = cr.total_amount - cr.paid_amount;
                     const isOverdue = new Date(cr.due_date) < new Date() && cr.status !== 'paid';
                     const displayStatus = isOverdue ? 'overdue' : cr.status;
 
                     return (
-                      <tr key={cr.id} className="hover:bg-gray-50/50">
-                        <td className="px-4 py-3 font-semibold text-gray-900">
+                      <tr key={cr.id} className="hover:bg-panel2/60 dark:hover:bg-panel2-dark/60">
+                        <td className="px-4 py-3 font-semibold text-inkA dark:text-inkA-dark">
                           {cr.customer_name}
-                          <p className="text-[10px] font-normal text-gray-400">
+                          <p className="text-[10px] font-normal text-gray-400 dark:text-slate-500">
                             {cr.invoice_number ? `Link: ${cr.invoice_number}` : 'Manual Entry'}
                           </p>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <p className="font-bold text-gray-950">₹{outstanding.toLocaleString('en-IN')}</p>
-                          <p className="text-[10px] text-gray-400">of ₹{cr.total_amount.toLocaleString('en-IN')}</p>
+                          <p className="font-bold text-inkA dark:text-inkA-dark">₹{outstanding.toLocaleString('en-IN')}</p>
+                          <p className="text-[10px] text-gray-400 dark:text-slate-500">of ₹{cr.total_amount.toLocaleString('en-IN')}</p>
                         </td>
                         <td className="px-4 py-3">
-                          <p className="font-semibold text-gray-800">{cr.due_date}</p>
+                          <p className="font-semibold text-inkA dark:text-inkA-dark">{cr.due_date}</p>
                           <span
                             className={`inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${
-                              displayStatus === 'paid' ? 'bg-brand-greenSoft text-brand-green' :
-                              displayStatus === 'overdue' ? 'bg-brand-redSoft text-brand-red animate-pulse' :
-                              'bg-brand-amberSoft text-brand-amber'
+                              displayStatus === 'paid' ? 'bg-green-50 dark:bg-green-500/10 dark:bg-green-500/10 text-green-600 dark:text-green-400 dark:text-green-400' :
+                              displayStatus === 'overdue' ? 'bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 dark:text-red-400 animate-pulse' :
+                              'bg-amber-50 dark:bg-amber-500/10 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 dark:text-amber-400'
                             }`}
                           >
                             {displayStatus}
@@ -290,21 +290,21 @@ export default function Credit() {
                             {outstanding > 0 && (
                               <button
                                 onClick={() => handleOpenPayment(cr)}
-                                className="flex items-center gap-0.5 bg-brand-greenSoft hover:bg-brand-green/20 text-brand-green px-2 py-1 rounded-lg font-bold text-[10px] transition-colors"
+                                className="flex items-center gap-0.5 bg-green-50 dark:bg-green-500/10 dark:bg-green-500/10 hover:bg-brand-green/20 text-green-600 dark:text-green-400 dark:text-green-400 px-2 py-1 rounded-lg font-bold text-[10px] transition-colors"
                               >
                                 Pay
                               </button>
                             )}
                             <button
                               onClick={() => handleOpenEdit(cr)}
-                              className="p-1 text-gray-400 hover:text-brand-blue hover:bg-gray-100 rounded-lg transition-colors"
+                              className="p-1 text-gray-400 dark:text-slate-500 hover:text-accent hover:bg-panel2 dark:hover:bg-panel2-dark rounded-lg transition-colors"
                             >
                               <Search size={12} />
                             </button>
                             {user && user.role === 'admin' && (
                               <button
                                 onClick={() => setDeleteConfirmCredit(cr)}
-                                className="p-1 text-gray-400 hover:text-brand-red hover:bg-gray-100 rounded-lg transition-colors"
+                                className="p-1 text-gray-400 dark:text-slate-500 hover:text-brand-red hover:bg-panel2 dark:hover:bg-panel2-dark rounded-lg transition-colors"
                               >
                                 <Trash2 size={12} />
                               </button>
@@ -381,18 +381,18 @@ export default function Credit() {
               placeholder="Record any terms or collateral..."
             />
 
-            <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-100">
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-edge dark:border-edge-dark">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 border border-gray-200 text-sm font-semibold text-gray-700 rounded-xl hover:bg-gray-50"
+                className="px-4 py-2 border border-edge dark:border-edge-dark text-sm font-semibold text-inkB dark:text-inkB-dark rounded-xl hover:bg-panel2 dark:hover:bg-panel2-dark"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-4 py-2 bg-brand-blue text-white text-sm font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50"
+                className="px-4 py-2 bg-accent text-white text-sm font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50"
               >
                 {submitting ? 'Creating...' : editingCredit ? 'Save Changes' : 'Create Credit'}
               </button>
@@ -409,9 +409,9 @@ export default function Credit() {
           size="sm"
         >
           <form onSubmit={handlePaymentSubmit} className="space-y-4">
-            <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 text-xs space-y-1">
-              <p className="text-gray-500">Customer: <span className="font-semibold text-gray-900">{activePaymentCredit.customer_name}</span></p>
-              <p className="text-gray-500">Outstanding: <span className="font-bold text-brand-red">₹{(activePaymentCredit.total_amount - activePaymentCredit.paid_amount).toLocaleString('en-IN')}</span></p>
+            <div className="bg-panel2 dark:bg-panel2-dark rounded-xl p-3 border border-edge dark:border-edge-dark text-xs space-y-1">
+              <p className="text-inkB dark:text-inkB-dark">Customer: <span className="font-semibold text-inkA dark:text-inkA-dark">{activePaymentCredit.customer_name}</span></p>
+              <p className="text-inkB dark:text-inkB-dark">Outstanding: <span className="font-bold text-red-600 dark:text-red-400 dark:text-red-400">₹{(activePaymentCredit.total_amount - activePaymentCredit.paid_amount).toLocaleString('en-IN')}</span></p>
             </div>
 
             <FormField
@@ -425,11 +425,11 @@ export default function Credit() {
               required
             />
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+            <div className="flex justify-end gap-2 pt-3 border-t border-edge dark:border-edge-dark">
               <button
                 type="button"
                 onClick={() => setIsPaymentModalOpen(false)}
-                className="px-4 py-2 border border-gray-200 text-xs font-semibold text-gray-700 rounded-xl hover:bg-gray-50"
+                className="px-4 py-2 border border-edge dark:border-edge-dark text-xs font-semibold text-inkB dark:text-inkB-dark rounded-xl hover:bg-panel2 dark:hover:bg-panel2-dark"
               >
                 Cancel
               </button>

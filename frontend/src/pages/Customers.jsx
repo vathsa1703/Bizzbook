@@ -26,12 +26,12 @@ function initials(name) {
 }
 
 const PASTEL_COLORS = [
-  { bg: 'bg-blue-100',   text: 'text-blue-600'   },
-  { bg: 'bg-green-100',  text: 'text-green-600'  },
-  { bg: 'bg-amber-100',  text: 'text-amber-600'  },
-  { bg: 'bg-purple-100', text: 'text-purple-600' },
-  { bg: 'bg-pink-100',   text: 'text-pink-600'   },
-  { bg: 'bg-teal-100',   text: 'text-teal-600'   },
+  { bg: 'bg-blue-100 dark:bg-blue-500/15',   text: 'text-blue-600 dark:text-blue-400'   },
+  { bg: 'bg-green-100 dark:bg-green-500/15',  text: 'text-green-600 dark:text-green-400'  },
+  { bg: 'bg-amber-100 dark:bg-amber-500/15',  text: 'text-amber-600 dark:text-amber-400'  },
+  { bg: 'bg-purple-100 dark:bg-purple-500/15', text: 'text-purple-600 dark:text-purple-400' },
+  { bg: 'bg-pink-100 dark:bg-pink-500/15',   text: 'text-pink-600 dark:text-pink-400'   },
+  { bg: 'bg-teal-100 dark:bg-teal-500/15',   text: 'text-teal-600 dark:text-teal-400'   },
 ];
 
 function timeAgo(dateStr) {
@@ -128,8 +128,8 @@ function CustomerForm({ initial, onSubmit, onCancel, submitting, gstStates }) {
 
       {/* Name */}
       <div>
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-          Customer Name <span className="text-red-500">*</span>
+        <label className="block text-xs font-semibold text-inkB dark:text-inkB-dark uppercase tracking-wide mb-1">
+          Customer Name <span className="text-red-500 dark:text-red-400">*</span>
         </label>
         <input
           type="text"
@@ -137,15 +137,15 @@ function CustomerForm({ initial, onSubmit, onCancel, submitting, gstStates }) {
           onChange={e => set('name', e.target.value)}
           placeholder="e.g. Rahul Sharma"
           required
-          className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-edge dark:border-edge-dark text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
         />
       </div>
 
       {/* GST Registered toggle */}
-      <div className="flex items-center justify-between bg-gray-50 rounded-xl px-3.5 py-2.5">
+      <div className="flex items-center justify-between bg-panel2 dark:bg-panel2-dark rounded-xl px-3.5 py-2.5">
         <div>
-          <p className="text-sm font-semibold text-gray-700">GST Registered?</p>
-          <p className="text-xs text-gray-400">{isGstReg ? 'Business customer — GSTIN required' : 'Retail / unregistered customer'}</p>
+          <p className="text-sm font-semibold text-inkB dark:text-inkB-dark">GST Registered?</p>
+          <p className="text-xs text-gray-400 dark:text-slate-500">{isGstReg ? 'Business customer — GSTIN required' : 'Retail / unregistered customer'}</p>
         </div>
         <button
           type="button"
@@ -156,7 +156,7 @@ function CustomerForm({ initial, onSubmit, onCancel, submitting, gstStates }) {
           }`}
         >
           <span
-            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-panel dark:bg-panel-dark shadow transition duration-200 ease-in-out ${
               isGstReg ? 'translate-x-5' : 'translate-x-0'
             }`}
           />
@@ -166,8 +166,8 @@ function CustomerForm({ initial, onSubmit, onCancel, submitting, gstStates }) {
       {/* GSTIN — only for GST-registered customers */}
       {isGstReg && (
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-            GSTIN <span className="text-red-500">*</span>
+          <label className="block text-xs font-semibold text-inkB dark:text-inkB-dark uppercase tracking-wide mb-1">
+            GSTIN <span className="text-red-500 dark:text-red-400">*</span>
           </label>
           <div className="relative">
             <input
@@ -178,24 +178,24 @@ function CustomerForm({ initial, onSubmit, onCancel, submitting, gstStates }) {
               placeholder="29AABCU9603R1ZX"
               className={`w-full px-3.5 py-2.5 pr-9 rounded-xl border text-sm font-mono tracking-widest focus:outline-none focus:ring-2 transition-all ${
                 gstinErr
-                  ? 'border-red-300 focus:ring-red-200 bg-red-50'
+                  ? 'border-red-300 focus:ring-red-200 bg-red-50 dark:bg-red-500/10'
                   : (hasGstin && gstinValid)
-                  ? 'border-emerald-300 focus:ring-emerald-200 bg-emerald-50'
-                  : 'border-gray-200 focus:ring-blue-200'
+                  ? 'border-emerald-300 focus:ring-emerald-200 bg-emerald-50 dark:bg-emerald-500/10'
+                  : 'border-edge dark:border-edge-dark focus:ring-blue-200'
               }`}
             />
             {hasGstin && (
               <span className="absolute right-2.5 top-1/2 -translate-y-1/2">
                 {gstinValid
-                  ? <CheckCircle2 size={14} className="text-emerald-500" />
+                  ? <CheckCircle2 size={14} className="text-emerald-500 dark:text-emerald-400" />
                   : <AlertCircle  size={14} className="text-red-400" />
                 }
               </span>
             )}
           </div>
-          {gstinErr && <p className="mt-1 text-xs text-red-600">{gstinErr}</p>}
+          {gstinErr && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{gstinErr}</p>}
           {hasGstin && gstinValid && (
-            <p className="mt-1 text-xs text-emerald-600">
+            <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
               ✓ B2B customer · State auto-filled from GSTIN
             </p>
           )}
@@ -204,14 +204,14 @@ function CustomerForm({ initial, onSubmit, onCancel, submitting, gstStates }) {
 
       {/* State — required for POS derivation */}
       <div>
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-          State / Place of Supply <span className="text-red-500">*</span>
+        <label className="block text-xs font-semibold text-inkB dark:text-inkB-dark uppercase tracking-wide mb-1">
+          State / Place of Supply <span className="text-red-500 dark:text-red-400">*</span>
         </label>
         <select
           value={form.state_code}
           onChange={e => set('state_code', e.target.value)}
           required
-          className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-edge dark:border-edge-dark text-sm bg-panel dark:bg-panel-dark focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
         >
           <option value="">Select state…</option>
           {(gstStates || []).map(s => (
@@ -219,7 +219,7 @@ function CustomerForm({ initial, onSubmit, onCancel, submitting, gstStates }) {
           ))}
         </select>
         {!stateOk && (
-          <p className="mt-1 text-xs text-amber-600">
+          <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
             Required for GST filing — determines intrastate vs interstate tax
           </p>
         )}
@@ -227,52 +227,52 @@ function CustomerForm({ initial, onSubmit, onCancel, submitting, gstStates }) {
 
       {/* Phone */}
       <div>
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Phone</label>
+        <label className="block text-xs font-semibold text-inkB dark:text-inkB-dark uppercase tracking-wide mb-1">Phone</label>
         <input
           type="tel"
           value={form.phone || ''}
           onChange={e => set('phone', e.target.value)}
           placeholder="+91 98765 43210"
-          className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-edge dark:border-edge-dark text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
         />
       </div>
 
       {/* Email */}
       <div>
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Email</label>
+        <label className="block text-xs font-semibold text-inkB dark:text-inkB-dark uppercase tracking-wide mb-1">Email</label>
         <input
           type="email"
           value={form.email || ''}
           onChange={e => set('email', e.target.value)}
           placeholder="customer@example.com"
-          className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-edge dark:border-edge-dark text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
         />
       </div>
 
       {/* Billing Address */}
       <div>
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Billing Address</label>
+        <label className="block text-xs font-semibold text-inkB dark:text-inkB-dark uppercase tracking-wide mb-1">Billing Address</label>
         <textarea
           value={form.billing_address || ''}
           onChange={e => set('billing_address', e.target.value)}
           rows={2}
           placeholder="Street, city, pincode"
-          className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-edge dark:border-edge-dark text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
         />
       </div>
 
-      <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+      <div className="flex justify-end gap-2 pt-3 border-t border-edge dark:border-edge-dark">
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 border border-gray-200 text-xs font-semibold text-gray-700 rounded-xl hover:bg-gray-50"
+          className="px-4 py-2 border border-edge dark:border-edge-dark text-xs font-semibold text-inkB dark:text-inkB-dark rounded-xl hover:bg-panel2 dark:hover:bg-panel2-dark"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={!canSubmit}
-          className="px-4 py-2 bg-brand-blue text-white text-xs font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="px-4 py-2 bg-accent text-white text-xs font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
         >
           {submitting ? 'Saving…' : 'Save Customer'}
         </button>
@@ -373,38 +373,38 @@ export default function Customers() {
   }
 
   return (
-    <div className="pb-20 min-h-screen bg-surface">
+    <div className="pb-20 min-h-screen bg-canvas dark:bg-canvas-dark">
       {!selectedCustomerId ? (
         // ── LIST VIEW ──────────────────────────────────────────────────────────
         <>
-          <div className="bg-white px-5 pt-12 pb-4 border-b border-gray-100">
+          <div className="bg-panel dark:bg-panel-dark px-5 pt-12 pb-4 border-b border-edge dark:border-edge-dark">
             <div className="flex items-center justify-between">
-              <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
+              <h1 className="text-2xl font-bold text-inkA dark:text-inkA-dark">Customers</h1>
               <button
                 onClick={handleOpenCreate}
-                className="w-9 h-9 rounded-full bg-brand-blue flex items-center justify-center shadow-card-md hover:bg-blue-700 transition-colors"
+                className="w-9 h-9 rounded-full bg-accent flex items-center justify-center shadow-card-md hover:bg-blue-700 transition-colors"
               >
                 <Plus size={18} className="text-white" strokeWidth={2.5} />
               </button>
             </div>
-            <div className="mt-3 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
-              <Search size={15} className="text-gray-400" />
+            <div className="mt-3 flex items-center gap-2 bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-xl px-3 py-2">
+              <Search size={15} className="text-gray-400 dark:text-slate-500" />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search by name, GSTIN or phone…"
-                className="flex-1 bg-transparent text-sm outline-none text-gray-700 placeholder-gray-400"
+                className="flex-1 bg-transparent text-sm outline-none text-inkB dark:text-inkB-dark placeholder-gray-400"
               />
             </div>
           </div>
 
           <div className="px-4 py-2">
             {loading && customers.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-8">Loading…</p>
+              <p className="text-xs text-gray-400 dark:text-slate-500 text-center py-8">Loading…</p>
             ) : customers.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-8">No customers found.</p>
+              <p className="text-xs text-gray-400 dark:text-slate-500 text-center py-8">No customers found.</p>
             ) : (
-              <div className="bg-white rounded-2xl shadow-card overflow-hidden mt-2">
+              <div className="bg-panel dark:bg-panel-dark rounded-2xl shadow-card overflow-hidden mt-2">
                 {customers.map((c, i) => {
                   const color    = PASTEL_COLORS[i % PASTEL_COLORS.length];
                   const stateOk  = !!c.state_code;
@@ -412,16 +412,16 @@ export default function Customers() {
                     <button
                       key={c.id}
                       onClick={() => loadCustomerDetails(c.id)}
-                      className="flex items-center gap-3 w-full px-4 py-4 border-b border-gray-50 last:border-0 hover:bg-gray-50/50 active:bg-gray-100 transition-colors text-left"
+                      className="flex items-center gap-3 w-full px-4 py-4 border-b border-edge dark:border-edge-dark last:border-0 hover:bg-panel2/60 dark:hover:bg-panel2-dark/60 active:bg-panel2 dark:active:bg-panel2-dark transition-colors text-left"
                     >
                       <div className={`w-10 h-10 rounded-full ${color.bg} ${color.text} flex items-center justify-center flex-shrink-0 font-bold text-sm shadow-sm`}>
                         {initials(c.name || '?')}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900">{c.name}</p>
-                        <p className="text-xs text-gray-400 mt-0.5 truncate">
+                        <p className="text-sm font-semibold text-inkA dark:text-inkA-dark">{c.name}</p>
+                        <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5 truncate">
                           {c.gstin
-                            ? <span className="font-mono text-blue-600">{c.gstin}</span>
+                            ? <span className="font-mono text-blue-600 dark:text-blue-400">{c.gstin}</span>
                             : <span>B2C · {c.phone || 'No phone'}</span>
                           }
                         </p>
@@ -433,10 +433,10 @@ export default function Customers() {
                           </span>
                         )}
                         <div>
-                          <p className="text-xs font-bold text-gray-900">{fmt(c.total_purchases)}</p>
-                          <p className="text-[10px] text-gray-400">spent</p>
+                          <p className="text-xs font-bold text-inkA dark:text-inkA-dark">{fmt(c.total_purchases)}</p>
+                          <p className="text-[10px] text-gray-400 dark:text-slate-500">spent</p>
                         </div>
-                        <ChevronRight size={14} className="text-gray-300" />
+                        <ChevronRight size={14} className="text-gray-300 dark:text-slate-600" />
                       </div>
                     </button>
                   );
@@ -448,26 +448,26 @@ export default function Customers() {
       ) : (
         // ── PROFILE VIEW ───────────────────────────────────────────────────────
         <div className="animate-fadeIn pb-6">
-          <div className="bg-white px-5 pt-12 pb-4 border-b border-gray-100 flex items-center gap-3">
+          <div className="bg-panel dark:bg-panel-dark px-5 pt-12 pb-4 border-b border-edge dark:border-edge-dark flex items-center gap-3">
             <button
               onClick={() => setSelectedCustomerId(null)}
-              className="p-1 rounded-full hover:bg-gray-100 text-gray-600 transition-colors"
+              className="p-1 rounded-full hover:bg-panel2 dark:hover:bg-panel2-dark text-inkB dark:text-inkB-dark transition-colors"
             >
               <ArrowLeft size={20} />
             </button>
-            <h1 className="text-lg font-bold text-gray-900 flex-1">Customer Profile</h1>
+            <h1 className="text-lg font-bold text-inkA dark:text-inkA-dark flex-1">Customer Profile</h1>
             {customerDetails && (
               <div className="flex items-center gap-1">
                 <button
                   onClick={e => handleOpenEdit(e, customerDetails)}
-                  className="p-1.5 text-gray-500 hover:text-brand-blue hover:bg-gray-50 rounded-xl transition-colors"
+                  className="p-1.5 text-inkB dark:text-inkB-dark hover:text-accent hover:bg-panel2 dark:hover:bg-panel2-dark rounded-xl transition-colors"
                 >
                   <Edit2 size={16} />
                 </button>
                 {user?.role === 'admin' && (
                   <button
                     onClick={() => setDeleteConfirmCust(customerDetails)}
-                    className="p-1.5 text-gray-500 hover:text-brand-red hover:bg-brand-redSoft rounded-xl transition-colors"
+                    className="p-1.5 text-inkB dark:text-inkB-dark hover:text-brand-red hover:bg-brand-redSoft rounded-xl transition-colors"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -477,69 +477,69 @@ export default function Customers() {
           </div>
 
           {loadingDetails ? (
-            <div className="py-24 text-center text-xs text-gray-400">
+            <div className="py-24 text-center text-xs text-gray-400 dark:text-slate-500">
               <RefreshCw size={16} className="animate-spin inline mr-2" /> Loading…
             </div>
           ) : !customerDetails ? (
-            <div className="py-24 text-center text-xs text-gray-400">Profile not found.</div>
+            <div className="py-24 text-center text-xs text-gray-400 dark:text-slate-500">Profile not found.</div>
           ) : (
             <div className="px-4 py-4 space-y-4">
               {/* Header card */}
-              <div className="bg-white rounded-2xl p-5 shadow-card">
+              <div className="bg-panel dark:bg-panel-dark rounded-2xl p-5 shadow-card">
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-14 h-14 rounded-full bg-brand-blueSoft text-brand-blue flex items-center justify-center font-bold text-lg shadow-inner">
+                  <div className="w-14 h-14 rounded-full bg-accent/10 dark:bg-accent/15 text-accent flex items-center justify-center font-bold text-lg shadow-inner">
                     {initials(customerDetails.name)}
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900">{customerDetails.name}</h2>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Total Purchases: <span className="font-bold text-gray-800">₹{customerDetails.total_purchases.toLocaleString('en-IN')}</span>
+                    <h2 className="text-lg font-bold text-inkA dark:text-inkA-dark">{customerDetails.name}</h2>
+                    <p className="text-xs text-inkB dark:text-inkB-dark mt-0.5">
+                      Total Purchases: <span className="font-bold text-inkA dark:text-inkA-dark">₹{customerDetails.total_purchases.toLocaleString('en-IN')}</span>
                     </p>
                   </div>
                 </div>
 
                 {/* GST info row */}
-                <div className="space-y-2 pt-3 border-t border-gray-50">
+                <div className="space-y-2 pt-3 border-t border-edge dark:border-edge-dark">
                   {customerDetails.gstin ? (
                     <div className="flex items-center gap-2">
-                      <Hash size={12} className="text-blue-500 shrink-0" />
-                      <span className="text-xs font-mono font-semibold text-blue-700">{customerDetails.gstin}</span>
-                      <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full font-semibold">B2B</span>
+                      <Hash size={12} className="text-blue-500 dark:text-blue-400 shrink-0" />
+                      <span className="text-xs font-mono font-semibold text-blue-700 dark:text-blue-400">{customerDetails.gstin}</span>
+                      <span className="text-[10px] bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full font-semibold">B2B</span>
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <Hash size={12} className="text-gray-300 shrink-0" />
-                      <span className="text-xs text-gray-400 italic">No GSTIN · B2C Customer</span>
+                      <Hash size={12} className="text-gray-300 dark:text-slate-600 shrink-0" />
+                      <span className="text-xs text-gray-400 dark:text-slate-500 italic">No GSTIN · B2C Customer</span>
                     </div>
                   )}
                   <div className="flex items-center gap-2">
-                    <MapPin size={12} className="text-teal-500 shrink-0" />
+                    <MapPin size={12} className="text-teal-500 dark:text-teal-400 shrink-0" />
                     {customerDetails.state_code ? (
-                      <span className="text-xs text-gray-700">
+                      <span className="text-xs text-inkB dark:text-inkB-dark">
                         {customerDetails.state_code} — {STATE_MAP[customerDetails.state_code] || customerDetails.state || 'Unknown state'}
                       </span>
                     ) : (
-                      <span className="text-xs text-amber-600 font-semibold flex items-center gap-1">
+                      <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
                         <AlertCircle size={11} /> State missing — edit to add
                       </span>
                     )}
                   </div>
                   {customerDetails.phone && (
                     <div className="flex items-center gap-2">
-                      <Phone size={12} className="text-gray-400 shrink-0" />
-                      <span className="text-xs text-gray-700">{customerDetails.phone}</span>
+                      <Phone size={12} className="text-gray-400 dark:text-slate-500 shrink-0" />
+                      <span className="text-xs text-inkB dark:text-inkB-dark">{customerDetails.phone}</span>
                     </div>
                   )}
                   {customerDetails.email && (
                     <div className="flex items-center gap-2">
-                      <Mail size={12} className="text-gray-400 shrink-0" />
-                      <span className="text-xs text-gray-700">{customerDetails.email}</span>
+                      <Mail size={12} className="text-gray-400 dark:text-slate-500 shrink-0" />
+                      <span className="text-xs text-inkB dark:text-inkB-dark">{customerDetails.email}</span>
                     </div>
                   )}
                   {customerDetails.billing_address && (
                     <div className="flex items-start gap-2">
-                      <MapPin size={12} className="text-gray-300 shrink-0 mt-0.5" />
-                      <span className="text-xs text-gray-500 leading-snug">{customerDetails.billing_address}</span>
+                      <MapPin size={12} className="text-gray-300 dark:text-slate-600 shrink-0 mt-0.5" />
+                      <span className="text-xs text-inkB dark:text-inkB-dark leading-snug">{customerDetails.billing_address}</span>
                     </div>
                   )}
                 </div>
@@ -547,31 +547,31 @@ export default function Customers() {
 
               {/* Invoices */}
               <SectionCard>
-                <div className="flex items-center gap-1.5 mb-3 text-gray-700 border-b border-gray-50 pb-2">
+                <div className="flex items-center gap-1.5 mb-3 text-inkB dark:text-inkB-dark border-b border-edge dark:border-edge-dark pb-2">
                   <Receipt size={15} />
                   <h3 className="text-xs font-bold uppercase tracking-wider">Invoices</h3>
                 </div>
                 {!customerDetails.invoices?.length ? (
-                  <p className="text-xs text-gray-400 py-4 text-center">No invoices found.</p>
+                  <p className="text-xs text-gray-400 dark:text-slate-500 py-4 text-center">No invoices found.</p>
                 ) : (
-                  <div className="divide-y divide-gray-50">
+                  <div className="divide-y divide-edge dark:divide-edge-dark">
                     {customerDetails.invoices.map(inv => (
                       <div key={inv.id} className="py-3 flex justify-between items-center text-xs">
                         <div>
-                          <p className="font-semibold text-gray-800">{inv.invoice_number}</p>
-                          <p className="text-[10px] text-gray-400">{inv.invoice_date} · ₹{Number(inv.grand_total).toLocaleString('en-IN')}</p>
+                          <p className="font-semibold text-inkA dark:text-inkA-dark">{inv.invoice_number}</p>
+                          <p className="text-[10px] text-gray-400 dark:text-slate-500">{inv.invoice_date} · ₹{Number(inv.grand_total).toLocaleString('en-IN')}</p>
                         </div>
                         <div className="flex gap-2 items-center">
                           <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
                             inv.payment_status === 'PAID'
-                              ? 'bg-brand-greenSoft text-brand-green'
-                              : 'bg-brand-redSoft text-brand-red'
+                              ? 'bg-green-50 dark:bg-green-500/10 dark:bg-green-500/10 text-green-600 dark:text-green-400 dark:text-green-400'
+                              : 'bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 dark:text-red-400'
                           }`}>
                             {inv.payment_status}
                           </span>
                           <button
                             onClick={() => setViewingInvoiceId(inv.id)}
-                            className="text-brand-blue font-semibold hover:underline"
+                            className="text-accent font-semibold hover:underline"
                           >
                             View
                           </button>
@@ -584,21 +584,21 @@ export default function Customers() {
 
               {/* Purchase history */}
               <SectionCard>
-                <div className="flex items-center gap-1.5 mb-3 text-brand-blue border-b border-gray-50 pb-2">
+                <div className="flex items-center gap-1.5 mb-3 text-accent border-b border-edge dark:border-edge-dark pb-2">
                   <ShoppingBag size={15} />
                   <h3 className="text-xs font-bold uppercase tracking-wider">Purchase History</h3>
                 </div>
                 {customerDetails.sales.length === 0 ? (
-                  <p className="text-xs text-gray-400 py-4 text-center">No purchases recorded.</p>
+                  <p className="text-xs text-gray-400 dark:text-slate-500 py-4 text-center">No purchases recorded.</p>
                 ) : (
-                  <div className="divide-y divide-gray-50">
+                  <div className="divide-y divide-edge dark:divide-edge-dark">
                     {customerDetails.sales.map(sale => (
                       <div key={sale.id} className="py-3 flex justify-between items-center text-xs">
                         <div>
-                          <p className="font-semibold text-gray-800">{sale.product_name}</p>
-                          <p className="text-[10px] text-gray-400">{sale.sale_date} · Qty: {sale.quantity}</p>
+                          <p className="font-semibold text-inkA dark:text-inkA-dark">{sale.product_name}</p>
+                          <p className="text-[10px] text-gray-400 dark:text-slate-500">{sale.sale_date} · Qty: {sale.quantity}</p>
                         </div>
-                        <span className="font-bold text-gray-950">₹{sale.revenue.toLocaleString('en-IN')}</span>
+                        <span className="font-bold text-inkA dark:text-inkA-dark">₹{sale.revenue.toLocaleString('en-IN')}</span>
                       </div>
                     ))}
                   </div>
@@ -607,24 +607,24 @@ export default function Customers() {
 
               {/* Credit */}
               <SectionCard>
-                <div className="flex items-center gap-1.5 mb-3 text-brand-amber border-b border-gray-50 pb-2">
+                <div className="flex items-center gap-1.5 mb-3 text-amber-600 dark:text-amber-400 dark:text-amber-400 border-b border-edge dark:border-edge-dark pb-2">
                   <CreditCard size={15} />
                   <h3 className="text-xs font-bold uppercase tracking-wider">Outstanding Credit</h3>
                 </div>
                 {customerDetails.credits.length === 0 ? (
-                  <p className="text-xs text-gray-400 py-4 text-center">Clean ledger!</p>
+                  <p className="text-xs text-gray-400 dark:text-slate-500 py-4 text-center">Clean ledger!</p>
                 ) : (
-                  <div className="divide-y divide-gray-50">
+                  <div className="divide-y divide-edge dark:divide-edge-dark">
                     {customerDetails.credits.map(credit => (
                       <div key={credit.id} className="py-3 flex justify-between items-center text-xs">
                         <div>
-                          <p className="font-semibold text-gray-800">₹{(credit.total_amount - credit.paid_amount).toLocaleString('en-IN')} Outstanding</p>
-                          <p className="text-[10px] text-gray-400">Due: {credit.due_date} · {credit.notes || '—'}</p>
+                          <p className="font-semibold text-inkA dark:text-inkA-dark">₹{(credit.total_amount - credit.paid_amount).toLocaleString('en-IN')} Outstanding</p>
+                          <p className="text-[10px] text-gray-400 dark:text-slate-500">Due: {credit.due_date} · {credit.notes || '—'}</p>
                         </div>
                         <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                          credit.status === 'paid'    ? 'bg-brand-greenSoft text-brand-green' :
-                          credit.status === 'overdue' ? 'bg-brand-redSoft text-brand-red animate-pulse' :
-                          'bg-brand-amberSoft text-brand-amber'
+                          credit.status === 'paid'    ? 'bg-green-50 dark:bg-green-500/10 dark:bg-green-500/10 text-green-600 dark:text-green-400 dark:text-green-400' :
+                          credit.status === 'overdue' ? 'bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 dark:text-red-400 animate-pulse' :
+                          'bg-amber-50 dark:bg-amber-500/10 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 dark:text-amber-400'
                         }`}>
                           {credit.status}
                         </span>

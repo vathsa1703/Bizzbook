@@ -26,16 +26,16 @@ export default function More({ onNavigate }) {
 
   return (
     <div className="pb-20">
-      <div className="bg-white px-5 pt-12 pb-5 border-b border-gray-100">
-        <h1 className="text-2xl font-bold text-gray-900">More</h1>
+      <div className="bg-panel dark:bg-panel-dark px-5 pt-12 pb-5 border-b border-edge dark:border-edge-dark">
+        <h1 className="text-2xl font-bold text-inkA dark:text-inkA-dark">More</h1>
         {/* Profile card */}
         <div className="mt-4 flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-brand-blue flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center">
             <span className="text-white font-bold text-lg">{userInitial}</span>
           </div>
           <div>
-            <p className="font-bold text-gray-900">{user?.name || 'User'}</p>
-            <p className="text-xs text-gray-500">{roleText} · Rajesh Kirana</p>
+            <p className="font-bold text-inkA dark:text-inkA-dark">{user?.name || 'User'}</p>
+            <p className="text-xs text-inkB dark:text-inkB-dark">{roleText} · Rajesh Kirana</p>
           </div>
         </div>
       </div>
@@ -45,15 +45,15 @@ export default function More({ onNavigate }) {
         {recommendations.length > 0 && (
           <SectionCard>
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 rounded-full bg-brand-blue flex items-center justify-center">
+              <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center">
                 <span className="text-white text-[10px] font-bold">AI</span>
               </div>
-              <p className="text-sm font-bold text-gray-900">Recommendations</p>
+              <p className="text-sm font-bold text-inkA dark:text-inkA-dark">Recommendations</p>
             </div>
             {recommendations.map((r, i) => (
-              <div key={i} className="flex items-start gap-2 py-2 border-b border-gray-50 last:border-0">
-                <span className="text-brand-blue mt-0.5">•</span>
-                <p className="text-sm text-gray-700 leading-snug">{typeof r === 'string' ? r : r.message || r.recommendation || JSON.stringify(r)}</p>
+              <div key={i} className="flex items-start gap-2 py-2 border-b border-edge dark:border-edge-dark last:border-0">
+                <span className="text-accent mt-0.5">•</span>
+                <p className="text-sm text-inkB dark:text-inkB-dark leading-snug">{typeof r === 'string' ? r : r.message || r.recommendation || JSON.stringify(r)}</p>
               </div>
             ))}
           </SectionCard>
@@ -61,7 +61,7 @@ export default function More({ onNavigate }) {
 
         {/* Menu sections */}
         <div>
-          <p className="text-xs font-bold text-gray-400 tracking-widest uppercase mb-2 px-1">Business</p>
+          <p className="text-xs font-bold text-gray-400 dark:text-slate-500 tracking-widest uppercase mb-2 px-1">Business</p>
           <SectionCard className="py-0 px-0 overflow-hidden">
             {isAdmin && (
               <div className="px-4" onClick={() => onNavigate('marketing')}>
@@ -171,7 +171,7 @@ export default function More({ onNavigate }) {
         </div>
 
         <div>
-          <p className="text-xs font-bold text-gray-400 tracking-widest uppercase mb-2 px-1">Account</p>
+          <p className="text-xs font-bold text-gray-400 dark:text-slate-500 tracking-widest uppercase mb-2 px-1">Account</p>
           <SectionCard className="py-0 px-0 overflow-hidden">
             {isAdmin && (
               <div className="px-4" onClick={() => onNavigate('company-profile')}>
@@ -217,13 +217,13 @@ export default function More({ onNavigate }) {
         {/* Log out */}
         <button 
           onClick={logout}
-          className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl bg-brand-redSoft text-brand-red font-semibold text-sm active:scale-[0.98] transition-transform"
+          className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 dark:text-red-400 font-semibold text-sm active:scale-[0.98] transition-transform"
         >
           <LogOut size={16} />
           Log Out
         </button>
 
-        <p className="text-center text-xs text-gray-400 pb-2">Version 1.0.0 · AI Business Assistant</p>
+        <p className="text-center text-xs text-gray-400 dark:text-slate-500 pb-2">Version 1.0.0 · AI Business Assistant</p>
       </div>
     </div>
   );
