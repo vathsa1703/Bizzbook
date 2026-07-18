@@ -54,40 +54,40 @@ export default function HRCopilot() {
   };
 
   const getInsightIcon = (type, severity) => {
-    if (type === 'burnout_risk') return <AlertTriangle className="w-5 h-5 text-red-400" />;
-    if (severity === 'warning') return <AlertTriangle className="w-5 h-5 text-amber-400" />;
-    return <Sparkles className="w-5 h-5 text-blue-400" />;
+    if (type === 'burnout_risk') return <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />;
+    if (severity === 'warning') return <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />;
+    return <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />;
   };
 
   const getInsightColor = (severity) => {
-    if (severity === 'warning') return 'bg-amber-500/10 border-amber-500/20';
-    if (severity === 'info') return 'bg-blue-500/10 border-blue-500/20';
-    if (severity === 'error') return 'bg-red-500/10 border-red-500/20';
-    return 'bg-slate-800 border-slate-700';
+    if (severity === 'warning') return 'bg-amber-50 dark:bg-amber-500/10 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/25 dark:border-amber-500/20';
+    if (severity === 'info') return 'bg-blue-50 dark:bg-blue-500/10 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/25 dark:border-blue-500/20';
+    if (severity === 'error') return 'bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 border-red-200 dark:border-red-500/25 dark:border-red-500/20';
+    return 'bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark';
   };
 
   return (
-    <div className="p-4 lg:p-6 h-full flex flex-col space-y-5">
+    <div className="p-4 lg:p-6 h-full flex-col space-y-5">
       <div className="flex items-center gap-3 shrink-0">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-          <Bot className="w-5 h-5 text-white" />
+          <Bot className="w-5 h-5 text-inkA dark:text-inkA-dark" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-white">HR AI Copilot</h1>
-          <p className="text-sm text-slate-400">Intelligent assistance for HR operations</p>
+          <h1 className="text-xl font-bold text-inkA dark:text-inkA-dark">HR AI Copilot</h1>
+          <p className="text-sm text-inkB dark:text-inkB-dark">Intelligent assistance for HR operations</p>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
+      <div className="flex-1 flex-col lg:flex-row gap-6 min-h-0">
         {/* Chat Interface */}
-        <div className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col overflow-hidden shadow-xl shadow-slate-950">
+        <div className="flex-1 bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl flex-col overflow-hidden shadow-xl shadow-slate-950">
           <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6 scrollbar-thin">
             {messages.map((m, i) => (
               <div key={i} className={`flex gap-4 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${m.role === 'user' ? 'bg-blue-600' : 'bg-gradient-to-br from-violet-500 to-fuchsia-600'}`}>
-                  {m.role === 'user' ? <User className="w-4 h-4 text-white" /> : <Bot className="w-4 h-4 text-white" />}
+                  {m.role === 'user' ? <User className="w-4 h-4 text-inkA dark:text-inkA-dark" /> : <Bot className="w-4 h-4 text-inkA dark:text-inkA-dark" />}
                 </div>
-                <div className={`max-w-[80%] rounded-2xl p-4 text-sm ${m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-200 border border-slate-700'}`}>
+                <div className={`max-w-[80%] rounded-2xl p-4 text-sm ${m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-panel2 dark:bg-panel2-dark text-inkA dark:text-inkA-dark border-edge dark:border-edge-dark'}`}>
                   <div className="whitespace-pre-wrap">{m.content}</div>
                 </div>
               </div>
@@ -95,25 +95,25 @@ export default function HRCopilot() {
             {loading && (
               <div className="flex gap-4">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shrink-0">
-                  <Bot className="w-4 h-4 text-white" />
+                  <Bot className="w-4 h-4 text-inkA dark:text-inkA-dark" />
                 </div>
-                <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />
-                  <span className="text-sm text-slate-400">Analyzing data...</span>
+                <div className="bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark rounded-2xl p-4 flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 text-violet-600 dark:text-violet-400 animate-spin" />
+                  <span className="text-sm text-inkB dark:text-inkB-dark">Analyzing data...</span>
                 </div>
               </div>
             )}
             <div ref={endRef} />
           </div>
           
-          <div className="p-4 bg-slate-900 border-t border-slate-800">
+          <div className="p-4 bg-panel dark:bg-panel-dark border-t border-edge dark:border-edge-dark">
             <form onSubmit={handleSend} className="relative flex items-center">
               <input
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 disabled={loading}
                 placeholder="Ask about employee leaves, generate a warning letter, or analyze attendance..."
-                className="w-full bg-slate-950 border border-slate-800 text-white placeholder-slate-500 rounded-xl pl-4 pr-12 py-3.5 text-sm outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all shadow-inner disabled:opacity-50"
+                className="w-full bg-canvas dark:bg-canvas-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 rounded-xl pl-4 pr-12 py-3.5 text-sm outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all shadow-inner disabled:opacity-50"
               />
               <button
                 type="submit"
@@ -127,14 +127,14 @@ export default function HRCopilot() {
         </div>
 
         {/* Proactive Insights */}
-        <div className="w-full lg:w-80 shrink-0 flex flex-col gap-4">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider px-1">Proactive Insights</h2>
+        <div className="w-full lg:w-80 shrink-0 flex-col gap-4">
+          <h2 className="text-sm font-bold text-inkB dark:text-inkB-dark uppercase tracking-wider px-1">Proactive Insights</h2>
           
           <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-thin">
             {insightsLoading ? (
-              <div className="text-center py-10 text-slate-500 text-sm">Scanning for insights...</div>
+              <div className="text-center py-10 text-inkB dark:text-inkB-dark text-sm">Scanning for insights...</div>
             ) : insights.length === 0 ? (
-              <div className="text-center py-10 text-slate-500 text-sm bg-slate-900 border border-slate-800 rounded-2xl">
+              <div className="text-center py-10 text-inkB dark:text-inkB-dark text-sm bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl">
                 All systems nominal.<br/>No proactive alerts today.
               </div>
             ) : (
@@ -143,19 +143,19 @@ export default function HRCopilot() {
                   <div className="flex gap-3 mb-2">
                     <div className="mt-0.5 shrink-0">{getInsightIcon(insight.type, insight.severity)}</div>
                     <div>
-                      <h3 className="text-sm font-bold text-white">{insight.title}</h3>
-                      {insight.subtitle && <p className="text-xs text-slate-400 mt-0.5">{insight.subtitle}</p>}
+                      <h3 className="text-sm font-bold text-inkA dark:text-inkA-dark">{insight.title}</h3>
+                      {insight.subtitle && <p className="text-xs text-inkB dark:text-inkB-dark mt-0.5">{insight.subtitle}</p>}
                     </div>
                   </div>
                   {insight.data && Array.isArray(insight.data) && (
-                    <div className="mt-3 pt-3 border-t border-slate-800/50 space-y-1">
+                    <div className="mt-3 pt-3 border-t border-edge dark:border-edge-dark space-y-1">
                       {insight.data.slice(0, 3).map((item, i) => (
-                        <div key={i} className="text-xs text-slate-300 truncate">
+                        <div key={i} className="text-xs text-inkB dark:text-inkB-dark truncate">
                           • {item.name || item.employee_name} {item.job_title ? `(${item.job_title})` : ''}
                         </div>
                       ))}
                       {insight.data.length > 3 && (
-                        <div className="text-xs text-slate-500 pt-1">+ {insight.data.length - 3} more</div>
+                        <div className="text-xs text-inkB dark:text-inkB-dark pt-1">+ {insight.data.length - 3} more</div>
                       )}
                     </div>
                   )}
@@ -165,7 +165,7 @@ export default function HRCopilot() {
                         setInput(`Can you draft a supportive email to employees who have taken >80% of their leaves, checking on their well-being?`);
                         document.querySelector('form input')?.focus();
                       }}
-                      className="mt-3 w-full py-1.5 bg-slate-950/50 hover:bg-slate-900 text-xs font-semibold text-slate-300 rounded-lg transition-colors border border-slate-800"
+                      className="mt-3 w-full py-1.5 bg-slate-950/50 hover:bg-slate-900 text-xs font-semibold text-inkB dark:text-inkB-dark rounded-lg transition-colors border-edge dark:border-edge-dark"
                     >
                       Draft Check-in Email
                     </button>

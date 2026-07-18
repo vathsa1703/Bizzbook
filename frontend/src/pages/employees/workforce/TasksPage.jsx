@@ -33,18 +33,18 @@ export default function TasksPage() {
     <div className="p-4 sm:p-6">
       <PageHeader icon={ClipboardList} title="Tasks" subtitle={`${tasks.length} task${tasks.length !== 1 ? 's' : ''}`}>
         <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-slate-500" />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search…" className="pl-8 pr-3 py-2 text-sm bg-slate-800 border border-slate-700 rounded-xl text-white placeholder-slate-500 outline-none focus:border-blue-500 w-36" />
+          <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-inkB dark:text-inkB-dark" />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search…" className="pl-8 pr-3 py-2 text-sm bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark rounded-xl text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 w-36" />
         </div>
         <button onClick={() => setShowCreate(true)} className={btnPrimary}><Plus className="w-4 h-4" />New Task</button>
       </PageHeader>
 
       <div className="flex gap-2 mb-4 flex-wrap">
-        <select value={status} onChange={e => setStatus(e.target.value)} className="px-3 py-1.5 text-sm bg-slate-800 border border-slate-700 rounded-xl text-slate-200 outline-none">
+        <select value={status} onChange={e => setStatus(e.target.value)} className="px-3 py-1.5 text-sm bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark rounded-xl text-inkA dark:text-inkA-dark outline-none">
           <option value="">All statuses</option>
           {STATUS_ORDER.map(s => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
         </select>
-        <select value={priority} onChange={e => setPriority(e.target.value)} className="px-3 py-1.5 text-sm bg-slate-800 border border-slate-700 rounded-xl text-slate-200 outline-none">
+        <select value={priority} onChange={e => setPriority(e.target.value)} className="px-3 py-1.5 text-sm bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark rounded-xl text-inkA dark:text-inkA-dark outline-none">
           <option value="">All priorities</option>
           {Object.keys(PRIORITY_META).map(p => <option key={p} value={p}>{PRIORITY_META[p].label}</option>)}
         </select>
@@ -53,7 +53,7 @@ export default function TasksPage() {
       {loading ? <Loading /> : tasks.length === 0 ? (
         <EmptyState icon={ClipboardList} title="No tasks" subtitle="Create a task and assign it to people, a team or a department." />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {tasks.map(t => <TaskCard key={t.id} task={t} onClick={() => setOpenId(t.id)} />)}
         </div>
       )}

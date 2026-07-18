@@ -11,10 +11,10 @@ const PRIORITY_COLORS = { low: '#94a3b8', medium: '#60a5fa', high: '#fbbf24', ur
 
 function Stat({ icon: Icon, value, label, color }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+    <div className="rounded-2xl border-edge dark:border-edge-dark bg-panel dark:bg-panel-dark p-4">
       <Icon className="w-5 h-5 mb-2" style={{ color }} />
-      <div className="text-2xl font-bold text-white leading-none">{value}</div>
-      <div className="text-xs text-slate-500 mt-1">{label}</div>
+      <div className="text-2xl font-bold text-inkA dark:text-inkA-dark leading-none">{value}</div>
+      <div className="text-xs text-inkB dark:text-inkB-dark mt-1">{label}</div>
     </div>
   );
 }
@@ -39,7 +39,7 @@ export default function WorkforceAnalytics() {
     <div className="p-4 sm:p-6">
       <PageHeader icon={BarChart3} title="Workforce Analytics" subtitle="Task productivity across your team" />
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
+      <div className="grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
         <Stat icon={ListTodo} value={data.total} label="Total tasks" color="#60a5fa" />
         <Stat icon={CheckCircle2} value={data.completed} label="Completed" color="#34d399" />
         <Stat icon={BarChart3} value={`${data.completionRate}%`} label="Completion rate" color="#a78bfa" />
@@ -47,10 +47,10 @@ export default function WorkforceAnalytics() {
         <Stat icon={Clock} value={data.avgCompletionDays ?? '—'} label="Avg days to close" color="#fbbf24" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-          <div className="text-sm font-semibold text-white mb-4">Tasks by status</div>
-          {statusData.length === 0 ? <div className="text-xs text-slate-500 py-10 text-center">No data</div> : (
+      <div className="grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="rounded-2xl border-edge dark:border-edge-dark bg-panel dark:bg-panel-dark p-4">
+          <div className="text-sm font-semibold text-inkA dark:text-inkA-dark mb-4">Tasks by status</div>
+          {statusData.length === 0 ? <div className="text-xs text-inkB dark:text-inkB-dark py-10 text-center">No data</div> : (
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={statusData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
@@ -62,9 +62,9 @@ export default function WorkforceAnalytics() {
             </ResponsiveContainer>
           )}
         </div>
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-          <div className="text-sm font-semibold text-white mb-4">Tasks by priority</div>
-          {priorityData.length === 0 ? <div className="text-xs text-slate-500 py-10 text-center">No data</div> : (
+        <div className="rounded-2xl border-edge dark:border-edge-dark bg-panel dark:bg-panel-dark p-4">
+          <div className="text-sm font-semibold text-inkA dark:text-inkA-dark mb-4">Tasks by priority</div>
+          {priorityData.length === 0 ? <div className="text-xs text-inkB dark:text-inkB-dark py-10 text-center">No data</div> : (
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
                 <Pie data={priorityData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={{ fill: '#cbd5e1', fontSize: 11 }}>

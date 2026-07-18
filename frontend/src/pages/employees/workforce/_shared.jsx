@@ -14,12 +14,12 @@ export const AVATAR_GRADIENTS = [
 export const COLOR_SWATCHES = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#ef4444', '#6366f1'];
 
 export const STATUS_STYLES = {
-  Active: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
-  Inactive: 'bg-slate-500/15 text-slate-400 border-slate-500/20',
-  'On Leave': 'bg-amber-500/15 text-amber-400 border-amber-500/20',
-  Terminated: 'bg-red-500/15 text-red-400 border-red-500/20',
-  Probation: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
-  Archived: 'bg-slate-500/15 text-slate-400 border-slate-500/20',
+  Active: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/25 dark:border-emerald-500/20',
+  Inactive: 'bg-slate-500/15 text-inkB dark:text-inkB-dark border-slate-500/20',
+  'On Leave': 'bg-amber-500/15 text-amber-600 dark:text-amber-400 dark:text-amber-400 border-amber-200 dark:border-amber-500/25 dark:border-amber-500/20',
+  Terminated: 'bg-red-500/15 text-red-600 dark:text-red-400 dark:text-red-400 border-red-200 dark:border-red-500/25 dark:border-red-500/20',
+  Probation: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 dark:text-blue-400 border-blue-200 dark:border-blue-500/25 dark:border-blue-500/20',
+  Archived: 'bg-slate-500/15 text-inkB dark:text-inkB-dark border-slate-500/20',
 };
 
 export function Avatar({ name, src, size = 'md', color }) {
@@ -43,7 +43,7 @@ export function StatusBadge({ status }) {
 
 export function Loading({ label = 'Loading…' }) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+    <div className="flex-col items-center justify-center py-20 text-inkB dark:text-inkB-dark">
       <Loader2 className="w-6 h-6 animate-spin mb-2" /><span className="text-sm">{label}</span>
     </div>
   );
@@ -51,10 +51,10 @@ export function Loading({ label = 'Loading…' }) {
 
 export function EmptyState({ icon: Icon = Users, title, subtitle, action }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center mb-3"><Icon className="w-6 h-6 text-slate-500" /></div>
-      <div className="text-sm font-semibold text-slate-300">{title}</div>
-      {subtitle && <div className="text-xs text-slate-500 mt-1 max-w-xs">{subtitle}</div>}
+    <div className="flex-col items-center justify-center py-16 text-center">
+      <div className="w-14 h-14 rounded-2xl bg-panel2 dark:bg-panel2-dark flex items-center justify-center mb-3"><Icon className="w-6 h-6 text-inkB dark:text-inkB-dark" /></div>
+      <div className="text-sm font-semibold text-inkB dark:text-inkB-dark">{title}</div>
+      {subtitle && <div className="text-xs text-inkB dark:text-inkB-dark mt-1 max-w-xs">{subtitle}</div>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );
@@ -63,10 +63,10 @@ export function EmptyState({ icon: Icon = Users, title, subtitle, action }) {
 export function PageHeader({ icon: Icon, title, subtitle, children }) {
   return (
     <div className="flex items-center gap-3 mb-5 flex-wrap">
-      {Icon && <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center"><Icon className="w-5 h-5 text-blue-400" /></div>}
+      {Icon && <div className="w-10 h-10 rounded-xl bg-blue-600/20 flex items-center justify-center"><Icon className="w-5 h-5 text-blue-600 dark:text-blue-400" /></div>}
       <div className="min-w-0">
-        <h1 className="text-lg font-bold text-white leading-tight">{title}</h1>
-        {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+        <h1 className="text-lg font-bold text-inkA dark:text-inkA-dark leading-tight">{title}</h1>
+        {subtitle && <p className="text-xs text-inkB dark:text-inkB-dark">{subtitle}</p>}
       </div>
       <div className="ml-auto flex items-center gap-2">{children}</div>
     </div>
@@ -93,25 +93,25 @@ export function MemberPicker({ employees, value, onChange, height = 'max-h-56' }
   return (
     <div>
       <div className="relative mb-2">
-        <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-gray-400" />
+        <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-gray-400 dark:text-slate-500" />
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search employees…"
-          className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-brand-blue" />
+          className="w-full pl-8 pr-3 py-2 text-sm border-edge dark:border-edge-dark rounded-xl outline-none focus:border-accent" />
       </div>
-      <div className={`${height} overflow-y-auto border border-gray-100 rounded-xl divide-y divide-gray-50`}>
-        {filtered.length === 0 && <div className="p-3 text-xs text-gray-400 text-center">No employees</div>}
+      <div className={`${height} overflow-y-auto border-edge dark:border-edge-dark rounded-xl divide-y divide-edge dark:divide-edge-dark`}>
+        {filtered.length === 0 && <div className="p-3 text-xs text-gray-400 dark:text-slate-500 text-center">No employees</div>}
         {filtered.map(e => (
-          <label key={e.id} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer">
+          <label key={e.id} className="flex items-center gap-2 px-3 py-2 hover:bg-panel2 dark:hover:bg-panel2-dark cursor-pointer">
             <input type="checkbox" checked={sel.has(e.id)} onChange={() => toggle(e.id)} className="rounded" />
             <Avatar name={e.name} src={e.avatar} size="sm" />
-            <div className="min-w-0"><div className="text-sm text-gray-900 truncate">{e.name}</div>
-              <div className="text-[11px] text-gray-400 truncate">{e.job_title || e.department || '—'}</div></div>
+            <div className="min-w-0"><div className="text-sm text-inkA dark:text-inkA-dark truncate">{e.name}</div>
+              <div className="text-[11px] text-gray-400 dark:text-slate-500 truncate">{e.job_title || e.department || '—'}</div></div>
           </label>
         ))}
       </div>
-      <div className="text-[11px] text-gray-400 mt-1">{value.length} selected</div>
+      <div className="text-[11px] text-gray-400 dark:text-slate-500 mt-1">{value.length} selected</div>
     </div>
   );
 }
 
 export const btnPrimary = 'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors';
-export const btnGhost = 'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors';
+export const btnGhost = 'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors';

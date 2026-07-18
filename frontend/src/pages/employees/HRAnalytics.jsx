@@ -31,8 +31,8 @@ export default function HRAnalytics() {
     load();
   }, []);
 
-  if (loading) return <div className="p-10 text-center text-slate-500">Loading HR Analytics...</div>;
-  if (!data) return <div className="p-10 text-center text-slate-500">Analytics data unavailable.</div>;
+  if (loading) return <div className="p-10 text-center text-inkB dark:text-inkB-dark">Loading HR Analytics...</div>;
+  if (!data) return <div className="p-10 text-center text-inkB dark:text-inkB-dark">Analytics data unavailable.</div>;
 
   const { employees, payrollHistory, todayAttendance } = data;
 
@@ -56,12 +56,12 @@ export default function HRAnalytics() {
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-white">HR Analytics</h1>
-        <p className="text-sm text-slate-400 mt-0.5">Key metrics and trends across your workforce</p>
+        <h1 className="text-xl font-bold text-inkA dark:text-inkA-dark">HR Analytics</h1>
+        <p className="text-sm text-inkB dark:text-inkB-dark mt-0.5">Key metrics and trends across your workforce</p>
       </div>
 
       {/* Top Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Headcount"
           value={totalEmployees}
@@ -86,53 +86,53 @@ export default function HRAnalytics() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Department Breakdown */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-          <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-blue-400" /> Headcount by Department</h3>
+        <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl p-5">
+          <h3 className="text-sm font-bold text-inkA dark:text-inkA-dark mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-blue-600 dark:text-blue-400" /> Headcount by Department</h3>
           {deptBreakdown.length > 0 ? (
             <div className="space-y-4">
               {deptBreakdown.map((d, i) => (
                 <div key={i}>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-slate-300 font-medium">{d.department}</span>
-                    <span className="text-slate-400">{d.count} ({Math.round((d.count / totalEmployees) * 100)}%)</span>
+                    <span className="text-inkB dark:text-inkB-dark font-medium">{d.department}</span>
+                    <span className="text-inkB dark:text-inkB-dark">{d.count} ({Math.round((d.count / totalEmployees) * 100)}%)</span>
                   </div>
-                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                  <div className="h-2 bg-panel2 dark:bg-panel2-dark rounded-full overflow-hidden">
                     <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(d.count / totalEmployees) * 100}%` }} />
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-sm text-slate-500">No department data</div>
+            <div className="text-sm text-inkB dark:text-inkB-dark">No department data</div>
           )}
         </div>
 
         {/* Payroll Trend */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-          <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-violet-400" /> Payroll Trend (Last 6 Months)</h3>
+        <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl p-5">
+          <h3 className="text-sm font-bold text-inkA dark:text-inkA-dark mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-violet-600 dark:text-violet-400" /> Payroll Trend (Last 6 Months)</h3>
           {payrollHistory.length > 0 ? (
-            <div className="space-y-4 flex flex-col justify-end h-48">
+            <div className="space-y-4 flex-col justify-end h-48">
               <div className="flex items-end gap-2 h-32 w-full pt-4">
                 {payrollHistory.map((run, i) => {
                   const max = Math.max(...payrollHistory.map(r => r.total_net)) || 1;
                   const height = `${(run.total_net / max) * 100}%`;
                   return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
-                      <div className="w-full bg-violet-500/20 rounded-t-sm relative group-hover:bg-violet-500/40 transition-colors" style={{ height }}>
-                        <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] py-1 px-2 rounded whitespace-nowrap z-10 transition-opacity">
+                    <div key={i} className="flex-1 flex-col items-center gap-2 group">
+                      <div className="w-full bg-violet-100 dark:bg-violet-500/15 dark:bg-violet-500/20 rounded-t-sm relative group-hover:bg-violet-500/40 transition-colors" style={{ height }}>
+                        <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-panel2 dark:bg-panel2-dark text-inkA dark:text-inkA-dark text-[10px] py-1 px-2 rounded whitespace-nowrap z-10 transition-opacity">
                           {formatCurrency(run.total_net)}
                         </div>
                       </div>
-                      <div className="text-[10px] text-slate-500 uppercase">{run.month}/{run.year.toString().slice(-2)}</div>
+                      <div className="text-[10px] text-inkB dark:text-inkB-dark uppercase">{run.month}/{run.year.toString().slice(-2)}</div>
                     </div>
                   );
                 })}
               </div>
             </div>
           ) : (
-            <div className="text-sm text-slate-500 flex items-center justify-center h-48">Not enough payroll history to display trend</div>
+            <div className="text-sm text-inkB dark:text-inkB-dark flex items-center justify-center h-48">Not enough payroll history to display trend</div>
           )}
         </div>
       </div>
@@ -142,20 +142,20 @@ export default function HRAnalytics() {
 
 function StatCard({ title, value, icon: Icon, color, trend, trendUp }) {
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+    <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl p-5">
       <div className="flex justify-between items-start mb-4">
         <div className={`w-10 h-10 rounded-xl bg-${color}-500/10 text-${color}-400 flex items-center justify-center`}>
           <Icon className="w-5 h-5" />
         </div>
         {trend && (
-          <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${trendUp ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10'}`}>
+          <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded ${trendUp ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10' : 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10'}`}>
             {trendUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
             {trend}
           </div>
         )}
       </div>
-      <div className="text-slate-400 text-xs font-medium uppercase tracking-wider mb-1">{title}</div>
-      <div className="text-2xl font-bold text-white">{value}</div>
+      <div className="text-inkB dark:text-inkB-dark text-xs font-medium uppercase tracking-wider mb-1">{title}</div>
+      <div className="text-2xl font-bold text-inkA dark:text-inkA-dark">{value}</div>
     </div>
   );
 }

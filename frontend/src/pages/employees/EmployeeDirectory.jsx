@@ -17,11 +17,11 @@ const EMPLOYMENT_TYPES = ['Full Time', 'Part Time', 'Contract', 'Intern'];
 
 function StatusBadge({ status }) {
   const colors = {
-    Active: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
-    Inactive: 'bg-slate-500/15 text-slate-400 border-slate-500/20',
-    'On Leave': 'bg-amber-500/15 text-amber-400 border-amber-500/20',
-    Terminated: 'bg-red-500/15 text-red-400 border-red-500/20',
-    Probation: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
+    Active: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/25 dark:border-emerald-500/20',
+    Inactive: 'bg-slate-500/15 text-inkB dark:text-inkB-dark border-slate-500/20',
+    'On Leave': 'bg-amber-500/15 text-amber-600 dark:text-amber-400 dark:text-amber-400 border-amber-200 dark:border-amber-500/25 dark:border-amber-500/20',
+    Terminated: 'bg-red-500/15 text-red-600 dark:text-red-400 dark:text-red-400 border-red-200 dark:border-red-500/25 dark:border-red-500/20',
+    Probation: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 dark:text-blue-400 border-blue-200 dark:border-blue-500/25 dark:border-blue-500/20',
   };
   return (
     <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${colors[status] || colors.Active}`}>
@@ -138,8 +138,8 @@ export default function EmployeeDirectory({ onViewChange }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Employee Directory</h1>
-          <p className="text-sm text-slate-400 mt-0.5">{employees.length} employees</p>
+          <h1 className="text-xl font-bold text-inkA dark:text-inkA-dark">Employee Directory</h1>
+          <p className="text-sm text-inkB dark:text-inkB-dark mt-0.5">{employees.length} employees</p>
         </div>
         <button onClick={openCreate} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
           <Plus className="w-4 h-4" /> Add Employee
@@ -154,16 +154,16 @@ export default function EmployeeDirectory({ onViewChange }) {
         const ratings = employees.map(e => e.performance_rating).filter(r => r > 0);
         const avgRating = ratings.length > 0 ? (ratings.reduce((s, r) => s + r, 0) / ratings.length) : null;
         return (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             { label: 'Total', value: employees.length, color: 'blue' },
             { label: 'Active', value: employees.filter(e => e.status === 'Active').length, color: 'emerald' },
             { label: 'On Leave', value: employees.filter(e => e.status === 'On Leave').length, color: 'amber' },
             { label: 'Avg Rating', value: avgRating !== null ? avgRating.toFixed(1) : '—', color: 'violet' },
           ].map(({ label, value, color }) => (
-            <div key={label} className={`bg-${color}-500/10 border border-${color}-500/20 rounded-xl p-4`}>
+            <div key={label} className={`bg-${color}-500/10 border-${color}-500/20 rounded-xl p-4`}>
               <div className={`text-2xl font-bold text-${color}-400`}>{value ?? '—'}</div>
-              <div className="text-xs text-slate-400 mt-0.5">{label}</div>
+              <div className="text-xs text-inkB dark:text-inkB-dark mt-0.5">{label}</div>
             </div>
           ))}
         </div>
@@ -171,87 +171,87 @@ export default function EmployeeDirectory({ onViewChange }) {
       })()}
 
       {/* Search & Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-inkB dark:text-inkB-dark" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, email, code…"
-            className="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
+            className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
         </div>
         <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
-          className="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+          className="bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
           <option value="All">All Departments</option>
           {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
         </select>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+          className="bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
           <option value="All">All Status</option>
           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <button onClick={load} className="p-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors">
+        <button onClick={load} className="p-2.5 bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark rounded-xl text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white transition-colors">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
 
       {/* Employee Grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-20 text-slate-500">Loading employees…</div>
+        <div className="flex items-center justify-center py-20 text-inkB dark:text-inkB-dark">Loading employees…</div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-20 text-slate-500">
+        <div className="text-center py-20 text-inkB dark:text-inkB-dark">
           <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
           <p className="font-medium">No employees found</p>
           <p className="text-sm mt-1">Try adjusting your search or filters</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map(emp => (
             <div key={emp.id} onClick={() => setSelectedEmployee(emp)}
-              className="bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-2xl p-4 cursor-pointer transition-all hover:shadow-lg hover:shadow-blue-500/10 group">
+              className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark hover:border-blue-500/50 rounded-2xl p-4 cursor-pointer transition-all hover:shadow-lg hover:shadow-blue-500/10 group">
               <div className="flex items-start gap-3">
                 <EmployeeAvatar emp={emp} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-white truncate">{emp.name}</h3>
+                    <h3 className="text-sm font-bold text-inkA dark:text-inkA-dark truncate">{emp.name}</h3>
                   </div>
-                  <p className="text-xs text-slate-400 truncate mt-0.5">{emp.job_title || emp.department || 'Employee'}</p>
+                  <p className="text-xs text-inkB dark:text-inkB-dark truncate mt-0.5">{emp.job_title || emp.department || 'Employee'}</p>
                   <div className="mt-2"><StatusBadge status={emp.status} /></div>
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => openEdit(emp)} className="p-1.5 text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors">
+                  <button onClick={() => openEdit(emp)} className="p-1.5 text-inkB dark:text-inkB-dark hover:text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors">
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={() => setDeleteTarget(emp)} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                  <button onClick={() => setDeleteTarget(emp)} className="p-1.5 text-inkB dark:text-inkB-dark hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
-              <div className="mt-3 pt-3 border-t border-slate-800 grid grid-cols-2 gap-2">
+              <div className="mt-3 pt-3 border-t border-edge dark:border-edge-dark grid-cols-2 gap-2">
                 {emp.email && (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <div className="flex items-center gap-1.5 text-xs text-inkB dark:text-inkB-dark">
                     <Mail className="w-3 h-3 flex-shrink-0" />
                     <span className="truncate">{emp.email}</span>
                   </div>
                 )}
                 {emp.phone && (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <div className="flex items-center gap-1.5 text-xs text-inkB dark:text-inkB-dark">
                     <Phone className="w-3 h-3 flex-shrink-0" />
                     <span>{emp.phone}</span>
                   </div>
                 )}
                 {emp.employee_code && (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <div className="flex items-center gap-1.5 text-xs text-inkB dark:text-inkB-dark">
                     <Briefcase className="w-3 h-3 flex-shrink-0" />
                     <span>{emp.employee_code}</span>
                   </div>
                 )}
                 {emp.department_name || emp.department ? (
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                  <div className="flex items-center gap-1.5 text-xs text-inkB dark:text-inkB-dark">
                     <Building2 className="w-3 h-3 flex-shrink-0" />
                     <span className="truncate">{emp.department_name || emp.department}</span>
                   </div>
                 ) : null}
               </div>
               <div className="mt-2 flex items-center justify-between">
-                <span className="text-xs text-slate-600">{emp.joining_date ? `Joined ${emp.joining_date}` : ''}</span>
+                <span className="text-xs text-gray-400 dark:text-slate-500">{emp.joining_date ? `Joined ${emp.joining_date}` : ''}</span>
                 <ChevronRight className="w-4 h-4 text-slate-700 group-hover:text-blue-400 transition-colors" />
               </div>
             </div>
@@ -262,54 +262,54 @@ export default function EmployeeDirectory({ onViewChange }) {
       {/* Create/Edit Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingEmp ? 'Edit Employee' : 'Add New Employee'}>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid-cols-2 gap-3">
             <FormField label="Full Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Rahul Sharma" />
             <FormField label="Job Title" value={form.job_title} onChange={e => setForm(f => ({ ...f, job_title: e.target.value }))} placeholder="Sales Manager" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Department *</label>
+              <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Department *</label>
               <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
-                className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+                className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
                 <option value="">Select Department</option>
                 {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Branch</label>
+              <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Branch</label>
               <select value={form.branch_id} onChange={e => setForm(f => ({ ...f, branch_id: e.target.value }))}
-                className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+                className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
                 <option value="">No Branch</option>
                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid-cols-2 gap-3">
             <FormField label="Salary (₹) *" type="number" value={form.salary} onChange={e => setForm(f => ({ ...f, salary: e.target.value }))} placeholder="50000" />
             <FormField label="Joining Date *" type="date" value={form.joining_date} onChange={e => setForm(f => ({ ...f, joining_date: e.target.value }))} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid-cols-2 gap-3">
             <FormField label="Email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="rahul@company.com" />
             <FormField label="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+91 9876543210" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Employment Type</label>
+              <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Employment Type</label>
               <select value={form.employment_type} onChange={e => setForm(f => ({ ...f, employment_type: e.target.value }))}
-                className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+                className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
                 {EMPLOYMENT_TYPES.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">Status</label>
+              <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Status</label>
               <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-                className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+                className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
                 {STATUSES.map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
           </div>
           <div className="flex gap-3 pt-2">
-            <button onClick={() => setShowModal(false)} className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-xl transition-colors">Cancel</button>
+            <button onClick={() => setShowModal(false)} className="flex-1 py-2.5 bg-panel2 dark:bg-panel2-dark hover:bg-panel2 dark:hover:bg-panel2-dark text-inkB dark:text-inkB-dark text-sm font-medium rounded-xl transition-colors">Cancel</button>
             <button onClick={handleSubmit} disabled={submitting} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50">
               {submitting ? 'Saving…' : editingEmp ? 'Update Employee' : 'Create Employee'}
             </button>

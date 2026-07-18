@@ -45,9 +45,9 @@ export default function KanbanPage() {
   if (loading) return <div className="p-6"><Loading label="Loading board…" /></div>;
 
   return (
-    <div className="p-4 sm:p-6 h-full flex flex-col">
+    <div className="p-4 sm:p-6 h-full flex-col">
       <PageHeader icon={LayoutGrid} title="Kanban Board" subtitle="Drag cards between columns to update status">
-        <select value={priority} onChange={e => setPriority(e.target.value)} className="px-3 py-1.5 text-sm bg-slate-800 border border-slate-700 rounded-xl text-slate-200 outline-none">
+        <select value={priority} onChange={e => setPriority(e.target.value)} className="px-3 py-1.5 text-sm bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark rounded-xl text-inkA dark:text-inkA-dark outline-none">
           <option value="">All priorities</option>
           {Object.keys(PRIORITY_META).map(p => <option key={p} value={p}>{PRIORITY_META[p].label}</option>)}
         </select>
@@ -63,11 +63,11 @@ export default function KanbanPage() {
                 <Droppable droppableId={col} key={col}>
                   {(provided, snapshot) => (
                     <div ref={provided.innerRef} {...provided.droppableProps}
-                      className={`w-72 flex-shrink-0 rounded-2xl border p-2.5 ${snapshot.isDraggingOver ? STATUS_META[col].col + ' bg-slate-900' : 'border-slate-800 bg-slate-900/40'}`}>
+                      className={`w-72 flex-shrink-0 rounded-2xl border p-2.5 ${snapshot.isDraggingOver ? STATUS_META[col].col + ' bg-panel dark:bg-panel-dark' : 'border-edge dark:border-edge-dark bg-slate-900/40'}`}>
                       <div className="flex items-center gap-2 px-1 pb-2">
                         <span className={`w-2 h-2 rounded-full ${STATUS_META[col].dot}`} />
-                        <span className="text-sm font-semibold text-white">{STATUS_META[col].label}</span>
-                        <span className="text-xs text-slate-500">{items.length}</span>
+                        <span className="text-sm font-semibold text-inkA dark:text-inkA-dark">{STATUS_META[col].label}</span>
+                        <span className="text-xs text-inkB dark:text-inkB-dark">{items.length}</span>
                       </div>
                       <div className="space-y-2 min-h-[40px]">
                         {items.map((task, idx) => (
