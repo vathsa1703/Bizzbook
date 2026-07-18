@@ -16,7 +16,7 @@ const greeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Go
 const greetingEmoji = hour < 12 ? '☀️' : hour < 17 ? '🔥' : '🌙';
 
 const QUICK_ACTIONS = [
-  { label: 'New Sale', icon: Plus, color: 'bg-brand-blue', nav: 'sales' },
+  { label: 'New Sale', icon: Plus, color: 'bg-accent', nav: 'sales' },
   { label: 'Add Stock', icon: Package, color: 'bg-brand-green', nav: 'stock' },
   { label: 'Credit', icon: UserCheck, color: 'bg-brand-amber', nav: 'credit' },
   { label: 'Employees', icon: Users, color: 'bg-brand-purple', nav: 'employees', adminOnly: true },
@@ -86,10 +86,10 @@ export default function Home({ onNavigate }) {
   return (
     <div className="pb-20">
       {/* Header */}
-      <div className="bg-white px-5 pt-12 pb-5 flex items-start justify-between">
+      <div className="bg-panel dark:bg-panel-dark px-5 pt-12 pb-5 flex items-start justify-between">
         <div>
-          <p className="text-sm text-gray-500 font-medium">{greeting}, {user?.name || 'User'} {greetingEmoji}</p>
-          <h1 className="text-2xl font-bold text-gray-900 mt-0.5">{user?.companyName || 'Business Dashboard'}</h1>
+          <p className="text-sm text-inkB dark:text-inkB-dark font-medium">{greeting}, {user?.name || 'User'} {greetingEmoji}</p>
+          <h1 className="text-2xl font-bold text-inkA dark:text-inkA-dark mt-0.5">{user?.companyName || 'Business Dashboard'}</h1>
         </div>
         <div className="flex items-center gap-2 mt-1">
           <NotificationBell
@@ -103,7 +103,7 @@ export default function Home({ onNavigate }) {
             }}
             onNavigate={onNavigate}
           />
-          <div className="w-9 h-9 rounded-full bg-brand-blue flex items-center justify-center">
+          <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center">
             <span className="text-white text-sm font-bold">{userInitial}</span>
           </div>
         </div>
@@ -114,23 +114,23 @@ export default function Home({ onNavigate }) {
         {/* Quick Insights strip */}
         {!loading && (
           <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
-            <div className="flex-shrink-0 bg-brand-blueSoft rounded-xl px-3 py-2">
-              <p className="text-xs text-brand-blue font-semibold">{summary?.transaction_count || 0} txns</p>
-              <p className="text-[10px] text-gray-500">This month</p>
+            <div className="flex-shrink-0 bg-accent/10 dark:bg-accent/15 rounded-xl px-3 py-2">
+              <p className="text-xs text-accent font-semibold">{summary?.transaction_count || 0} txns</p>
+              <p className="text-[10px] text-inkB dark:text-inkB-dark">This month</p>
             </div>
-            <div className={`flex-shrink-0 rounded-xl px-3 py-2 ${(summary?.percent_change_vs_previous_month ?? 0) >= 0 ? 'bg-brand-greenSoft' : 'bg-brand-redSoft'}`}>
-              <p className={`text-xs font-semibold ${(summary?.percent_change_vs_previous_month ?? 0) >= 0 ? 'text-brand-green' : 'text-brand-red'}`}>
+            <div className={`flex-shrink-0 rounded-xl px-3 py-2 ${(summary?.percent_change_vs_previous_month ?? 0) >= 0 ? 'bg-green-50 dark:bg-green-500/10 dark:bg-green-500/10' : 'bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10'}`}>
+              <p className={`text-xs font-semibold ${(summary?.percent_change_vs_previous_month ?? 0) >= 0 ? 'text-green-600 dark:text-green-400 dark:text-green-400' : 'text-red-600 dark:text-red-400 dark:text-red-400'}`}>
                 {(summary?.percent_change_vs_previous_month ?? 0) >= 0 ? '↑' : '↓'} {Math.abs(summary?.percent_change_vs_previous_month ?? 0)}%
               </p>
-              <p className="text-[10px] text-gray-500">vs last month</p>
+              <p className="text-[10px] text-inkB dark:text-inkB-dark">vs last month</p>
             </div>
-            <div className="flex-shrink-0 bg-brand-amberSoft rounded-xl px-3 py-2">
-              <p className="text-xs text-brand-amber font-semibold">{creditSummary?.overdue_count || 0} overdue</p>
-              <p className="text-[10px] text-gray-500">Invoices</p>
+            <div className="flex-shrink-0 bg-amber-50 dark:bg-amber-500/10 dark:bg-amber-500/10 rounded-xl px-3 py-2">
+              <p className="text-xs text-amber-600 dark:text-amber-400 dark:text-amber-400 font-semibold">{creditSummary?.overdue_count || 0} overdue</p>
+              <p className="text-[10px] text-inkB dark:text-inkB-dark">Invoices</p>
             </div>
-            <div className="flex-shrink-0 bg-brand-redSoft rounded-xl px-3 py-2">
-              <p className="text-xs text-brand-red font-semibold">{lowStock.length} items</p>
-              <p className="text-[10px] text-gray-500">Low stock</p>
+            <div className="flex-shrink-0 bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 rounded-xl px-3 py-2">
+              <p className="text-xs text-red-600 dark:text-red-400 dark:text-red-400 font-semibold">{lowStock.length} items</p>
+              <p className="text-[10px] text-inkB dark:text-inkB-dark">Low stock</p>
             </div>
           </div>
         )}
@@ -169,7 +169,7 @@ export default function Home({ onNavigate }) {
 
         {/* Quick Actions */}
         <div>
-          <p className="text-xs font-bold text-gray-500 tracking-widest uppercase mb-3">Quick Actions</p>
+          <p className="text-xs font-bold text-inkB dark:text-inkB-dark tracking-widest uppercase mb-3">Quick Actions</p>
           <div className="grid grid-cols-4 gap-2">
             {visibleActions.map(({ label, icon: Icon, color, nav }) => (
               <button
@@ -180,7 +180,7 @@ export default function Home({ onNavigate }) {
                 <div className={`${color} w-14 h-14 rounded-2xl flex items-center justify-center shadow-card-md`}>
                   <Icon size={24} className="text-white" strokeWidth={2} />
                 </div>
-                <span className="text-xs text-gray-600 font-medium">{label}</span>
+                <span className="text-xs text-inkB dark:text-inkB-dark font-medium">{label}</span>
               </button>
             ))}
           </div>
@@ -234,14 +234,14 @@ export default function Home({ onNavigate }) {
         {!loading && advisorLines.length > 0 && (
           <SectionCard>
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-brand-blue flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
                 <span className="text-white text-xs font-bold">AI</span>
               </div>
               <div>
-                <p className="text-xs font-semibold text-brand-blue mb-1">AI Business Advisor</p>
+                <p className="text-xs font-semibold text-accent mb-1">AI Business Advisor</p>
                 <div className="space-y-1.5">
                   {advisorLines.map((line, i) => (
-                    <p key={i} className="text-sm text-gray-700 leading-relaxed">{line}</p>
+                    <p key={i} className="text-sm text-inkB dark:text-inkB-dark leading-relaxed">{line}</p>
                   ))}
                 </div>
               </div>
@@ -252,19 +252,19 @@ export default function Home({ onNavigate }) {
         {/* Top Groups */}
         {!loading && topGroups.length > 0 && (
           <SectionCard>
-            <p className="text-sm font-bold text-gray-900 mb-3">Top Selling Categories</p>
+            <p className="text-sm font-bold text-inkA dark:text-inkA-dark mb-3">Top Selling Categories</p>
             {topGroups.map((g, i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+              <div key={i} className="flex items-center justify-between py-2 border-b border-edge dark:border-edge-dark last:border-0">
                 <div className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-full bg-brand-greenSoft text-brand-green text-[10px] font-bold flex items-center justify-center">
+                  <span className="w-6 h-6 rounded-full bg-green-50 dark:bg-green-500/10 dark:bg-green-500/10 text-green-600 dark:text-green-400 dark:text-green-400 text-[10px] font-bold flex items-center justify-center">
                     {i + 1}
                   </span>
                   <div>
-                    <span className="text-xs text-gray-800 font-semibold block">{g.group_name}</span>
-                    <span className="text-[10px] text-gray-500">{g.units_sold} units sold</span>
+                    <span className="text-xs text-inkA dark:text-inkA-dark font-semibold block">{g.group_name}</span>
+                    <span className="text-[10px] text-inkB dark:text-inkB-dark">{g.units_sold} units sold</span>
                   </div>
                 </div>
-                <span className="text-xs font-bold text-gray-950">₹{(g.revenue || 0).toLocaleString('en-IN')}</span>
+                <span className="text-xs font-bold text-inkA dark:text-inkA-dark">₹{(g.revenue || 0).toLocaleString('en-IN')}</span>
               </div>
             ))}
           </SectionCard>

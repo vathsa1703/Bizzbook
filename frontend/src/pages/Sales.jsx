@@ -380,16 +380,16 @@ export default function Sales({ onNavigate }) {
   }
 
   return (
-    <div className="flex flex-col h-screen pb-20 bg-surface">
+    <div className="flex flex-col h-screen pb-20 bg-canvas dark:bg-canvas-dark">
       {/* Header */}
-      <div className="bg-white px-5 pt-12 pb-4 flex flex-col gap-3 border-b border-gray-100">
+      <div className="bg-panel dark:bg-panel-dark px-5 pt-12 pb-4 flex flex-col gap-3 border-b border-edge dark:border-edge-dark">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Sales</h1>
+          <h1 className="text-2xl font-bold text-inkA dark:text-inkA-dark">Sales</h1>
           <div className="flex gap-2">
             <button
               onClick={() => setView('dashboard')}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                view === 'dashboard' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-500'
+                view === 'dashboard' ? 'bg-accent text-white' : 'bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark'
               }`}
             >
               Overview
@@ -397,7 +397,7 @@ export default function Sales({ onNavigate }) {
             <button
               onClick={() => setView('list')}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                view === 'list' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-500'
+                view === 'list' ? 'bg-accent text-white' : 'bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark'
               }`}
             >
               Sales Log
@@ -405,7 +405,7 @@ export default function Sales({ onNavigate }) {
             <button
               onClick={() => setView('chat')}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                view === 'chat' ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-500'
+                view === 'chat' ? 'bg-accent text-white' : 'bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark'
               }`}
             >
               Ask AI
@@ -417,19 +417,19 @@ export default function Sales({ onNavigate }) {
         {view === 'list' && (
           <div className="flex items-center gap-2">
             <div className="flex-1 relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" />
               <input
                 type="text"
                 placeholder="Search invoice, customer..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:border-brand-blue"
+                className="w-full pl-9 pr-4 py-1.5 bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-xl text-xs outline-none focus:border-accent"
               />
             </div>
             <select
               value={filterGroup}
               onChange={(e) => setFilterGroup(e.target.value)}
-              className="bg-white border border-gray-200 rounded-xl px-2 py-1.5 text-xs text-gray-700 outline-none shadow-sm focus:border-brand-blue max-w-[120px]"
+              className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-xl px-2 py-1.5 text-xs text-inkB dark:text-inkB-dark outline-none shadow-sm focus:border-accent max-w-[120px]"
             >
               <option value="">All Groups</option>
               {productGroups.map(g => (
@@ -438,7 +438,7 @@ export default function Sales({ onNavigate }) {
             </select>
             <button
               onClick={handleOpenCreate}
-              className="flex items-center gap-1 bg-brand-blue text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm"
+              className="flex items-center gap-1 bg-accent text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm"
             >
               <Plus size={14} /> New Sale
             </button>
@@ -452,12 +452,12 @@ export default function Sales({ onNavigate }) {
           <div className="p-4 space-y-4">
             {weekData.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-brand-blueSoft flex items-center justify-center">
-                  <ShoppingBag size={28} className="text-brand-blue" />
+                <div className="w-16 h-16 rounded-2xl bg-accent/10 dark:bg-accent/15 flex items-center justify-center">
+                  <ShoppingBag size={28} className="text-accent" />
                 </div>
                 <div className="text-center">
-                  <p className="font-bold text-gray-900 text-lg">No Sales Data Yet</p>
-                  <p className="text-sm text-gray-500 mt-1 max-w-[240px]">
+                  <p className="font-bold text-inkA dark:text-inkA-dark text-lg">No Sales Data Yet</p>
+                  <p className="text-sm text-inkB dark:text-inkB-dark mt-1 max-w-[240px]">
                     Create a sale or run seed script to initialize data.
                   </p>
                 </div>
@@ -473,42 +473,42 @@ export default function Sales({ onNavigate }) {
                 />
                 
                 <SectionCard>
-                  <p className="text-sm font-bold text-gray-900 mb-3">Top Products</p>
+                  <p className="text-sm font-bold text-inkA dark:text-inkA-dark mb-3">Top Products</p>
                   {topProducts.slice(0, 5).map((p, i) => (
-                    <div key={i} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
+                    <div key={i} className="flex items-center justify-between py-2.5 border-b border-edge dark:border-edge-dark last:border-0">
                       <div className="flex items-center gap-3">
-                        <span className="w-5 h-5 rounded-full bg-brand-blueSoft text-brand-blue text-[10px] font-bold flex items-center justify-center">
+                        <span className="w-5 h-5 rounded-full bg-accent/10 dark:bg-accent/15 text-accent text-[10px] font-bold flex items-center justify-center">
                           {i + 1}
                         </span>
-                        <span className="text-xs text-gray-800 font-semibold">{p.name}</span>
+                        <span className="text-xs text-inkA dark:text-inkA-dark font-semibold">{p.name}</span>
                       </div>
-                      <span className="text-xs font-bold text-gray-950">{fmt(p.revenue || 0)}</span>
+                      <span className="text-xs font-bold text-inkA dark:text-inkA-dark">{fmt(p.revenue || 0)}</span>
                     </div>
                   ))}
                 </SectionCard>
 
                 <SectionCard>
-                  <p className="text-sm font-bold text-gray-900 mb-3">Top Performing Groups</p>
+                  <p className="text-sm font-bold text-inkA dark:text-inkA-dark mb-3">Top Performing Groups</p>
                   {topGroups.slice(0, 5).map((g, i) => (
-                    <div key={i} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
+                    <div key={i} className="flex items-center justify-between py-2.5 border-b border-edge dark:border-edge-dark last:border-0">
                       <div className="flex items-center gap-3">
-                        <span className="w-5 h-5 rounded-full bg-brand-greenSoft text-brand-green text-[10px] font-bold flex items-center justify-center">
+                        <span className="w-5 h-5 rounded-full bg-green-50 dark:bg-green-500/10 dark:bg-green-500/10 text-green-600 dark:text-green-400 dark:text-green-400 text-[10px] font-bold flex items-center justify-center">
                           {i + 1}
                         </span>
-                        <span className="text-xs text-gray-800 font-semibold">{g.group_name}</span>
+                        <span className="text-xs text-inkA dark:text-inkA-dark font-semibold">{g.group_name}</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-xs font-bold text-gray-950 block">{fmt(g.revenue || 0)}</span>
-                        <span className="text-[10px] text-gray-500">{g.units_sold} units</span>
+                        <span className="text-xs font-bold text-inkA dark:text-inkA-dark block">{fmt(g.revenue || 0)}</span>
+                        <span className="text-[10px] text-inkB dark:text-inkB-dark">{g.units_sold} units</span>
                       </div>
                     </div>
                   ))}
                 </SectionCard>
 
                 <SectionCard>
-                  <p className="text-sm font-bold text-gray-900 mb-1">This Month</p>
-                  <p className="text-3xl font-bold text-gray-950">{fmt(todayRevenue)}</p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-sm font-bold text-inkA dark:text-inkA-dark mb-1">This Month</p>
+                  <p className="text-3xl font-bold text-inkA dark:text-inkA-dark">{fmt(todayRevenue)}</p>
+                  <p className="text-xs text-inkB dark:text-inkB-dark mt-1">
                     {summary?.transaction_count || 0} transactions · {summary?.total_units_sold || 0} units sold
                   </p>
                 </SectionCard>
@@ -521,18 +521,18 @@ export default function Sales({ onNavigate }) {
           <div className="p-4">
             <SectionCard className="p-0 overflow-hidden">
               {loading && salesList.length === 0 ? (
-                <div className="py-12 flex items-center justify-center text-gray-400 text-xs">
+                <div className="py-12 flex items-center justify-center text-gray-400 dark:text-slate-500 text-xs">
                   <RefreshCw size={16} className="animate-spin mr-2" /> Loading sales log...
                 </div>
               ) : salesList.length === 0 ? (
-                <div className="py-12 text-center text-gray-400 text-xs">
+                <div className="py-12 text-center text-gray-400 dark:text-slate-500 text-xs">
                   No sales transactions found matching query.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-gray-50 border-b border-gray-100 text-[10px] uppercase font-bold text-gray-500 tracking-wider">
+                      <tr className="bg-panel2 dark:bg-panel2-dark border-b border-edge dark:border-edge-dark text-[10px] uppercase font-bold text-inkB dark:text-inkB-dark tracking-wider">
                         <th className="px-4 py-3">Invoice</th>
                         <th className="px-4 py-3">Customer / Product</th>
                         <th className="px-4 py-3 text-right">Revenue</th>
@@ -540,28 +540,28 @@ export default function Sales({ onNavigate }) {
                         <th className="px-4 py-3 text-center">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50 text-xs">
+                    <tbody className="divide-y divide-edge dark:divide-edge-dark text-xs">
                       {salesList.map((sale) => (
-                        <tr key={sale.id} className="hover:bg-gray-50/50">
-                          <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap">
+                        <tr key={sale.id} className="hover:bg-panel2/60 dark:hover:bg-panel2-dark/60">
+                          <td className="px-4 py-3 font-semibold text-inkA dark:text-inkA-dark whitespace-nowrap">
                             {sale.invoice_number || `S-${sale.id}`}
-                            <p className="text-[10px] text-gray-400 font-normal">{sale.sale_date}</p>
+                            <p className="text-[10px] text-gray-400 dark:text-slate-500 font-normal">{sale.sale_date}</p>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="font-semibold text-gray-800">{sale.customer_name || 'Walk-in'}</div>
-                            <div className="text-[10px] text-gray-500">
+                            <div className="font-semibold text-inkA dark:text-inkA-dark">{sale.customer_name || 'Walk-in'}</div>
+                            <div className="text-[10px] text-inkB dark:text-inkB-dark">
                               {sale.product_name} x {sale.quantity}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-right font-bold text-gray-950 whitespace-nowrap">
+                          <td className="px-4 py-3 text-right font-bold text-inkA dark:text-inkA-dark whitespace-nowrap">
                             ₹{sale.revenue.toLocaleString('en-IN')}
                           </td>
                           <td className="px-4 py-3">
                             <span
                               className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                 sale.payment_status === 'unpaid'
-                                  ? 'bg-brand-redSoft text-brand-red'
-                                  : 'bg-brand-greenSoft text-brand-green'
+                                  ? 'bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 dark:text-red-400'
+                                  : 'bg-green-50 dark:bg-green-500/10 dark:bg-green-500/10 text-green-600 dark:text-green-400 dark:text-green-400'
                               }`}
                             >
                               {sale.payment_status === 'unpaid' ? 'Unpaid' : 'Paid'}
@@ -572,20 +572,20 @@ export default function Sales({ onNavigate }) {
                               {sale.invoice_id && (
                                 <button
                                   onClick={() => setViewingInvoiceId(sale.invoice_id)}
-                                  className="px-2 py-1 bg-brand-blue/10 text-brand-blue hover:bg-brand-blue hover:text-white rounded-lg text-[10px] font-bold transition-colors"
+                                  className="px-2 py-1 bg-accent/10 dark:bg-accent/15 text-accent hover:bg-accent hover:text-white rounded-lg text-[10px] font-bold transition-colors"
                                 >
                                   View Invoice
                                 </button>
                               )}
                               <button
                                 onClick={() => handleOpenEdit(sale)}
-                                className="p-1 text-gray-500 hover:text-brand-blue hover:bg-gray-100 rounded-lg transition-colors"
+                                className="p-1 text-inkB dark:text-inkB-dark hover:text-accent hover:bg-panel2 dark:hover:bg-panel2-dark rounded-lg transition-colors"
                               >
                                 <Edit2 size={13} />
                               </button>
                               <button
                                 onClick={() => setDeleteConfirmSale(sale)}
-                                className="p-1 text-gray-500 hover:text-brand-red hover:bg-gray-100 rounded-lg transition-colors"
+                                className="p-1 text-inkB dark:text-inkB-dark hover:text-brand-red hover:bg-panel2 dark:hover:bg-panel2-dark rounded-lg transition-colors"
                               >
                                 <Trash2 size={13} />
                               </button>
@@ -602,17 +602,17 @@ export default function Sales({ onNavigate }) {
         )}
 
         {view === 'chat' && (
-          <div className="flex flex-col h-full bg-surface">
+          <div className="flex flex-col h-full bg-canvas dark:bg-canvas-dark">
             <div className="flex-1 overflow-y-auto scrollbar-none p-4 space-y-3">
               {messages.map((m, i) => (
                 <ChatBubble key={i} role={m.role} content={m.content} />
               ))}
               {thinking && (
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="w-7 h-7 rounded-full bg-brand-blue flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center">
                     <span className="text-white text-xs font-bold">AI</span>
                   </div>
-                  <div className="bg-white shadow-card rounded-2xl rounded-bl-sm px-4 py-2.5 flex gap-1">
+                  <div className="bg-panel dark:bg-panel-dark shadow-card rounded-2xl rounded-bl-sm px-4 py-2.5 flex gap-1">
                     {[0, 1, 2].map(i => (
                       <span key={i} className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
                     ))}
@@ -624,38 +624,38 @@ export default function Sales({ onNavigate }) {
 
             {/* Error banners */}
             {voiceError === 'mic_denied' && (
-              <p className="text-xs text-brand-red text-center px-4 py-1 bg-brand-redSoft">
+              <p className="text-xs text-red-600 dark:text-red-400 dark:text-red-400 text-center px-4 py-1 bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10">
                 Microphone access denied. Please allow mic access in browser settings.
               </p>
             )}
             {voiceError === 'transcription_failed' && (
-              <p className="text-xs text-brand-amber text-center px-4 py-1 bg-brand-amberSoft">
+              <p className="text-xs text-amber-600 dark:text-amber-400 dark:text-amber-400 text-center px-4 py-1 bg-amber-50 dark:bg-amber-500/10 dark:bg-amber-500/10">
                 Transcription failed. Please try again or type your message.
               </p>
             )}
 
             {/* Recording indicator */}
             {recording && (
-              <div className="flex items-center justify-center gap-2 py-1.5 bg-brand-redSoft">
+              <div className="flex items-center justify-center gap-2 py-1.5 bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10">
                 <span className="w-2 h-2 rounded-full bg-brand-red animate-pulse" />
-                <p className="text-xs text-brand-red font-semibold">Recording… tap mic to stop</p>
+                <p className="text-xs text-red-600 dark:text-red-400 dark:text-red-400 font-semibold">Recording… tap mic to stop</p>
               </div>
             )}
             {transcribing && (
-              <div className="flex items-center justify-center gap-2 py-1.5 bg-brand-purpleSoft">
-                <p className="text-xs text-brand-purple font-semibold">Transcribing your voice…</p>
+              <div className="flex items-center justify-center gap-2 py-1.5 bg-violet-50 dark:bg-violet-500/10 dark:bg-violet-500/10">
+                <p className="text-xs text-violet-600 dark:text-violet-400 dark:text-violet-400 font-semibold">Transcribing your voice…</p>
               </div>
             )}
 
-            <div className="px-4 pb-4 bg-surface border-t border-gray-100 pt-2">
-              <div className="flex items-center gap-2 bg-white rounded-2xl shadow-card px-3 py-2">
+            <div className="px-4 pb-4 bg-canvas dark:bg-canvas-dark border-t border-edge dark:border-edge-dark pt-2">
+              <div className="flex items-center gap-2 bg-panel dark:bg-panel-dark rounded-2xl shadow-card px-3 py-2">
                 <input
                   ref={inputRef}
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !thinking && send()}
                   placeholder={transcribing ? 'Transcribing…' : recording ? 'Recording…' : 'Ask about your business…'}
-                  className="flex-1 text-sm outline-none bg-transparent text-gray-800 placeholder-gray-400"
+                  className="flex-1 text-sm outline-none bg-transparent text-inkA dark:text-inkA-dark placeholder-gray-400"
                   disabled={recording || transcribing}
                 />
                 <VoiceButton
@@ -668,7 +668,7 @@ export default function Sales({ onNavigate }) {
                 <button
                   onClick={() => send()}
                   disabled={!input.trim() || thinking || recording || transcribing}
-                  className="w-9 h-9 rounded-full bg-brand-blue flex items-center justify-center disabled:opacity-40 transition-opacity"
+                  className="w-9 h-9 rounded-full bg-accent flex items-center justify-center disabled:opacity-40 transition-opacity"
                 >
                   <Send size={15} className="text-white" />
                 </button>
@@ -685,10 +685,10 @@ export default function Sales({ onNavigate }) {
           onClose={() => setIsModalOpen(false)}
         >
           {setupError && (
-            <div className="mb-4 bg-brand-redSoft border border-brand-red/20 rounded-xl p-6 flex flex-col items-center justify-center text-center">
-              <AlertTriangle size={32} className="text-brand-red mb-3" />
-              <p className="text-brand-red font-bold text-base mb-2">Company Setup Required</p>
-              <p className="text-brand-red/80 text-sm mb-4">Please configure your company information before creating taxable invoices.</p>
+            <div className="mb-4 bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 border border-brand-red/20 rounded-xl p-6 flex flex-col items-center justify-center text-center">
+              <AlertTriangle size={32} className="text-red-600 dark:text-red-400 dark:text-red-400 mb-3" />
+              <p className="text-red-600 dark:text-red-400 dark:text-red-400 font-bold text-base mb-2">Company Setup Required</p>
+              <p className="text-red-600 dark:text-red-400 dark:text-red-400/80 text-sm mb-4">Please configure your company information before creating taxable invoices.</p>
               <button 
                 type="button"
                 onClick={() => {
@@ -703,12 +703,12 @@ export default function Sales({ onNavigate }) {
           )}
           
           {backendValidationErrors.length > 0 && (
-            <div className="mb-4 bg-brand-redSoft border border-brand-red/20 rounded-xl p-4 flex flex-col">
+            <div className="mb-4 bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 border border-brand-red/20 rounded-xl p-4 flex flex-col">
               <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle size={18} className="text-brand-red" />
-                <p className="text-brand-red font-bold text-sm">GST Validation Failed</p>
+                <AlertTriangle size={18} className="text-red-600 dark:text-red-400 dark:text-red-400" />
+                <p className="text-red-600 dark:text-red-400 dark:text-red-400 font-bold text-sm">GST Validation Failed</p>
               </div>
-              <ul className="list-disc pl-7 text-xs text-brand-red/90 space-y-1 font-medium">
+              <ul className="list-disc pl-7 text-xs text-red-600 dark:text-red-400 dark:text-red-400/90 space-y-1 font-medium">
                 {backendValidationErrors.map((error, idx) => (
                   <li key={idx}>{error}</li>
                 ))}
@@ -753,20 +753,20 @@ export default function Sales({ onNavigate }) {
             </div>
 
             {/* Customer Selection / Inline Creation */}
-            <div className="bg-gray-50 border border-gray-100 p-3 rounded-xl space-y-3">
+            <div className="bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark p-3 rounded-xl space-y-3">
               {!editingSale && (
-                <div className="flex bg-white rounded-lg p-1 shadow-sm border border-gray-200">
+                <div className="flex bg-panel dark:bg-panel-dark rounded-lg p-1 shadow-sm border border-edge dark:border-edge-dark">
                   <button
                     type="button"
                     onClick={() => setCustomerFlow('existing')}
-                    className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${customerFlow === 'existing' ? 'bg-brand-blue text-white shadow' : 'text-gray-500 hover:text-gray-900'}`}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${customerFlow === 'existing' ? 'bg-accent text-white shadow' : 'text-inkB dark:text-inkB-dark hover:text-gray-900'}`}
                   >
                     Existing Customer
                   </button>
                   <button
                     type="button"
                     onClick={() => setCustomerFlow('new')}
-                    className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${customerFlow === 'new' ? 'bg-brand-blue text-white shadow' : 'text-gray-500 hover:text-gray-900'}`}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${customerFlow === 'new' ? 'bg-accent text-white shadow' : 'text-inkB dark:text-inkB-dark hover:text-gray-900'}`}
                   >
                     New Customer
                   </button>
@@ -788,11 +788,11 @@ export default function Sales({ onNavigate }) {
               ) : (
                 <div className="space-y-3">
                   <div className="flex gap-4">
-                    <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 cursor-pointer">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-inkB dark:text-inkB-dark cursor-pointer">
                       <input type="radio" name="customerType" value="b2b" checked={customerType === 'b2b'} onChange={() => setCustomerType('b2b')} className="accent-brand-blue" />
                       Business Customer (B2B)
                     </label>
-                    <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 cursor-pointer">
+                    <label className="flex items-center gap-1.5 text-xs font-bold text-inkB dark:text-inkB-dark cursor-pointer">
                       <input type="radio" name="customerType" value="b2c" checked={customerType === 'b2c'} onChange={() => setCustomerType('b2c')} className="accent-brand-blue" />
                       Consumer (B2C)
                     </label>
@@ -903,18 +903,18 @@ export default function Sales({ onNavigate }) {
               />
             )}
 
-            <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-100">
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-edge dark:border-edge-dark">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 border border-gray-200 text-sm font-semibold text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-edge dark:border-edge-dark text-sm font-semibold text-inkB dark:text-inkB-dark rounded-xl hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-4 py-2 bg-brand-blue text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-accent text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
                 {submitting ? 'Processing...' : editingSale ? 'Save Changes' : 'Complete Sale'}
               </button>
@@ -937,12 +937,12 @@ export default function Sales({ onNavigate }) {
       {/* Sale Success Modal */}
       {saleSuccessInvoice && (
         <Modal title="Sale Complete" onClose={() => setSaleSuccessInvoice(null)}>
-          <div className="flex flex-col items-center justify-center text-center p-6 bg-gray-50 rounded-2xl border border-gray-100">
-            <div className="w-16 h-16 bg-brand-greenSoft text-brand-green rounded-full flex items-center justify-center mb-4">
+          <div className="flex flex-col items-center justify-center text-center p-6 bg-panel2 dark:bg-panel2-dark rounded-2xl border border-edge dark:border-edge-dark">
+            <div className="w-16 h-16 bg-green-50 dark:bg-green-500/10 dark:bg-green-500/10 text-green-600 dark:text-green-400 dark:text-green-400 rounded-full flex items-center justify-center mb-4">
               <ShoppingBag size={28} />
             </div>
-            <h2 className="text-xl font-bold text-gray-900">Sale Recorded Successfully</h2>
-            <p className="text-gray-500 text-sm mt-1 mb-6">Invoice <strong>{saleSuccessInvoice.invoice_number || 'Generated'}</strong> has been recorded.</p>
+            <h2 className="text-xl font-bold text-inkA dark:text-inkA-dark">Sale Recorded Successfully</h2>
+            <p className="text-inkB dark:text-inkB-dark text-sm mt-1 mb-6">Invoice <strong>{saleSuccessInvoice.invoice_number || 'Generated'}</strong> has been recorded.</p>
             
             <div className="flex flex-col gap-3 w-full max-w-xs">
               {saleSuccessInvoice.id && (
@@ -951,14 +951,14 @@ export default function Sales({ onNavigate }) {
                     setViewingInvoiceId(saleSuccessInvoice.id);
                     setSaleSuccessInvoice(null);
                   }}
-                  className="w-full py-2.5 bg-brand-blue text-white rounded-xl text-sm font-bold shadow-sm hover:bg-blue-700 transition-colors flex justify-center items-center gap-2"
+                  className="w-full py-2.5 bg-accent text-white rounded-xl text-sm font-bold shadow-sm hover:bg-blue-700 transition-colors flex justify-center items-center gap-2"
                 >
                   View Invoice
                 </button>
               )}
               <button
                 onClick={() => setSaleSuccessInvoice(null)}
-                className="w-full py-2 text-gray-500 hover:text-gray-900 font-semibold text-sm transition-colors"
+                className="w-full py-2 text-inkB dark:text-inkB-dark hover:text-gray-900 font-semibold text-sm transition-colors"
               >
                 Close
               </button>
@@ -970,7 +970,7 @@ export default function Sales({ onNavigate }) {
       {/* Floating Action Button for Scan */}
       <button 
         onClick={() => setIsScanModalOpen(true)}
-        className="fixed bottom-24 right-5 w-14 h-14 bg-brand-blue text-white rounded-full flex flex-col items-center justify-center shadow-lg shadow-brand-blue/30 active:scale-95 transition-transform z-40"
+        className="fixed bottom-24 right-5 w-14 h-14 bg-accent text-white rounded-full flex flex-col items-center justify-center shadow-lg shadow-brand-blue/30 active:scale-95 transition-transform z-40"
       >
         <Camera size={22} />
         <span className="text-[9px] font-bold mt-0.5 tracking-tight">Scan Sale</span>

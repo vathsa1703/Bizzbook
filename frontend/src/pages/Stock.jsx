@@ -14,18 +14,18 @@ const TABS = ['All Products', 'Low Stock', 'Overstocked', 'Slow Moving'];
 
 function StockRow({ name, value, sub, accent, onEdit, onDelete, showDelete = true, gstStatus }) {
   return (
-    <div className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50/20 px-2 rounded-xl transition-colors">
+    <div className="flex items-center justify-between py-3 border-b border-edge dark:border-edge-dark last:border-0 hover:bg-gray-50/20 px-2 rounded-xl transition-colors">
       <div className="flex items-center gap-3">
         <div className={`w-9 h-9 rounded-xl ${accent.bg} flex items-center justify-center`}>
           <Package size={16} className={accent.text} />
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-gray-900">{name}</p>
-            {gstStatus === 'complete' && <span className="bg-brand-emeraldSoft text-brand-emerald text-[9px] px-1.5 py-0.5 rounded font-bold uppercase">GST OK</span>}
-            {gstStatus === 'missing_hsn' && <span className="bg-brand-redSoft text-brand-red text-[9px] px-1.5 py-0.5 rounded font-bold uppercase">Missing HSN</span>}
+            <p className="text-sm font-semibold text-inkA dark:text-inkA-dark">{name}</p>
+            {gstStatus === 'complete' && <span className="bg-emerald-50 dark:bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase">GST OK</span>}
+            {gstStatus === 'missing_hsn' && <span className="bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 dark:text-red-400 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase">Missing HSN</span>}
           </div>
-          <p className="text-xs text-gray-500">{sub}</p>
+          <p className="text-xs text-inkB dark:text-inkB-dark">{sub}</p>
         </div>
       </div>
       <div className="flex items-center gap-3">
@@ -33,14 +33,14 @@ function StockRow({ name, value, sub, accent, onEdit, onDelete, showDelete = tru
         <div className="flex gap-1">
           <button
             onClick={onEdit}
-            className="p-1 text-gray-400 hover:text-brand-blue hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1 text-gray-400 dark:text-slate-500 hover:text-accent hover:bg-panel2 dark:hover:bg-panel2-dark rounded-lg transition-colors"
           >
             <Edit2 size={13} />
           </button>
           {showDelete && (
             <button
               onClick={onDelete}
-              className="p-1 text-gray-400 hover:text-brand-red hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-1 text-gray-400 dark:text-slate-500 hover:text-brand-red hover:bg-panel2 dark:hover:bg-panel2-dark rounded-lg transition-colors"
             >
               <Trash2 size={13} />
             </button>
@@ -279,20 +279,20 @@ export default function Stock() {
     }
   };
 
-  const RED   = { bg: 'bg-brand-redSoft',   text: 'text-brand-red'   };
-  const AMBER = { bg: 'bg-brand-amberSoft',  text: 'text-brand-amber' };
-  const BLUE  = { bg: 'bg-brand-blueSoft',   text: 'text-brand-blue'  };
-  const GREEN = { bg: 'bg-brand-greenSoft',  text: 'text-brand-green' };
+  const RED   = { bg: 'bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10',   text: 'text-red-600 dark:text-red-400 dark:text-red-400'   };
+  const AMBER = { bg: 'bg-amber-50 dark:bg-amber-500/10 dark:bg-amber-500/10',  text: 'text-amber-600 dark:text-amber-400 dark:text-amber-400' };
+  const BLUE  = { bg: 'bg-accent/10 dark:bg-accent/15',   text: 'text-accent'  };
+  const GREEN = { bg: 'bg-green-50 dark:bg-green-500/10 dark:bg-green-500/10',  text: 'text-green-600 dark:text-green-400 dark:text-green-400' };
 
   return (
-    <div className="pb-20 bg-surface min-h-screen">
+    <div className="pb-20 bg-canvas dark:bg-canvas-dark min-h-screen">
       {/* Header */}
-      <div className="bg-white px-5 pt-12 pb-4 border-b border-gray-100 flex flex-col gap-3">
+      <div className="bg-panel dark:bg-panel-dark px-5 pt-12 pb-4 border-b border-edge dark:border-edge-dark flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Stock</h1>
+          <h1 className="text-2xl font-bold text-inkA dark:text-inkA-dark">Stock</h1>
           <button
             onClick={handleOpenCreate}
-            className="flex items-center gap-1 bg-brand-blue text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm"
+            className="flex items-center gap-1 bg-accent text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm"
           >
             <Plus size={14} /> Add Product
           </button>
@@ -301,15 +301,15 @@ export default function Stock() {
         {/* Dynamic Metric indicators */}
         {!loading && (
           <div className="flex gap-3">
-            <div className="flex items-center gap-1.5 bg-brand-redSoft px-2.5 py-1 rounded-full text-[10px] font-bold text-brand-red">
+            <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 px-2.5 py-1 rounded-full text-[10px] font-bold text-red-600 dark:text-red-400 dark:text-red-400">
               <AlertTriangle size={11} />
               <span>{lowStock.length} Low stock</span>
             </div>
-            <div className="flex items-center gap-1.5 bg-brand-amberSoft px-2.5 py-1 rounded-full text-[10px] font-bold text-brand-amber">
+            <div className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-500/10 dark:bg-amber-500/10 px-2.5 py-1 rounded-full text-[10px] font-bold text-amber-600 dark:text-amber-400 dark:text-amber-400">
               <Archive size={11} />
               <span>{overstocked.length} Overstocked</span>
             </div>
-            <div className="flex items-center gap-1.5 bg-brand-blueSoft px-2.5 py-1 rounded-full text-[10px] font-bold text-brand-blue">
+            <div className="flex items-center gap-1.5 bg-accent/10 dark:bg-accent/15 px-2.5 py-1 rounded-full text-[10px] font-bold text-accent">
               <TrendingDown size={11} />
               <span>{slowMoving.length} Slow-moving</span>
             </div>
@@ -318,12 +318,12 @@ export default function Stock() {
       </div>
 
       {!loading && allProducts.filter(p => !p.hsn_code).length > 0 && (
-        <div className="mx-4 mt-4 bg-brand-amberSoft border border-brand-amber/20 rounded-xl p-3 flex items-center justify-between">
+        <div className="mx-4 mt-4 bg-amber-50 dark:bg-amber-500/10 dark:bg-amber-500/10 border border-brand-amber/20 rounded-xl p-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <ShieldAlert size={18} className="text-brand-amber" />
-            <p className="text-brand-amber font-bold text-xs">{allProducts.filter(p => !p.hsn_code).length} Products require GST attention (Missing HSN).</p>
+            <ShieldAlert size={18} className="text-amber-600 dark:text-amber-400 dark:text-amber-400" />
+            <p className="text-amber-600 dark:text-amber-400 dark:text-amber-400 font-bold text-xs">{allProducts.filter(p => !p.hsn_code).length} Products require GST attention (Missing HSN).</p>
           </div>
-          <button onClick={() => setSearch('missing_gst')} className="text-[10px] font-bold uppercase bg-white px-2 py-1 rounded text-brand-amber shadow-sm">View Products</button>
+          <button onClick={() => setSearch('missing_gst')} className="text-[10px] font-bold uppercase bg-panel dark:bg-panel-dark px-2 py-1 rounded text-amber-600 dark:text-amber-400 dark:text-amber-400 shadow-sm">View Products</button>
         </div>
       )}
 
@@ -331,19 +331,19 @@ export default function Stock() {
         {/* Filters & Search */}
         <div className="flex gap-2 items-center">
           <div className="flex-1 relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" />
             <input
               type="text"
               placeholder="Search product..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-brand-blue shadow-sm"
+              className="w-full pl-9 pr-4 py-2 bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-xl text-xs outline-none focus:border-accent shadow-sm"
             />
           </div>
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="bg-white border border-gray-200 rounded-xl px-2 py-2 text-xs text-gray-700 outline-none shadow-sm focus:border-brand-blue"
+            className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-xl px-2 py-2 text-xs text-inkB dark:text-inkB-dark outline-none shadow-sm focus:border-accent"
           >
             <option value="All">All Groups</option>
             {productGroups.map(g => (
@@ -359,7 +359,7 @@ export default function Stock() {
               key={t}
               onClick={() => setTab(i)}
               className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-colors shadow-sm ${
-                tab === i ? 'bg-brand-blue text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+                tab === i ? 'bg-accent text-white' : 'bg-panel dark:bg-panel-dark text-inkB dark:text-inkB-dark hover:bg-panel2 dark:hover:bg-panel2-dark'
               }`}
             >
               {t}
@@ -370,11 +370,11 @@ export default function Stock() {
         {/* List of Products */}
         <SectionCard>
           {loading ? (
-            <p className="text-xs text-gray-400 text-center py-6">Loading inventory list...</p>
+            <p className="text-xs text-gray-400 dark:text-slate-500 text-center py-6">Loading inventory list...</p>
           ) : tab === 0 ? (
             // All Products tab
             allProducts.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-6">No products found matching filters.</p>
+              <p className="text-xs text-gray-400 dark:text-slate-500 text-center py-6">No products found matching filters.</p>
             ) : (
               allProducts.filter(item => search === 'missing_gst' ? !item.hsn_code : true).map((item) => (
                 <StockRow
@@ -393,7 +393,7 @@ export default function Stock() {
           ) : tab === 1 ? (
             // Low Stock tab
             lowStock.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-6">All items are well-stocked 🎉</p>
+              <p className="text-xs text-gray-400 dark:text-slate-500 text-center py-6">All items are well-stocked 🎉</p>
             ) : (
               lowStock.map((item) => (
                 <StockRow
@@ -411,7 +411,7 @@ export default function Stock() {
           ) : tab === 2 ? (
             // Overstocked tab
             overstocked.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-6">No overstocked items.</p>
+              <p className="text-xs text-gray-400 dark:text-slate-500 text-center py-6">No overstocked items.</p>
             ) : (
               overstocked.map((item) => (
                 <StockRow
@@ -429,7 +429,7 @@ export default function Stock() {
           ) : (
             // Slow Moving tab
             slowMoving.length === 0 ? (
-              <p className="text-xs text-gray-400 text-center py-6">No slow-moving items.</p>
+              <p className="text-xs text-gray-400 dark:text-slate-500 text-center py-6">No slow-moving items.</p>
             ) : (
               slowMoving.map((item) => (
                 <StockRow
@@ -504,8 +504,8 @@ export default function Stock() {
               />
             </div>
             
-            <div className="bg-gray-50 p-4 rounded-xl space-y-4 border border-gray-100">
-              <h3 className="text-sm font-bold text-gray-800">GST Information</h3>
+            <div className="bg-panel2 dark:bg-panel2-dark p-4 rounded-xl space-y-4 border border-edge dark:border-edge-dark">
+              <h3 className="text-sm font-bold text-inkA dark:text-inkA-dark">GST Information</h3>
               <div className="grid grid-cols-2 gap-3 relative">
                 <FormField
                   label="HSN Code *"
@@ -532,9 +532,9 @@ export default function Stock() {
                   id="use_custom_gst"
                   checked={formValues.use_custom_gst}
                   onChange={handleFormChange}
-                  className="rounded text-brand-blue"
+                  className="rounded text-accent"
                 />
-                <label htmlFor="use_custom_gst" className="text-xs font-semibold text-gray-700">Override GST Details</label>
+                <label htmlFor="use_custom_gst" className="text-xs font-semibold text-inkB dark:text-inkB-dark">Override GST Details</label>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
@@ -616,18 +616,18 @@ export default function Stock() {
               placeholder="-- Choose Supplier (Optional) --"
             />
 
-            <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-100">
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-edge dark:border-edge-dark">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 border border-gray-200 text-sm font-semibold text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-edge dark:border-edge-dark text-sm font-semibold text-inkB dark:text-inkB-dark rounded-xl hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-4 py-2 bg-brand-blue text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-accent text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
                 {submitting ? 'Adding...' : editingProduct ? 'Save Changes' : 'Add Product'}
               </button>
@@ -670,18 +670,18 @@ export default function Stock() {
               onChange={(e) => setNewGroupForm({ ...newGroupForm, description: e.target.value })}
               placeholder="Brief description"
             />
-            <div className="flex justify-end gap-2.5 pt-3 border-t border-gray-100">
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-edge dark:border-edge-dark">
               <button
                 type="button"
                 onClick={() => setIsGroupModalOpen(false)}
-                className="px-4 py-2 border border-gray-200 text-sm font-semibold text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 border border-edge dark:border-edge-dark text-sm font-semibold text-inkB dark:text-inkB-dark rounded-xl hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={groupSubmitting}
-                className="px-4 py-2 bg-brand-blue text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-accent text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
                 {groupSubmitting ? 'Creating...' : 'Create Group'}
               </button>
@@ -693,7 +693,7 @@ export default function Stock() {
       {/* Floating Action Button for Scan */}
       <button 
         onClick={() => setIsScanModalOpen(true)}
-        className="fixed bottom-24 right-5 w-14 h-14 bg-brand-blue text-white rounded-full flex flex-col items-center justify-center shadow-lg shadow-brand-blue/30 active:scale-95 transition-transform z-40"
+        className="fixed bottom-24 right-5 w-14 h-14 bg-accent text-white rounded-full flex flex-col items-center justify-center shadow-lg shadow-brand-blue/30 active:scale-95 transition-transform z-40"
       >
         <Camera size={22} />
         <span className="text-[9px] font-bold mt-0.5 tracking-tight">Scan Stock</span>
