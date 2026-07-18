@@ -8,21 +8,31 @@
     box-sizing: border-box;
   }
 
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+
   html, body, #root {
     height: 100%;
     margin: 0;
     padding: 0;
-    background: #F8F9FC;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    background: #F8FAFC;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;
+  }
+
+  html.dark, html.dark body, html.dark #root {
+    background: #0B0D0F;
   }
 
   /* Mobile-first: cap width for desktop preview */
   #root {
-  width: 100%;
-  min-height: 100%;
-  background: #F8F9FC;
-}
+    width: 100%;
+    min-height: 100%;
+  }
 }
 
 @layer utilities {

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import BottomNav from './components/BottomNav';
 import { ToastProvider } from './components/ToastContext';
 import { useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { AIProvider } from './contexts/AIContext';
 import ChatFAB from './components/ai/ChatFAB';
 
@@ -99,12 +100,14 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <ToastProvider>
-        <AIProvider>
-          {content}
-          {user && <ChatFAB />}
-        </AIProvider>
-      </ToastProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          <AIProvider>
+            {content}
+            {user && <ChatFAB />}
+          </AIProvider>
+        </ToastProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }
