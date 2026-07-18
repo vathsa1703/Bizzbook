@@ -88,7 +88,7 @@ export default function ChatModal() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask about your business..."
-              className="flex-1 bg-panel2 dark:bg-panel2-dark border border-transparent focus:bg-white focus:border-brand-purple rounded-full pl-4 pr-12 py-3 text-sm outline-none transition-colors"
+              className="flex-1 bg-panel2 dark:bg-panel2-dark border border-transparent focus:bg-panel dark:focus:bg-canvas-dark focus:border-brand-purple rounded-full pl-4 pr-12 py-3 text-sm outline-none transition-colors"
               disabled={loading}
             />
             <button 

@@ -109,7 +109,7 @@ function SaveButton({ loading, onClick, children = 'Save Changes' }) {
 
 function SectionCard({ title, subtitle, children, action }) {
   return (
-    <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 mb-4">
+    <div className="bg-panel2/60 dark:bg-panel2-dark/60 border border-edge dark:border-edge-dark rounded-2xl p-5 mb-4">
       <div className="flex items-start justify-between mb-4">
         <div>
           <h3 className="text-sm font-bold text-inkA dark:text-inkA-dark">{title}</h3>
@@ -240,7 +240,7 @@ function OverviewTab({ data }) {
           { label: 'Bank Accounts', value: data.bankAccounts?.length || 0, icon: CreditCard },
           { label: 'Expiry Alerts', value: data.expiryAlerts?.length || 0, icon: Bell },
         ].map(stat => (
-          <div key={stat.label} className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-3 flex items-center gap-3">
+          <div key={stat.label} className="bg-panel2/60 dark:bg-panel2-dark/60 border border-edge dark:border-edge-dark rounded-xl p-3 flex items-center gap-3">
             <stat.icon className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
             <div>
               <p className="text-xl font-bold text-inkA dark:text-inkA-dark">{stat.value}</p>
@@ -412,7 +412,7 @@ function AddressesTab({ data, onRefresh }) {
   return (
     <div className="space-y-3">
       {addresses.map(addr => (
-        <div key={addr.id} className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4">
+        <div key={addr.id} className="bg-panel2/60 dark:bg-panel2-dark/60 border border-edge dark:border-edge-dark rounded-xl p-4">
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -532,7 +532,7 @@ function LicensesTab({ data, onRefresh }) {
       {licenses.map(lic => {
         const badge = getLicenseBadge(lic);
         return (
-          <div key={lic.id} className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4">
+          <div key={lic.id} className="bg-panel2/60 dark:bg-panel2-dark/60 border border-edge dark:border-edge-dark rounded-xl p-4">
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
@@ -617,7 +617,7 @@ function BankTab({ data, onRefresh }) {
   return (
     <div className="space-y-3">
       {accounts.map(acc => (
-        <div key={acc.id} className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4">
+        <div key={acc.id} className="bg-panel2/60 dark:bg-panel2-dark/60 border border-edge dark:border-edge-dark rounded-xl p-4">
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -980,7 +980,7 @@ export default function CompanyProfile({ onNavigate }) {
   return (
     <div className="min-h-screen bg-panel dark:bg-panel-dark font-sans">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-slate-900/90 backdrop-blur-md border-b border-edge dark:border-edge-dark px-4 py-3">
+      <div className="sticky top-0 z-10 bg-panel/90 dark:bg-panel-dark/90 backdrop-blur-md border-b border-edge dark:border-edge-dark px-4 py-3">
         <div className="flex items-center gap-3">
           <button onClick={() => onNavigate('more')} className="p-2 text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white transition-colors">
             <ChevronLeft className="w-5 h-5" />

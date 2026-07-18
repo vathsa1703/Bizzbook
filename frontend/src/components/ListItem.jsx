@@ -3,8 +3,8 @@ import { ChevronRight } from 'lucide-react';
 
 const ICON_STYLES = {
   blue:   { bg: 'bg-accent/10 dark:bg-accent/15',           text: 'text-accent' },
-  green:  { bg: 'bg-green-50 dark:bg-green-500/10',         text: 'text-green-600 dark:text-green-400' },
-  amber:  { bg: 'bg-amber-50 dark:bg-amber-500/10',         text: 'text-amber-600 dark:text-amber-400' },
+  green:  { bg: 'bg-green-50 dark:bg-green-500/10',         text: 'text-green-700 dark:text-green-400' },
+  amber:  { bg: 'bg-amber-50 dark:bg-amber-500/10',         text: 'text-amber-700 dark:text-amber-400' },
   red:    { bg: 'bg-red-50 dark:bg-red-500/10',             text: 'text-red-600 dark:text-red-400' },
   purple: { bg: 'bg-violet-50 dark:bg-violet-500/10',       text: 'text-violet-600 dark:text-violet-400' },
   pink:   { bg: 'bg-pink-50 dark:bg-pink-500/10',           text: 'text-pink-600 dark:text-pink-400' },

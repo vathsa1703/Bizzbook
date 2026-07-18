@@ -2,8 +2,8 @@ import React from 'react';
 
 const COLOR_MAP = {
   blue:   { icon: 'text-accent',                          sub: 'text-accent' },
-  green:  { icon: 'text-green-600 dark:text-green-400',   sub: 'text-green-600 dark:text-green-400' },
-  amber:  { icon: 'text-amber-600 dark:text-amber-400',   sub: 'text-amber-600 dark:text-amber-400' },
+  green:  { icon: 'text-green-700 dark:text-green-400',   sub: 'text-green-700 dark:text-green-400' },
+  amber:  { icon: 'text-amber-700 dark:text-amber-400',   sub: 'text-amber-700 dark:text-amber-400' },
   red:    { icon: 'text-red-600 dark:text-red-400',       sub: 'text-red-600 dark:text-red-400' },
   purple: { icon: 'text-violet-600 dark:text-violet-400', sub: 'text-violet-600 dark:text-violet-400' },
 };

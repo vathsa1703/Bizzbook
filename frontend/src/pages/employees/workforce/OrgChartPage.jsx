@@ -34,7 +34,7 @@ function NodeCard({ node, selected, dimmed, canManage, onSelect, onAction }) {
     <div role="button" tabIndex={0} onClick={() => onSelect(node)}
       className={`inline-block text-left align-top w-56 rounded-2xl border p-3 cursor-pointer transition-all outline-none
         ${selected ? 'border-blue-500 bg-blue-600/15 shadow-lg shadow-blue-900/40'
-          : dimmed ? 'border-edge dark:border-edge-dark bg-slate-900/60 opacity-40'
+          : dimmed ? 'border-edge dark:border-edge-dark bg-panel2/60 dark:bg-panel2-dark/60 opacity-40'
           : 'border-edge dark:border-edge-dark bg-panel dark:bg-panel-dark hover:border-accent/40'}`}>
       <div className="flex items-center gap-2.5">
         <Avatar name={node.name} src={node.avatar} size="lg" />
@@ -187,7 +187,7 @@ export default function OrgChartPage() {
           </div>
 
           {detail && (
-            <div className="absolute top-3 right-3 w-64 rounded-2xl border border-edge dark:border-edge-dark bg-slate-900/95 backdrop-blur p-4 shadow-xl">
+            <div className="absolute top-3 right-3 w-64 rounded-2xl border border-edge dark:border-edge-dark bg-panel/95 dark:bg-panel-dark/95 backdrop-blur p-4 shadow-xl">
               <button onClick={clearSelection} className="absolute top-2 right-2 text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white"><X className="w-4 h-4" /></button>
               <div className="flex items-center gap-2.5">
                 <Avatar name={detail.employee?.name} src={detail.employee?.avatar} size="lg" />

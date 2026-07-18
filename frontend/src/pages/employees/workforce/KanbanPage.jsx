@@ -63,7 +63,7 @@ export default function KanbanPage() {
                 <Droppable droppableId={col} key={col}>
                   {(provided, snapshot) => (
                     <div ref={provided.innerRef} {...provided.droppableProps}
-                      className={`w-72 flex-shrink-0 rounded-2xl border p-2.5 ${snapshot.isDraggingOver ? STATUS_META[col].col + ' bg-panel dark:bg-panel-dark' : 'border-edge dark:border-edge-dark bg-slate-900/40'}`}>
+                      className={`w-72 flex-shrink-0 rounded-2xl border p-2.5 ${snapshot.isDraggingOver ? STATUS_META[col].col + ' bg-panel dark:bg-panel-dark' : 'border-edge dark:border-edge-dark bg-panel2/40 dark:bg-panel2-dark/40'}`}>
                       <div className="flex items-center gap-2 px-1 pb-2">
                         <span className={`w-2 h-2 rounded-full ${STATUS_META[col].dot}`} />
                         <span className="text-sm font-semibold text-inkA dark:text-inkA-dark">{STATUS_META[col].label}</span>

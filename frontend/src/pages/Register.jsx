@@ -104,7 +104,7 @@ export default function Register({ onNavigate }) {
         </div>
 
         {/* Card */}
-        <div className="bg-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 shadow-2xl space-y-5">
+        <div className="bg-panel/90 dark:bg-panel-dark/90 backdrop-blur-xl border border-edge dark:border-edge-dark rounded-3xl p-6 shadow-2xl space-y-5">
 
           {error && (
             <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-medium">

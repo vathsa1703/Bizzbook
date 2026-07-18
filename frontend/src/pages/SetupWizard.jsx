@@ -55,7 +55,7 @@ function FieldGroup({ label, required, children, hint }) {
 function WizardInput({ className = '', ...props }) {
   return (
     <input
-      className={`w-full px-4 py-2.5 bg-slate-900/60 border border-edge dark:border-edge-dark rounded-xl text-sm text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all ${className}`}
+      className={`w-full px-4 py-2.5 bg-panel2/60 dark:bg-panel2-dark/60 border border-edge dark:border-edge-dark rounded-xl text-sm text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all ${className}`}
       {...props}
     />
   );
@@ -64,7 +64,7 @@ function WizardInput({ className = '', ...props }) {
 function WizardSelect({ className = '', children, ...props }) {
   return (
     <select
-      className={`w-full px-4 py-2.5 bg-slate-900/60 border border-edge dark:border-edge-dark rounded-xl text-sm text-inkA dark:text-inkA-dark outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all ${className}`}
+      className={`w-full px-4 py-2.5 bg-panel2/60 dark:bg-panel2-dark/60 border border-edge dark:border-edge-dark rounded-xl text-sm text-inkA dark:text-inkA-dark outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all ${className}`}
       {...props}
     >
       {children}
@@ -593,7 +593,7 @@ export default function SetupWizard({ onNavigate }) {
       <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-violet-600/15 blur-3xl pointer-events-none" />
 
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-slate-900/90 backdrop-blur-md border-b border-edge dark:border-edge-dark px-4 py-4">
+      <div className="sticky top-0 z-10 bg-panel/90 dark:bg-panel-dark/90 backdrop-blur-md border-b border-edge dark:border-edge-dark px-4 py-4">
         <div className="max-w-lg mx-auto">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -629,7 +629,7 @@ export default function SetupWizard({ onNavigate }) {
                   completedSteps.has(s.number)
                     ? 'bg-green-500 text-white'
                     : s.number === step
-                    ? 'bg-blue-600 text-white ring-2 ring-blue-400 ring-offset-1 ring-offset-slate-900'
+                    ? 'bg-blue-600 text-white ring-2 ring-blue-400 ring-offset-1 ring-offset-white dark:ring-offset-canvas-dark'
                     : s.number < step
                     ? 'bg-slate-600 text-inkB dark:text-inkB-dark'
                     : 'bg-panel2 dark:bg-panel2-dark text-gray-400 dark:text-slate-500'
@@ -658,7 +658,7 @@ export default function SetupWizard({ onNavigate }) {
           </div>
 
           {/* Step Content */}
-          <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5">
+          <div className="bg-panel2/60 dark:bg-panel2-dark/60 border border-edge dark:border-edge-dark rounded-2xl p-5">
             {step === 1 && (
               <Step1 onComplete={(data) => {
                 setLicenseRequirements([]);

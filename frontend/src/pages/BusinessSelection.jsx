@@ -41,7 +41,7 @@ export default function BusinessSelection({ onNavigate }) {
         </div>
 
         {/* Card Body */}
-        <div className="bg-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 shadow-2xl space-y-6">
+        <div className="bg-panel/90 dark:bg-panel-dark/90 backdrop-blur-xl border border-edge dark:border-edge-dark rounded-3xl p-8 shadow-2xl space-y-6">
           <div className="space-y-1.5 text-center mb-6">
             <h2 className="text-xl font-bold text-inkA dark:text-inkA-dark">What's your business type?</h2>
             <p className="text-xs text-inkB dark:text-inkB-dark">Select your industry to load a customized template and demo data.</p>
@@ -54,7 +54,7 @@ export default function BusinessSelection({ onNavigate }) {
                 <button
                   key={type.id}
                   onClick={() => handleSelect(type.id)}
-                  className="flex flex-col items-center justify-center gap-3 p-4 rounded-2xl bg-panel2/50 dark:bg-panel2-dark/50 border border-slate-700/50 hover:bg-slate-700/50 hover:border-accent/40 transition-all group"
+                  className="flex flex-col items-center justify-center gap-3 p-4 rounded-2xl bg-panel2/50 dark:bg-panel2-dark/50 border border-edge dark:border-edge-dark hover:bg-slate-700/50 hover:border-accent/40 transition-all group"
                 >
                   <div className="w-12 h-12 rounded-full bg-panel2 dark:bg-panel2-dark flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Icon className={`w-6 h-6 ${type.color}`} />

@@ -55,7 +55,7 @@ export default function Login({ onNavigate }) {
         </div>
 
         {/* Card Body */}
-        <div className="bg-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 shadow-2xl space-y-6">
+        <div className="bg-panel/90 dark:bg-panel-dark/90 backdrop-blur-xl border border-edge dark:border-edge-dark rounded-3xl p-8 shadow-2xl space-y-6">
           <div className="space-y-1.5">
             <h2 className="text-xl font-bold text-inkA dark:text-inkA-dark">Welcome Back</h2>
             <p className="text-xs text-inkB dark:text-inkB-dark">Sign in to manage your inventory, sales, and assistant</p>
@@ -112,18 +112,18 @@ export default function Login({ onNavigate }) {
           </form>
 
           {/* Quick Demo Accounts Info */}
-          <div className="pt-4 border-t border-slate-700/50 space-y-2.5">
+          <div className="pt-4 border-t border-edge dark:border-edge-dark space-y-2.5">
             <div className="flex items-center gap-1.5 text-[11px] font-bold text-inkB dark:text-inkB-dark">
               <ShieldAlert className="w-3.5 h-3.5" />
               <span>DEMO CREDENTIALS:</span>
             </div>
             <div className="grid grid-cols-2 gap-3 text-[10px] text-inkB dark:text-inkB-dark">
-              <div className="bg-slate-900/40 p-2 rounded-lg border border-slate-700/30">
+              <div className="bg-panel2/40 dark:bg-panel2-dark/40 p-2 rounded-lg border border-edge dark:border-edge-dark">
                 <span className="font-bold text-blue-600 dark:text-blue-400 block mb-0.5">Admin</span>
                 <span>admin@business.com</span>
                 <span className="block text-inkB dark:text-inkB-dark mt-0.5">pwd: admin123</span>
               </div>
-              <div className="bg-slate-900/40 p-2 rounded-lg border border-slate-700/30">
+              <div className="bg-panel2/40 dark:bg-panel2-dark/40 p-2 rounded-lg border border-edge dark:border-edge-dark">
                 <span className="font-bold text-violet-600 dark:text-violet-400 block mb-0.5">Employee</span>
                 <span>employee@business.com</span>
                 <span className="block text-inkB dark:text-inkB-dark mt-0.5">pwd: employee123</span>

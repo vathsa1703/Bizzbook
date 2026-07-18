@@ -165,7 +165,7 @@ export default function HRCopilot() {
                         setInput(`Can you draft a supportive email to employees who have taken >80% of their leaves, checking on their well-being?`);
                         document.querySelector('form input')?.focus();
                       }}
-                      className="mt-3 w-full py-1.5 bg-slate-950/50 hover:bg-slate-900 text-xs font-semibold text-inkB dark:text-inkB-dark rounded-lg transition-colors border border-edge dark:border-edge-dark"
+                      className="mt-3 w-full py-1.5 bg-panel2/50 dark:bg-panel2-dark/50 hover:bg-panel2 dark:hover:bg-panel2-dark text-xs font-semibold text-inkB dark:text-inkB-dark rounded-lg transition-colors border border-edge dark:border-edge-dark"
                     >
                       Draft Check-in Email
                     </button>
