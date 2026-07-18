@@ -66,7 +66,7 @@ export default function GrowthHub({ onNavigate }) {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-surface pb-20">
+    <div className="flex flex-col min-h-screen bg-canvas dark:bg-canvas-dark pb-20">
       {/* Header */}
       <div className="bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 px-5 pt-12 pb-4 sticky top-0 z-40">
         <div className="flex items-center gap-3 mb-3">
@@ -89,7 +89,7 @@ export default function GrowthHub({ onNavigate }) {
                 onClick={() => setActiveTab(key)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-colors ${
                   activeTab === key
-                    ? 'bg-white text-indigo-700 shadow-sm'
+                    ? 'bg-panel dark:bg-panel-dark text-indigo-700 dark:text-indigo-400 shadow-sm'
                     : 'bg-white/15 text-white/80 hover:bg-white/25'
                 }`}
               >
@@ -105,11 +105,11 @@ export default function GrowthHub({ onNavigate }) {
       <div className="flex-1 px-4 py-5">
         {isAdmin ? renderTab() : (
           <div className="flex flex-col items-center justify-center text-center py-20">
-            <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
+            <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-500/10 flex items-center justify-center mb-4">
               <ShieldAlert size={28} className="text-red-400" />
             </div>
-            <div className="font-bold text-gray-700 text-base">Access Restricted</div>
-            <div className="text-sm text-gray-400 mt-1 max-w-xs">
+            <div className="font-bold text-inkB dark:text-inkB-dark text-base">Access Restricted</div>
+            <div className="text-sm text-gray-400 dark:text-slate-500 mt-1 max-w-xs">
               Growth Hub — funding, cap table, and investor data — is available to owners and managers only.
             </div>
           </div>

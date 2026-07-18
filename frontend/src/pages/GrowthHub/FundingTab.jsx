@@ -35,7 +35,7 @@ export default function FundingTab() {
 
   function parseJson(s) { try { return JSON.parse(s||'[]'); } catch { return []; } }
 
-  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-indigo-500" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-indigo-500 dark:text-indigo-400" /></div>;
 
   if (selected) {
     const t = selected;
@@ -46,13 +46,13 @@ export default function FundingTab() {
     const sym = profile.currency_symbol || '₹';
     return (
       <div className="space-y-4">
-        <button onClick={() => setSelected(null)} className="flex items-center gap-2 text-sm text-indigo-600 font-semibold">
+        <button onClick={() => setSelected(null)} className="flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold">
           <ChevronRight size={14} className="rotate-180" /> Back to Funding Options
         </button>
         <SectionCard>
           <div className="flex items-start justify-between mb-3">
             <div>
-              <h2 className="text-lg font-black text-gray-900">{t.name}</h2>
+              <h2 className="text-lg font-black text-inkA dark:text-inkA-dark">{t.name}</h2>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 <Badge color="indigo">{t.category}</Badge>
                 {t.dilution_level && <Badge color={DILUTION_COLOR[t.dilution_level]||'gray'}>Dilution: {t.dilution_level}</Badge>}
@@ -61,17 +61,17 @@ export default function FundingTab() {
               </div>
             </div>
           </div>
-          <p className="text-sm text-gray-600 leading-relaxed">{t.description}</p>
+          <p className="text-sm text-inkB dark:text-inkB-dark leading-relaxed">{t.description}</p>
         </SectionCard>
 
         <div className="grid grid-cols-2 gap-3">
           <SectionCard>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Typical Amount</p>
-            <p className="text-sm font-bold text-gray-800">{t.typical_amount_min!=null ? `${sym}${Number(t.typical_amount_min).toLocaleString('en-IN')}` : '—'} {t.typical_amount_max!=null ? `— ${sym}${Number(t.typical_amount_max).toLocaleString('en-IN')}` : ''}</p>
+            <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1">Typical Amount</p>
+            <p className="text-sm font-bold text-inkA dark:text-inkA-dark">{t.typical_amount_min!=null ? `${sym}${Number(t.typical_amount_min).toLocaleString('en-IN')}` : '—'} {t.typical_amount_max!=null ? `— ${sym}${Number(t.typical_amount_max).toLocaleString('en-IN')}` : ''}</p>
           </SectionCard>
           <SectionCard>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Timeline</p>
-            <p className="text-sm font-bold text-gray-800">{t.timeline_days_min!=null ? `${t.timeline_days_min}–${t.timeline_days_max} days` : '—'}</p>
+            <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1">Timeline</p>
+            <p className="text-sm font-bold text-inkA dark:text-inkA-dark">{t.timeline_days_min!=null ? `${t.timeline_days_min}–${t.timeline_days_max} days` : '—'}</p>
           </SectionCard>
         </div>
 
@@ -82,27 +82,27 @@ export default function FundingTab() {
           { title: '📄 Required Documents', items: docs },
         ].map(({ title, items }) => items.length > 0 && (
           <SectionCard key={title}>
-            <p className="text-xs font-bold text-gray-700 mb-2">{title}</p>
+            <p className="text-xs font-bold text-inkB dark:text-inkB-dark mb-2">{title}</p>
             <ul className="space-y-1">
-              {items.map((item, i) => <li key={i} className="text-xs text-gray-600 flex items-start gap-2"><span className="text-indigo-400 mt-0.5">•</span>{item}</li>)}
+              {items.map((item, i) => <li key={i} className="text-xs text-inkB dark:text-inkB-dark flex items-start gap-2"><span className="text-indigo-400 mt-0.5">•</span>{item}</li>)}
             </ul>
           </SectionCard>
         ))}
 
         {t.how_to_apply && (
           <SectionCard>
-            <p className="text-xs font-bold text-gray-700 mb-2">How to Apply</p>
-            <p className="text-xs text-gray-600">{t.how_to_apply}</p>
+            <p className="text-xs font-bold text-inkB dark:text-inkB-dark mb-2">How to Apply</p>
+            <p className="text-xs text-inkB dark:text-inkB-dark">{t.how_to_apply}</p>
           </SectionCard>
         )}
 
         {resources.length > 0 && (
           <SectionCard>
-            <p className="text-xs font-bold text-gray-700 mb-2">Official Resources</p>
+            <p className="text-xs font-bold text-inkB dark:text-inkB-dark mb-2">Official Resources</p>
             <div className="space-y-2">
               {resources.map((r, i) => (
                 <a key={i} href={r.url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-xs text-indigo-600 font-medium hover:underline">
+                  className="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline">
                   <ExternalLink size={12} />{r.label}
                 </a>
               ))}
@@ -116,41 +116,41 @@ export default function FundingTab() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-black text-gray-900">Funding Center</h2>
-        <p className="text-xs text-gray-500 mt-0.5">Explore all funding options available for your business</p>
+        <h2 className="text-lg font-black text-inkA dark:text-inkA-dark">Funding Center</h2>
+        <p className="text-xs text-inkB dark:text-inkB-dark mt-0.5">Explore all funding options available for your business</p>
       </div>
       <div className="flex gap-2">
         <div className="flex-1 relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Search funding types..." className="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" />
+          <input value={filter} onChange={e => setFilter(e.target.value)} placeholder="Search funding types..." className="w-full pl-8 pr-3 py-2 bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
         </div>
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
         {categories.map(c => (
-          <button key={c} onClick={() => setCategory(c)} className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${category===c ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{c}</button>
+          <button key={c} onClick={() => setCategory(c)} className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${category===c ? 'bg-indigo-600 text-white' : 'bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark hover:bg-gray-200'}`}>{c}</button>
         ))}
       </div>
       <div className="space-y-3">
         {filtered.map(t => (
-          <button key={t.id} onClick={() => setSelected(t)} className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-left hover:shadow-md hover:border-indigo-200 transition-all">
+          <button key={t.id} onClick={() => setSelected(t)} className="w-full bg-panel dark:bg-panel-dark rounded-2xl border border-edge dark:border-edge-dark shadow-sm p-4 text-left hover:shadow-md hover:border-indigo-200 transition-all">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-gray-900 text-sm">{t.name}</span>
+                  <span className="font-bold text-inkA dark:text-inkA-dark text-sm">{t.name}</span>
                   <Badge color="indigo">{t.category}</Badge>
                   {t.dilution_level && <Badge color={DILUTION_COLOR[t.dilution_level]||'gray'}>Dilution: {t.dilution_level}</Badge>}
                 </div>
-                <p className="text-xs text-gray-500 mt-1 line-clamp-2">{t.description}</p>
-                <div className="flex items-center gap-3 mt-2 text-[10px] text-gray-400">
-                  {t.risk_level && <span>Risk: <strong className="text-gray-600">{t.risk_level}</strong></span>}
-                  {t.timeline_days_min != null && <span>Timeline: <strong className="text-gray-600">{t.timeline_days_min}–{t.timeline_days_max}d</strong></span>}
+                <p className="text-xs text-inkB dark:text-inkB-dark mt-1 line-clamp-2">{t.description}</p>
+                <div className="flex items-center gap-3 mt-2 text-[10px] text-gray-400 dark:text-slate-500">
+                  {t.risk_level && <span>Risk: <strong className="text-inkB dark:text-inkB-dark">{t.risk_level}</strong></span>}
+                  {t.timeline_days_min != null && <span>Timeline: <strong className="text-inkB dark:text-inkB-dark">{t.timeline_days_min}–{t.timeline_days_max}d</strong></span>}
                 </div>
               </div>
-              <ChevronRight size={16} className="text-gray-300 flex-shrink-0 mt-1" />
+              <ChevronRight size={16} className="text-gray-300 dark:text-slate-600 flex-shrink-0 mt-1" />
             </div>
           </button>
         ))}
-        {filtered.length === 0 && <p className="text-center text-sm text-gray-400 py-8">No funding types found</p>}
+        {filtered.length === 0 && <p className="text-center text-sm text-gray-400 dark:text-slate-500 py-8">No funding types found</p>}
       </div>
     </div>
   );

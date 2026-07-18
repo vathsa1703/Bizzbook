@@ -32,10 +32,10 @@ export const SIDEBAR_TABS = [
 ];
 
 export const STAGE_COLORS = {
-  'Idea': 'bg-purple-100 text-purple-700', 'Registered': 'bg-blue-100 text-blue-700',
-  'Revenue': 'bg-green-100 text-green-700', 'Funded': 'bg-amber-100 text-amber-700',
-  'Scaling': 'bg-orange-100 text-orange-700', 'Profitable': 'bg-teal-100 text-teal-700',
-  'Pre-IPO': 'bg-rose-100 text-rose-700', 'Public': 'bg-indigo-100 text-indigo-700',
+  'Idea': 'bg-purple-100 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400', 'Registered': 'bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-400',
+  'Revenue': 'bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-400', 'Funded': 'bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400',
+  'Scaling': 'bg-orange-100 dark:bg-orange-500/15 text-orange-700 dark:text-orange-400', 'Profitable': 'bg-teal-100 dark:bg-teal-500/15 text-teal-700 dark:text-teal-400',
+  'Pre-IPO': 'bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-400', 'Public': 'bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400',
 };
 
 export const STATUS_DOT = {
@@ -66,7 +66,7 @@ export function ScoreRing({ score, label, color = '#6366f1', size = 100 }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-xl font-black" style={{ color }}>{score}%</span>
-        {label && <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider text-center leading-tight px-1">{label}</span>}
+        {label && <span className="text-[9px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider text-center leading-tight px-1">{label}</span>}
       </div>
     </div>
   );
@@ -75,29 +75,29 @@ export function ScoreRing({ score, label, color = '#6366f1', size = 100 }) {
 export function StatCard({ icon: Icon, label, value, sub, color = 'indigo', onClick }) {
   const colorMap = { indigo:'from-indigo-500 to-violet-500', cyan:'from-cyan-500 to-teal-500', amber:'from-amber-500 to-orange-500', green:'from-green-500 to-emerald-500', rose:'from-rose-500 to-pink-500', purple:'from-purple-500 to-indigo-500' };
   return (
-    <div onClick={onClick} className={`bg-white rounded-2xl p-4 shadow-sm border border-gray-100 ${onClick?'cursor-pointer hover:shadow-md transition-shadow':''}`}>
+    <div onClick={onClick} className={`bg-panel dark:bg-panel-dark rounded-2xl p-4 shadow-sm border border-edge dark:border-edge-dark ${onClick?'cursor-pointer hover:shadow-md transition-shadow':''}`}>
       <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${colorMap[color]||colorMap.indigo} flex items-center justify-center mb-3`}>
         <Icon size={16} className="text-white" />
       </div>
-      <div className="text-2xl font-black text-gray-900">{value}</div>
-      <div className="text-xs font-semibold text-gray-600 mt-0.5">{label}</div>
-      {sub && <div className="text-[10px] text-gray-400 mt-0.5">{sub}</div>}
+      <div className="text-2xl font-black text-inkA dark:text-inkA-dark">{value}</div>
+      <div className="text-xs font-semibold text-inkB dark:text-inkB-dark mt-0.5">{label}</div>
+      {sub && <div className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">{sub}</div>}
     </div>
   );
 }
 
 export function SectionCard({ children, className = '' }) {
-  return <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-4 ${className}`}>{children}</div>;
+  return <div className={`bg-panel dark:bg-panel-dark rounded-2xl shadow-sm border border-edge dark:border-edge-dark p-4 ${className}`}>{children}</div>;
 }
 
 export function Badge({ children, color = 'gray' }) {
-  const colors = { gray:'bg-gray-100 text-gray-600', blue:'bg-blue-50 text-blue-700', green:'bg-green-50 text-green-700', amber:'bg-amber-50 text-amber-700', red:'bg-red-50 text-red-600', purple:'bg-purple-50 text-purple-700', indigo:'bg-indigo-50 text-indigo-700' };
+  const colors = { gray:'bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark', blue:'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400', green:'bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400', amber:'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400', red:'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400', purple:'bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400', indigo:'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400' };
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${colors[color]||colors.gray}`}>{children}</span>;
 }
 
 export function ProgressBar({ value, color = '#6366f1', height = 6 }) {
   return (
-    <div className="w-full rounded-full bg-gray-100" style={{ height }}>
+    <div className="w-full rounded-full bg-panel2 dark:bg-panel2-dark" style={{ height }}>
       <div className="rounded-full transition-all duration-700" style={{ width: `${Math.min(value,100)}%`, height, background: color }} />
     </div>
   );
@@ -106,11 +106,11 @@ export function ProgressBar({ value, color = '#6366f1', height = 6 }) {
 export function EmptyState({ icon: Icon, title, sub, action, onAction }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center mb-4">
+      <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center mb-4">
         <Icon size={28} className="text-indigo-400" />
       </div>
-      <div className="font-bold text-gray-700 text-base">{title}</div>
-      <div className="text-sm text-gray-400 mt-1 max-w-xs">{sub}</div>
+      <div className="font-bold text-inkB dark:text-inkB-dark text-base">{title}</div>
+      <div className="text-sm text-gray-400 dark:text-slate-500 mt-1 max-w-xs">{sub}</div>
       {action && <button onClick={onAction} className="mt-4 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors flex items-center gap-1"><Plus size={14}/>{action}</button>}
     </div>
   );

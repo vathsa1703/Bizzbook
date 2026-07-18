@@ -42,28 +42,28 @@ export default function PitchDeckTab() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-black text-gray-900">Pitch Deck Manager</h2>
-        <p className="text-xs text-gray-500">Upload and manage your investor documents</p>
+        <h2 className="text-lg font-black text-inkA dark:text-inkA-dark">Pitch Deck Manager</h2>
+        <p className="text-xs text-inkB dark:text-inkB-dark">Upload and manage your investor documents</p>
       </div>
 
       <SectionCard>
-        <p className="text-xs font-bold text-gray-700 mb-3">Upload Document</p>
+        <p className="text-xs font-bold text-inkB dark:text-inkB-dark mb-3">Upload Document</p>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">Title *</label>
-            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Document title" className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+            <label className="text-xs font-semibold text-inkB dark:text-inkB-dark mb-1 block">Title *</label>
+            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Document title" className="w-full px-3 py-2 bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">Type</label>
-            <select value={deckType} onChange={e => setDeckType(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            <label className="text-xs font-semibold text-inkB dark:text-inkB-dark mb-1 block">Type</label>
+            <select value={deckType} onChange={e => setDeckType(e.target.value)} className="w-full px-3 py-2 bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
               {DECK_TYPES.map(t => <option key={t}>{t}</option>)}
             </select>
           </div>
           <div>
-            <label className="text-xs font-semibold text-gray-600 mb-1 block">File (PDF, PPT, XLS, DOC)</label>
-            <label className="w-full flex items-center gap-3 px-3 py-3 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-indigo-300 transition-colors">
-              <Upload size={16} className="text-gray-400" />
-              <span className="text-sm text-gray-500">{fileRef.current?.files?.[0]?.name || 'Click to browse'}</span>
+            <label className="text-xs font-semibold text-inkB dark:text-inkB-dark mb-1 block">File (PDF, PPT, XLS, DOC)</label>
+            <label className="w-full flex items-center gap-3 px-3 py-3 border-2 border-dashed border-edge dark:border-edge-dark rounded-xl cursor-pointer hover:border-indigo-300 transition-colors">
+              <Upload size={16} className="text-gray-400 dark:text-slate-500" />
+              <span className="text-sm text-inkB dark:text-inkB-dark">{fileRef.current?.files?.[0]?.name || 'Click to browse'}</span>
               <input type="file" ref={fileRef} className="hidden" accept=".pdf,.ppt,.pptx,.xls,.xlsx,.doc,.docx" onChange={() => {}} />
             </label>
           </div>
@@ -73,22 +73,22 @@ export default function PitchDeckTab() {
         </div>
       </SectionCard>
 
-      {loading ? <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-indigo-500" /></div> :
+      {loading ? <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-indigo-500 dark:text-indigo-400" /></div> :
        decks.length === 0 ? <EmptyState icon={Presentation} title="No documents yet" sub="Upload your pitch deck, financial model, and business plan" /> :
         <div className="space-y-3">
           {decks.map(d => (
-            <div key={d.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center justify-between">
+            <div key={d.id} className="bg-panel dark:bg-panel-dark rounded-2xl border border-edge dark:border-edge-dark shadow-sm p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl ${d.is_current ? 'bg-indigo-100' : 'bg-gray-100'} flex items-center justify-center`}>
-                  <Presentation size={18} className={d.is_current ? 'text-indigo-600' : 'text-gray-400'} />
+                <div className={`w-10 h-10 rounded-xl ${d.is_current ? 'bg-indigo-100 dark:bg-indigo-500/15' : 'bg-panel2 dark:bg-panel2-dark'} flex items-center justify-center`}>
+                  <Presentation size={18} className={d.is_current ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-slate-500'} />
                 </div>
                 <div>
-                  <p className="font-bold text-gray-900 text-sm">{d.title}</p>
+                  <p className="font-bold text-inkA dark:text-inkA-dark text-sm">{d.title}</p>
                   <div className="flex items-center gap-2">
                     <Badge color={d.is_current ? 'indigo' : 'gray'}>{d.deck_type}</Badge>
                     {d.is_current && <Badge color="green">Current</Badge>}
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-0.5">{d.original_name || 'No file'}</p>
+                  <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">{d.original_name || 'No file'}</p>
                 </div>
               </div>
               <button onClick={async () => { if (confirm('Delete?')) { await api.growth.deletePitchDeck(d.id); load(); }}} className="p-2 rounded-xl hover:bg-red-50">

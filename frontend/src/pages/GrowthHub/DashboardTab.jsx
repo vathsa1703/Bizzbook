@@ -17,7 +17,7 @@ export default function DashboardTab({ onTabChange }) {
     api.growth.getDashboard().then(setData).catch(console.error).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-indigo-500" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-indigo-500 dark:text-indigo-400" /></div>;
   if (!data) return null;
 
   const { profile = {}, readiness = {}, counts = {}, latestValuation } = data;
@@ -28,10 +28,10 @@ export default function DashboardTab({ onTabChange }) {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-xl font-black text-gray-900">Growth Hub</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Your complete funding & growth dashboard</p>
+          <h2 className="text-xl font-black text-inkA dark:text-inkA-dark">Growth Hub</h2>
+          <p className="text-sm text-inkB dark:text-inkB-dark mt-0.5">Your complete funding & growth dashboard</p>
         </div>
-        <span className={`px-3 py-1 rounded-full text-xs font-bold ${STAGE_COLORS[profile.stage] || 'bg-gray-100 text-gray-600'}`}>
+        <span className={`px-3 py-1 rounded-full text-xs font-bold ${STAGE_COLORS[profile.stage] || 'bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark'}`}>
           {profile.stage || 'Set Stage'}
         </span>
       </div>
@@ -39,8 +39,8 @@ export default function DashboardTab({ onTabChange }) {
       {/* Readiness Rings */}
       <SectionCard>
         <div className="flex items-center gap-2 mb-4">
-          <Activity size={16} className="text-indigo-600" />
-          <h3 className="font-bold text-gray-900 text-sm">Growth Readiness Scores</h3>
+          <Activity size={16} className="text-indigo-600 dark:text-indigo-400" />
+          <h3 className="font-bold text-inkA dark:text-inkA-dark text-sm">Growth Readiness Scores</h3>
         </div>
         <div className="grid grid-cols-4 gap-2 justify-items-center">
           <div className="flex flex-col items-center gap-1">
@@ -57,10 +57,10 @@ export default function DashboardTab({ onTabChange }) {
           </div>
         </div>
         {readiness.fundingItems?.length > 0 && (
-          <div className="mt-4 space-y-2 border-t border-gray-50 pt-3">
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Next Steps to Improve Funding Readiness</p>
+          <div className="mt-4 space-y-2 border-t border-edge dark:border-edge-dark pt-3">
+            <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider">Next Steps to Improve Funding Readiness</p>
             {readiness.fundingItems.filter(i => !i.done).slice(0,3).map((item, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs text-gray-600">
+              <div key={i} className="flex items-center gap-2 text-xs text-inkB dark:text-inkB-dark">
                 <div className="w-4 h-4 rounded-full border-2 border-gray-300 flex-shrink-0" />
                 {item.label}
               </div>
@@ -80,8 +80,8 @@ export default function DashboardTab({ onTabChange }) {
       {/* Profile snapshot */}
       <SectionCard>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-gray-900 text-sm">Company Growth Profile</h3>
-          <button onClick={() => onTabChange('funding')} className="text-xs text-indigo-600 font-semibold flex items-center gap-1">Explore Funding <ChevronRight size={12}/></button>
+          <h3 className="font-bold text-inkA dark:text-inkA-dark text-sm">Company Growth Profile</h3>
+          <button onClick={() => onTabChange('funding')} className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-1">Explore Funding <ChevronRight size={12}/></button>
         </div>
         <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs">
           {[
@@ -92,14 +92,14 @@ export default function DashboardTab({ onTabChange }) {
             ['Industry', profile.industry_vertical || '—'],
             ['Country', profile.country_code || 'IN'],
           ].map(([k, v]) => (
-            <div key={k}><span className="text-gray-400">{k}</span><br/><span className="font-semibold text-gray-800">{v}</span></div>
+            <div key={k}><span className="text-gray-400 dark:text-slate-500">{k}</span><br/><span className="font-semibold text-inkA dark:text-inkA-dark">{v}</span></div>
           ))}
         </div>
       </SectionCard>
 
       {/* Quick nav */}
       <SectionCard>
-        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">Quick Actions</p>
+        <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-3">Quick Actions</p>
         <div className="space-y-1">
           {[
             { label: 'Set up your Cap Table', tab: 'cap-table', icon: Layers },
@@ -107,9 +107,9 @@ export default function DashboardTab({ onTabChange }) {
             { label: 'Find Government Schemes', tab: 'schemes', icon: Landmark },
             { label: 'Ask AI Growth Advisor', tab: 'advisor', icon: Bot },
           ].map(({ label, tab, icon: Icon }) => (
-            <button key={tab} onClick={() => onTabChange(tab)} className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors text-sm text-gray-700 font-medium">
-              <div className="flex items-center gap-3"><Icon size={15} className="text-indigo-500" />{label}</div>
-              <ChevronRight size={14} className="text-gray-300" />
+            <button key={tab} onClick={() => onTabChange(tab)} className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors text-sm text-inkB dark:text-inkB-dark font-medium">
+              <div className="flex items-center gap-3"><Icon size={15} className="text-indigo-500 dark:text-indigo-400" />{label}</div>
+              <ChevronRight size={14} className="text-gray-300 dark:text-slate-600" />
             </button>
           ))}
         </div>

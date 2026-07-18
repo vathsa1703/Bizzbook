@@ -44,15 +44,15 @@ export default function AdvisorTab() {
   return (
     <div className="flex flex-col h-full" style={{ minHeight: 'calc(100vh - 200px)' }}>
       <div className="mb-4">
-        <h2 className="text-lg font-black text-gray-900">AI Growth Advisor</h2>
-        <p className="text-xs text-gray-500">Ask anything about funding, equity, valuation, and growth</p>
+        <h2 className="text-lg font-black text-inkA dark:text-inkA-dark">AI Growth Advisor</h2>
+        <p className="text-xs text-inkB dark:text-inkB-dark">Ask anything about funding, equity, valuation, and growth</p>
       </div>
 
       {/* Quick questions */}
       {messages.length <= 1 && (
         <div className="flex flex-wrap gap-2 mb-4">
           {QUICK.map(q => (
-            <button key={q} onClick={() => send(q)} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-xl hover:bg-indigo-100 transition-colors border border-indigo-100">
+            <button key={q} onClick={() => send(q)} className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 text-xs font-semibold rounded-xl hover:bg-indigo-100 transition-colors border border-indigo-200 dark:border-indigo-500/25">
               {q}
             </button>
           ))}
@@ -71,7 +71,7 @@ export default function AdvisorTab() {
             <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
               msg.role === 'user'
                 ? 'bg-indigo-600 text-white rounded-br-md'
-                : 'bg-white shadow-sm border border-gray-100 text-gray-700 rounded-bl-md'
+                : 'bg-panel dark:bg-panel-dark shadow-sm border border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark rounded-bl-md'
             }`}>
               {msg.content}
             </div>
@@ -82,7 +82,7 @@ export default function AdvisorTab() {
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center flex-shrink-0 mr-2">
               <Bot size={13} className="text-white" />
             </div>
-            <div className="bg-white shadow-sm border border-gray-100 rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-1">
+            <div className="bg-panel dark:bg-panel-dark shadow-sm border border-edge dark:border-edge-dark rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-1">
               {[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: `${i*0.15}s` }} />)}
             </div>
           </div>
@@ -97,7 +97,7 @@ export default function AdvisorTab() {
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
           placeholder="Ask about funding, equity, IPO..."
-          className="flex-1 px-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 shadow-sm"
+          className="flex-1 px-4 py-3 bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 shadow-sm"
         />
         <button onClick={() => send()} disabled={!input.trim() || sending} className="w-11 h-11 bg-indigo-600 rounded-2xl flex items-center justify-center hover:bg-indigo-700 disabled:opacity-40 transition-colors flex-shrink-0">
           <Send size={15} className="text-white" />

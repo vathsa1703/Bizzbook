@@ -36,7 +36,7 @@ export default function RoadmapTab() {
   const PRIORITY_COLOR = { Critical:'red', High:'orange', Medium:'amber', Low:'gray' };
   const STATUS_ICON = { 'Not Started': Clock, 'In Progress': RefreshCw, 'Complete': CheckCircle2 };
 
-  if (loading) return <div className="flex justify-center py-20"><Loader2 size={24} className="animate-spin text-indigo-500" /></div>;
+  if (loading) return <div className="flex justify-center py-20"><Loader2 size={24} className="animate-spin text-indigo-500 dark:text-indigo-400" /></div>;
 
   // Group by stage
   const stageOrder = ['Idea','Registered','Revenue','Funded','Scaling','Profitable','Pre-IPO','Public'];
@@ -51,8 +51,8 @@ export default function RoadmapTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-black text-gray-900">Growth Roadmap</h2>
-          <p className="text-xs text-gray-500">{data.complete}/{data.total} milestones complete</p>
+          <h2 className="text-lg font-black text-inkA dark:text-inkA-dark">Growth Roadmap</h2>
+          <p className="text-xs text-inkB dark:text-inkB-dark">{data.complete}/{data.total} milestones complete</p>
         </div>
         <button onClick={() => setShowForm(true)} className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-colors">
           <Plus size={13} />Add Task
@@ -61,7 +61,7 @@ export default function RoadmapTab() {
 
       <SectionCard>
         <ProgressBar value={data.total > 0 ? (data.complete / data.total) * 100 : 0} color="#6366f1" height={8} />
-        <div className="flex justify-between mt-2 text-xs text-gray-500">
+        <div className="flex justify-between mt-2 text-xs text-inkB dark:text-inkB-dark">
           <span>Progress: {data.total > 0 ? Math.round((data.complete / data.total) * 100) : 0}%</span>
           <span>{data.inProgress} in progress</span>
         </div>
@@ -76,24 +76,24 @@ export default function RoadmapTab() {
           return (
             <div key={stage} className="flex gap-3">
               <div className="flex flex-col items-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 z-10 ${allDone ? 'bg-green-500' : 'bg-indigo-100'}`}>
-                  {allDone ? <Check size={14} className="text-white" /> : <span className="text-xs font-black text-indigo-600">{si+1}</span>}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 z-10 ${allDone ? 'bg-green-500' : 'bg-indigo-100 dark:bg-indigo-500/15'}`}>
+                  {allDone ? <Check size={14} className="text-white" /> : <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{si+1}</span>}
                 </div>
                 {si < groupedStages.length - 1 && <div className="w-0.5 bg-gray-200 flex-1 my-1" style={{ minHeight: 24 }} />}
               </div>
               <div className="flex-1 pb-4">
-                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold mb-2 ${STAGE_COLORS[stage] || 'bg-gray-100 text-gray-600'}`}>
+                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold mb-2 ${STAGE_COLORS[stage] || 'bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark'}`}>
                   {stage}
                 </div>
                 <div className="space-y-2">
                   {tasks.map(task => {
                     const StatusIcon = STATUS_ICON[task.status] || Clock;
                     return (
-                      <button key={task.id} onClick={() => toggleStatus(task)} className="w-full bg-white rounded-xl border border-gray-100 shadow-sm p-3 text-left hover:shadow-md transition-all flex items-start gap-3">
-                        <StatusIcon size={15} className={task.status==='Complete'?'text-green-500':task.status==='In Progress'?'text-amber-500':'text-gray-300'} />
+                      <button key={task.id} onClick={() => toggleStatus(task)} className="w-full bg-panel dark:bg-panel-dark rounded-xl border border-edge dark:border-edge-dark shadow-sm p-3 text-left hover:shadow-md transition-all flex items-start gap-3">
+                        <StatusIcon size={15} className={task.status==='Complete'?'text-green-500 dark:text-green-400':task.status==='In Progress'?'text-amber-500 dark:text-amber-400':'text-gray-300 dark:text-slate-600'} />
                         <div className="flex-1">
-                          <p className={`text-xs font-semibold ${task.status==='Complete' ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{task.title}</p>
-                          {task.description && <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-2">{task.description}</p>}
+                          <p className={`text-xs font-semibold ${task.status==='Complete' ? 'text-gray-400 dark:text-slate-500 line-through' : 'text-inkA dark:text-inkA-dark'}`}>{task.title}</p>
+                          {task.description && <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5 line-clamp-2">{task.description}</p>}
                           <div className="flex items-center gap-2 mt-1">
                             <Badge color={PRIORITY_COLOR[task.priority]||'gray'}>{task.priority}</Badge>
                             <Badge color="gray">{task.category}</Badge>
@@ -111,10 +111,10 @@ export default function RoadmapTab() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-lg max-h-[75vh] overflow-y-auto">
-            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="font-bold text-gray-900">Add Milestone</h3>
-              <button onClick={() => setShowForm(false)}><X size={18} className="text-gray-400" /></button>
+          <div className="bg-panel dark:bg-panel-dark rounded-3xl w-full max-w-lg max-h-[75vh] overflow-y-auto">
+            <div className="p-5 border-b border-edge dark:border-edge-dark flex items-center justify-between">
+              <h3 className="font-bold text-inkA dark:text-inkA-dark">Add Milestone</h3>
+              <button onClick={() => setShowForm(false)}><X size={18} className="text-gray-400 dark:text-slate-500" /></button>
             </div>
             <div className="p-5 space-y-3">
               {[
@@ -122,10 +122,10 @@ export default function RoadmapTab() {
                 { label: 'Description', key: 'description', placeholder: 'What needs to be done?', multiline: true },
               ].map(({ label, key, placeholder, multiline }) => (
                 <div key={key}>
-                  <label className="text-xs font-semibold text-gray-600 mb-1 block">{label}</label>
+                  <label className="text-xs font-semibold text-inkB dark:text-inkB-dark mb-1 block">{label}</label>
                   {multiline
-                    ? <textarea value={form[key]} onChange={e => setForm(f => ({...f, [key]: e.target.value}))} rows={2} placeholder={placeholder} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none" />
-                    : <input value={form[key]} onChange={e => setForm(f => ({...f, [key]: e.target.value}))} placeholder={placeholder} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+                    ? <textarea value={form[key]} onChange={e => setForm(f => ({...f, [key]: e.target.value}))} rows={2} placeholder={placeholder} className="w-full px-3 py-2 bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none" />
+                    : <input value={form[key]} onChange={e => setForm(f => ({...f, [key]: e.target.value}))} placeholder={placeholder} className="w-full px-3 py-2 bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
                   }
                 </div>
               ))}
@@ -135,8 +135,8 @@ export default function RoadmapTab() {
                 { label: 'Priority', key: 'priority', opts: ['Low','Medium','High','Critical'] },
               ].map(({ label, key, opts }) => (
                 <div key={key}>
-                  <label className="text-xs font-semibold text-gray-600 mb-1 block">{label}</label>
-                  <select value={form[key]} onChange={e => setForm(f => ({...f, [key]: e.target.value}))} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                  <label className="text-xs font-semibold text-inkB dark:text-inkB-dark mb-1 block">{label}</label>
+                  <select value={form[key]} onChange={e => setForm(f => ({...f, [key]: e.target.value}))} className="w-full px-3 py-2 bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
                     {opts.map(o => <option key={o}>{o}</option>)}
                   </select>
                 </div>

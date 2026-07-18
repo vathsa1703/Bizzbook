@@ -25,19 +25,19 @@ export default function SchemesTab() {
   );
   function parseJson(s) { try { return JSON.parse(s||'[]'); } catch { return []; } }
 
-  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-indigo-500" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-indigo-500 dark:text-indigo-400" /></div>;
 
   if (selected) {
     const s = selected;
     return (
       <div className="space-y-4">
-        <button onClick={() => setSelected(null)} className="flex items-center gap-2 text-sm text-indigo-600 font-semibold">
+        <button onClick={() => setSelected(null)} className="flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-semibold">
           <ChevronRight size={14} className="rotate-180" /> Back to Schemes
         </button>
         <SectionCard>
           <div className="flex items-start justify-between mb-2">
             <div>
-              <h2 className="text-lg font-black text-gray-900">{s.name}</h2>
+              <h2 className="text-lg font-black text-inkA dark:text-inkA-dark">{s.name}</h2>
               <div className="flex flex-wrap gap-1 mt-1">
                 <Badge color={BENEFIT_COLOR[s.benefit_type]||'gray'}>{s.benefit_type}</Badge>
                 <Badge color="blue">{s.category}</Badge>
@@ -46,14 +46,14 @@ export default function SchemesTab() {
               </div>
             </div>
           </div>
-          <p className="text-xs text-gray-500 font-medium">{s.administering_body}</p>
-          <p className="text-sm text-gray-600 leading-relaxed mt-2">{s.description}</p>
+          <p className="text-xs text-inkB dark:text-inkB-dark font-medium">{s.administering_body}</p>
+          <p className="text-sm text-inkB dark:text-inkB-dark leading-relaxed mt-2">{s.description}</p>
         </SectionCard>
 
         {s.max_benefit_amount && (
           <SectionCard>
-            <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Maximum Benefit</p>
-            <p className="text-lg font-black text-green-600">₹{Number(s.max_benefit_amount).toLocaleString('en-IN')}</p>
+            <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase mb-1">Maximum Benefit</p>
+            <p className="text-lg font-black text-green-600 dark:text-green-400">₹{Number(s.max_benefit_amount).toLocaleString('en-IN')}</p>
           </SectionCard>
         )}
 
@@ -63,21 +63,21 @@ export default function SchemesTab() {
           { title: 'Documents Required', data: parseJson(s.documents_required) },
         ].map(({ title, data }) => data.length > 0 && (
           <SectionCard key={title}>
-            <p className="text-xs font-bold text-gray-700 mb-2">{title}</p>
+            <p className="text-xs font-bold text-inkB dark:text-inkB-dark mb-2">{title}</p>
             <ul className="space-y-1">
-              {data.map((item, i) => <li key={i} className="text-xs text-gray-600 flex items-start gap-2"><span className="text-indigo-400">•</span>{item}</li>)}
+              {data.map((item, i) => <li key={i} className="text-xs text-inkB dark:text-inkB-dark flex items-start gap-2"><span className="text-indigo-400">•</span>{item}</li>)}
             </ul>
           </SectionCard>
         ))}
 
         {parseJson(s.application_process).length > 0 && (
           <SectionCard>
-            <p className="text-xs font-bold text-gray-700 mb-2">Application Process</p>
+            <p className="text-xs font-bold text-inkB dark:text-inkB-dark mb-2">Application Process</p>
             <div className="space-y-2">
               {parseJson(s.application_process).map((step, i) => (
                 <div key={i} className="flex items-start gap-3">
                   <div className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i+1}</div>
-                  <p className="text-xs text-gray-600">{step}</p>
+                  <p className="text-xs text-inkB dark:text-inkB-dark">{step}</p>
                 </div>
               ))}
             </div>
@@ -86,9 +86,9 @@ export default function SchemesTab() {
 
         {parseJson(s.official_links).length > 0 && (
           <SectionCard>
-            <p className="text-xs font-bold text-gray-700 mb-2">Official Links</p>
+            <p className="text-xs font-bold text-inkB dark:text-inkB-dark mb-2">Official Links</p>
             {parseJson(s.official_links).map((l, i) => (
-              <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-indigo-600 font-medium hover:underline mb-1">
+              <a key={i} href={l.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline mb-1">
                 <ExternalLink size={11} />{l.label}
               </a>
             ))}
@@ -101,39 +101,39 @@ export default function SchemesTab() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-black text-gray-900">Government Schemes</h2>
-        <p className="text-xs text-gray-500 mt-0.5">Search grants, loans & programs for your business</p>
+        <h2 className="text-lg font-black text-inkA dark:text-inkA-dark">Government Schemes</h2>
+        <p className="text-xs text-inkB dark:text-inkB-dark mt-0.5">Search grants, loans & programs for your business</p>
       </div>
       <div className="relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search schemes..." className="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search schemes..." className="w-full pl-8 pr-3 py-2 bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
         {categories.map(c => (
-          <button key={c} onClick={() => setCategory(c)} className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${category===c ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{c}</button>
+          <button key={c} onClick={() => setCategory(c)} className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors ${category===c ? 'bg-indigo-600 text-white' : 'bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark hover:bg-gray-200'}`}>{c}</button>
         ))}
       </div>
       <div className="space-y-3">
         {filtered.map(s => (
-          <button key={s.id} onClick={() => setSelected(s)} className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-left hover:shadow-md hover:border-indigo-200 transition-all">
+          <button key={s.id} onClick={() => setSelected(s)} className="w-full bg-panel dark:bg-panel-dark rounded-2xl border border-edge dark:border-edge-dark shadow-sm p-4 text-left hover:shadow-md hover:border-indigo-200 transition-all">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-gray-900 text-sm">{s.name}</span>
+                  <span className="font-bold text-inkA dark:text-inkA-dark text-sm">{s.name}</span>
                   {s.benefit_type && <Badge color={BENEFIT_COLOR[s.benefit_type]||'gray'}>{s.benefit_type}</Badge>}
                 </div>
-                <p className="text-[10px] text-gray-400 mt-0.5">{s.administering_body}</p>
-                <p className="text-xs text-gray-500 mt-1 line-clamp-2">{s.description}</p>
+                <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">{s.administering_body}</p>
+                <p className="text-xs text-inkB dark:text-inkB-dark mt-1 line-clamp-2">{s.description}</p>
                 <div className="flex items-center gap-3 mt-2">
                   <Badge color={s.deadline_type==='Rolling'?'green':s.deadline_type==='Closed'?'red':'amber'}>{s.deadline_type||'—'}</Badge>
-                  {s.max_benefit_amount && <span className="text-[10px] text-gray-500">Up to ₹{Number(s.max_benefit_amount).toLocaleString('en-IN')}</span>}
+                  {s.max_benefit_amount && <span className="text-[10px] text-inkB dark:text-inkB-dark">Up to ₹{Number(s.max_benefit_amount).toLocaleString('en-IN')}</span>}
                 </div>
               </div>
-              <ChevronRight size={16} className="text-gray-300 flex-shrink-0 mt-1" />
+              <ChevronRight size={16} className="text-gray-300 dark:text-slate-600 flex-shrink-0 mt-1" />
             </div>
           </button>
         ))}
-        {filtered.length === 0 && <p className="text-center text-sm text-gray-400 py-8">No schemes found</p>}
+        {filtered.length === 0 && <p className="text-center text-sm text-gray-400 dark:text-slate-500 py-8">No schemes found</p>}
       </div>
     </div>
   );

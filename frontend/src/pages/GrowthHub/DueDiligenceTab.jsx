@@ -25,7 +25,7 @@ export default function DueDiligenceTab() {
     load();
   };
 
-  if (loading) return <div className="flex justify-center py-20"><Loader2 size={24} className="animate-spin text-indigo-500" /></div>;
+  if (loading) return <div className="flex justify-center py-20"><Loader2 size={24} className="animate-spin text-indigo-500 dark:text-indigo-400" /></div>;
   if (!data) return null;
 
   const STATUS_COLOR = { Missing: 'red', Uploaded: 'amber', Verified: 'green', Expired: 'orange', 'Not Applicable': 'gray' };
@@ -34,22 +34,22 @@ export default function DueDiligenceTab() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-black text-gray-900">Due Diligence Center</h2>
-        <p className="text-xs text-gray-500">{data.uploaded}/{data.required} required documents uploaded · {data.missing} missing</p>
+        <h2 className="text-lg font-black text-inkA dark:text-inkA-dark">Due Diligence Center</h2>
+        <p className="text-xs text-inkB dark:text-inkB-dark">{data.uploaded}/{data.required} required documents uploaded · {data.missing} missing</p>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
         <SectionCard className="text-center">
-          <p className="text-2xl font-black text-red-600">{data.missing}</p>
-          <p className="text-[10px] text-gray-400 font-semibold uppercase mt-0.5">Missing</p>
+          <p className="text-2xl font-black text-red-600 dark:text-red-400">{data.missing}</p>
+          <p className="text-[10px] text-gray-400 dark:text-slate-500 font-semibold uppercase mt-0.5">Missing</p>
         </SectionCard>
         <SectionCard className="text-center">
-          <p className="text-2xl font-black text-amber-600">{data.uploaded}</p>
-          <p className="text-[10px] text-gray-400 font-semibold uppercase mt-0.5">Uploaded</p>
+          <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{data.uploaded}</p>
+          <p className="text-[10px] text-gray-400 dark:text-slate-500 font-semibold uppercase mt-0.5">Uploaded</p>
         </SectionCard>
         <SectionCard className="text-center">
-          <p className="text-2xl font-black text-green-600">{data.total - data.missing}</p>
-          <p className="text-[10px] text-gray-400 font-semibold uppercase mt-0.5">Ready</p>
+          <p className="text-2xl font-black text-green-600 dark:text-green-400">{data.total - data.missing}</p>
+          <p className="text-[10px] text-gray-400 dark:text-slate-500 font-semibold uppercase mt-0.5">Ready</p>
         </SectionCard>
       </div>
 
@@ -59,34 +59,34 @@ export default function DueDiligenceTab() {
           const missing = catItems.filter(i => i.is_required && i.status === 'Missing').length;
           const isOpen = openCat === cat;
           return (
-            <div key={cat} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div key={cat} className="bg-panel dark:bg-panel-dark rounded-2xl border border-edge dark:border-edge-dark shadow-sm overflow-hidden">
               <button onClick={() => setOpenCat(isOpen ? null : cat)} className="w-full p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${missing > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
-                    {missing > 0 ? <AlertTriangle size={15} className="text-red-500" /> : <CheckCircle2 size={15} className="text-green-500" />}
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${missing > 0 ? 'bg-red-50 dark:bg-red-500/10' : 'bg-green-50 dark:bg-green-500/10'}`}>
+                    {missing > 0 ? <AlertTriangle size={15} className="text-red-500 dark:text-red-400" /> : <CheckCircle2 size={15} className="text-green-500 dark:text-green-400" />}
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-bold text-gray-900">{cat}</p>
-                    <p className="text-[10px] text-gray-400">{catItems.length} items{missing > 0 ? ` · ${missing} missing` : ''}</p>
+                    <p className="text-sm font-bold text-inkA dark:text-inkA-dark">{cat}</p>
+                    <p className="text-[10px] text-gray-400 dark:text-slate-500">{catItems.length} items{missing > 0 ? ` · ${missing} missing` : ''}</p>
                   </div>
                 </div>
-                <ChevronDown size={14} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown size={14} className={`text-gray-400 dark:text-slate-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
               </button>
               {isOpen && (
-                <div className="border-t border-gray-50 px-4 pb-3 space-y-2">
+                <div className="border-t border-edge dark:border-edge-dark px-4 pb-3 space-y-2">
                   {catItems.map(item => (
                     <div key={item.id} className="flex items-start gap-3 py-2">
                       <div className="flex-1">
-                        <p className="text-xs font-medium text-gray-700">{item.title}</p>
-                        {item.is_required && item.status === 'Missing' && <p className="text-[9px] text-red-500 font-bold uppercase">Required · Missing</p>}
+                        <p className="text-xs font-medium text-inkB dark:text-inkB-dark">{item.title}</p>
+                        {item.is_required && item.status === 'Missing' && <p className="text-[9px] text-red-500 dark:text-red-400 font-bold uppercase">Required · Missing</p>}
                       </div>
                       <div className="flex items-center gap-1">
                         <Badge color={STATUS_COLOR[item.status]||'gray'}>{item.status}</Badge>
                         {item.status === 'Missing' && (
-                          <button onClick={() => markStatus(item.id, 'Uploaded')} className="text-[10px] text-indigo-600 font-bold hover:underline ml-1">Mark Uploaded</button>
+                          <button onClick={() => markStatus(item.id, 'Uploaded')} className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline ml-1">Mark Uploaded</button>
                         )}
                         {item.status === 'Uploaded' && (
-                          <button onClick={() => markStatus(item.id, 'Verified')} className="text-[10px] text-green-600 font-bold hover:underline ml-1">Verify</button>
+                          <button onClick={() => markStatus(item.id, 'Verified')} className="text-[10px] text-green-600 dark:text-green-400 font-bold hover:underline ml-1">Verify</button>
                         )}
                       </div>
                     </div>
