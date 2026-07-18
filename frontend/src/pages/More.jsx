@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart2, FileText, Bell, Shield, HelpCircle, LogOut, TrendingUp, Users, Sparkles, Receipt, Building2, ShieldCheck, Truck } from 'lucide-react';
+import { BarChart2, FileText, Bell, Shield, HelpCircle, LogOut, TrendingUp, Users, Sparkles, Receipt, Building2, ShieldCheck, Truck, Sun, Moon } from 'lucide-react';
 import ListItem from '../components/ListItem';
 import SectionCard from '../components/SectionCard';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 export default function More({ onNavigate }) {
   const [recommendations, setRecommendations] = useState([]);
   const [isGstRegistered, setIsGstRegistered]  = useState(true); // default to true until loaded
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     api.recommendations().catch(() => []).then(r => setRecommendations(Array.isArray(r) ? r.slice(0, 3) : []));
@@ -182,6 +184,15 @@ export default function More({ onNavigate }) {
                 />
               </div>
             )}
+            <div className="px-4" onClick={toggleTheme}>
+              <ListItem
+                icon={theme === 'dark' ? Sun : Moon}
+                title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                subtitle="Switch app appearance"
+                color="blue"
+                showChevron={false}
+              />
+            </div>
             <div className="px-4">
               <ListItem
                 icon={Bell}

@@ -88,8 +88,8 @@ export default function App() {
     const currentTab = PAGES[tab] ? tab : 'home';
     const Page = PAGES[currentTab];
     content = (
-      <div className="relative min-h-screen bg-surface">
-        <main className="h-screen overflow-y-auto scrollbar-none">
+      <div className="relative min-h-screen bg-canvas dark:bg-canvas-dark">
+        <main className="h-screen overflow-y-auto scrollbar-none md:pl-56">
           <Page onNavigate={setTab} />
         </main>
 
