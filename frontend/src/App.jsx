@@ -63,12 +63,12 @@ export default function App() {
   let content;
   if (loading) {
     content = (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 font-sans">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-panel dark:bg-panel-dark font-sans">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-violet-600 shadow-lg shadow-blue-500/20 ring-1 ring-white/20 animate-pulse mb-4">
           <Sparkles className="w-8 h-8 text-white animate-spin" />
         </div>
-        <div className="text-white font-bold text-lg">BIZZ BOOK</div>
-        <div className="text-slate-400 text-xs mt-1">Restoring secure session...</div>
+        <div className="text-inkA dark:text-inkA-dark font-bold text-lg">BIZZ BOOK</div>
+        <div className="text-inkB dark:text-inkB-dark text-xs mt-1">Restoring secure session...</div>
       </div>
     );
   } else if (!user) {

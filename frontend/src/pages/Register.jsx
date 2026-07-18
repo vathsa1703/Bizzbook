@@ -16,8 +16,8 @@ const ENTITY_TYPES = [
 function InputField({ label, type = 'text', value, onChange, placeholder, required, disabled, hint }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-        {label} {required && <span className="text-rose-400">*</span>}
+      <label className="block text-xs font-semibold text-inkB dark:text-inkB-dark uppercase tracking-wider mb-1.5">
+        {label} {required && <span className="text-rose-600 dark:text-rose-400">*</span>}
       </label>
       <input
         type={type}
@@ -26,9 +26,9 @@ function InputField({ label, type = 'text', value, onChange, placeholder, requir
         placeholder={placeholder}
         disabled={disabled}
         required={required}
-        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-50"
+        className="w-full px-4 py-3 bg-panel2/50 dark:bg-panel2-dark/50 border border-edge dark:border-edge-dark rounded-xl text-sm text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all disabled:opacity-50"
       />
-      {hint && <p className="text-[11px] text-slate-500 mt-1">{hint}</p>}
+      {hint && <p className="text-[11px] text-inkB dark:text-inkB-dark mt-1">{hint}</p>}
     </div>
   );
 }
@@ -84,7 +84,7 @@ export default function Register({ onNavigate }) {
   };
 
   return (
-    <div className="flex flex-col justify-center min-h-screen bg-slate-900 font-sans p-5 relative overflow-hidden">
+    <div className="flex flex-col justify-center min-h-screen bg-panel dark:bg-panel-dark font-sans p-5 relative overflow-hidden">
       {/* Decorative Gradients */}
       <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-blue-600/25 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-violet-600/15 blur-3xl pointer-events-none" />
@@ -96,10 +96,10 @@ export default function Register({ onNavigate }) {
             <Sparkles className="w-7 h-7 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-white">
+            <h1 className="text-2xl font-extrabold tracking-tight text-inkA dark:text-inkA-dark">
               Create Your Business
             </h1>
-            <p className="text-sm text-slate-400 mt-1">Quick setup · Under 60 seconds</p>
+            <p className="text-sm text-inkB dark:text-inkB-dark mt-1">Quick setup · Under 60 seconds</p>
           </div>
         </div>
 
@@ -107,7 +107,7 @@ export default function Register({ onNavigate }) {
         <div className="bg-slate-800/80 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-6 shadow-2xl space-y-5">
 
           {error && (
-            <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium">
+            <div className="flex items-center gap-2.5 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-medium">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{error}</span>
             </div>
@@ -126,8 +126,8 @@ export default function Register({ onNavigate }) {
 
             {/* Entity type cards — more intuitive than a dropdown */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
-                Business Type <span className="text-rose-400">*</span>
+              <label className="block text-xs font-semibold text-inkB dark:text-inkB-dark uppercase tracking-wider mb-2">
+                Business Type <span className="text-rose-600 dark:text-rose-400">*</span>
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {ENTITY_TYPES.map(et => (
@@ -138,8 +138,8 @@ export default function Register({ onNavigate }) {
                     disabled={loading}
                     className={`px-2 py-2.5 rounded-xl border text-left transition-all ${
                       entityType === et.value
-                        ? 'border-blue-500 bg-blue-500/10 text-blue-300'
-                        : 'border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300 hover:bg-slate-700/50'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                        : 'border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark hover:border-accent/40 hover:text-slate-300 hover:bg-slate-700/50'
                     }`}
                   >
                     <p className="text-xs font-bold">{et.label}</p>
@@ -200,7 +200,7 @@ export default function Register({ onNavigate }) {
               />
             </div>
 
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px]">
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/25 dark:border-blue-500/20 text-blue-600 dark:text-blue-400 text-[10px]">
               <ShieldCheck className="w-4 h-4 flex-shrink-0" />
               <span>You will be registered as the <strong>OWNER</strong> of this business. A setup wizard will guide you through the rest.</span>
             </div>
@@ -222,12 +222,12 @@ export default function Register({ onNavigate }) {
           </form>
         </div>
 
-        <p className="text-center text-xs text-slate-400 font-medium">
+        <p className="text-center text-xs text-inkB dark:text-inkB-dark font-medium">
           Already have an account?{' '}
           <button
             onClick={() => onNavigate('login')}
             disabled={loading}
-            className="text-blue-400 hover:text-blue-300 font-bold transition-colors underline decoration-blue-400/30 underline-offset-4"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-300 font-bold transition-colors underline decoration-blue-400/30 underline-offset-4"
           >
             Sign In
           </button>

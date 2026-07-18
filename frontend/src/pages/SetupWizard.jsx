@@ -43,11 +43,11 @@ const INDUSTRIES = [
 function FieldGroup({ label, required, children, hint }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-        {label} {required && <span className="text-rose-400">*</span>}
+      <label className="block text-xs font-semibold text-inkB dark:text-inkB-dark uppercase tracking-wider mb-1.5">
+        {label} {required && <span className="text-rose-600 dark:text-rose-400">*</span>}
       </label>
       {children}
-      {hint && <p className="text-[11px] text-slate-500 mt-1">{hint}</p>}
+      {hint && <p className="text-[11px] text-inkB dark:text-inkB-dark mt-1">{hint}</p>}
     </div>
   );
 }
@@ -55,7 +55,7 @@ function FieldGroup({ label, required, children, hint }) {
 function WizardInput({ className = '', ...props }) {
   return (
     <input
-      className={`w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all ${className}`}
+      className={`w-full px-4 py-2.5 bg-slate-900/60 border border-edge dark:border-edge-dark rounded-xl text-sm text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all ${className}`}
       {...props}
     />
   );
@@ -64,7 +64,7 @@ function WizardInput({ className = '', ...props }) {
 function WizardSelect({ className = '', children, ...props }) {
   return (
     <select
-      className={`w-full px-4 py-2.5 bg-slate-900/60 border border-slate-700 rounded-xl text-sm text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all ${className}`}
+      className={`w-full px-4 py-2.5 bg-slate-900/60 border border-edge dark:border-edge-dark rounded-xl text-sm text-inkA dark:text-inkA-dark outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all ${className}`}
       {...props}
     >
       {children}
@@ -144,18 +144,18 @@ function Step1({ onComplete }) {
             placeholder="29ABCDE1234F1Z5"
             maxLength={15}
           />
-          {validating && <Loader2 className="absolute right-3 top-3 w-4 h-4 text-slate-400 animate-spin" />}
+          {validating && <Loader2 className="absolute right-3 top-3 w-4 h-4 text-inkB dark:text-inkB-dark animate-spin" />}
         </div>
         {gstinError && (
-          <p className="flex items-center gap-1.5 text-rose-400 text-xs mt-1">
+          <p className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 text-xs mt-1">
             <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {gstinError}
           </p>
         )}
         {/* Resolution 4: inline state detection chip */}
         {gstinState && (
-          <div className="flex items-center gap-2 mt-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-lg">
-            <CheckCircle2 className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
-            <span className="text-xs text-green-300">
+          <div className="flex items-center gap-2 mt-2 px-3 py-1.5 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/25 dark:border-green-500/20 rounded-lg">
+            <CheckCircle2 className="w-3.5 h-3.5 text-green-600 dark:text-green-400 flex-shrink-0" />
+            <span className="text-xs text-green-600 dark:text-green-400">
               Registered in: <strong>{gstinState.stateName}</strong> (State Code: {gstinState.stateCode})
             </span>
           </div>
@@ -170,14 +170,14 @@ function Step1({ onComplete }) {
           maxLength={10}
         />
         {panError && (
-          <p className="flex items-center gap-1.5 text-rose-400 text-xs mt-1">
+          <p className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 text-xs mt-1">
             <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {panError}
           </p>
         )}
         {gstin && pan && pan === gstin.substring(2, 12) && (
-          <div className="flex items-center gap-2 mt-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-            <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
-            <span className="text-xs text-blue-300">PAN matches GSTIN ✓</span>
+          <div className="flex items-center gap-2 mt-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/25 dark:border-blue-500/20 rounded-lg">
+            <Info className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+            <span className="text-xs text-blue-600 dark:text-blue-400">PAN matches GSTIN ✓</span>
           </div>
         )}
       </FieldGroup>
@@ -245,7 +245,7 @@ function Step2({ onComplete, onSkip }) {
         </FieldGroup>
       </div>
       <div className="flex gap-3 pt-2">
-        <button onClick={onSkip} className="flex-1 py-3 border border-slate-700 text-slate-400 font-medium rounded-xl hover:bg-slate-800 transition-colors text-sm flex items-center justify-center gap-2">
+        <button onClick={onSkip} className="flex-1 py-3 border border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark font-medium rounded-xl hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors text-sm flex items-center justify-center gap-2">
           <SkipForward className="w-4 h-4" /> Skip for Now
         </button>
         <button onClick={handleSubmit} disabled={saving} className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-violet-600 text-white font-semibold rounded-xl hover:opacity-90 transition-all disabled:opacity-40 flex items-center justify-center gap-2">
@@ -288,8 +288,8 @@ function Step3({ onComplete, onSkip }) {
               onClick={() => { setIndustry(ind.label); setCategory(''); }}
               className={`px-3 py-2.5 rounded-xl border text-sm font-medium text-left transition-all ${
                 industry === ind.label
-                  ? 'border-blue-500 bg-blue-500/10 text-blue-300'
-                  : 'border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                  : 'border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark hover:border-accent/40 hover:text-slate-300'
               }`}
             >
               {ind.label}
@@ -308,7 +308,7 @@ function Step3({ onComplete, onSkip }) {
       )}
 
       <div className="flex gap-3 pt-2">
-        <button onClick={onSkip} className="flex-1 py-3 border border-slate-700 text-slate-400 font-medium rounded-xl hover:bg-slate-800 transition-colors text-sm flex items-center justify-center gap-2">
+        <button onClick={onSkip} className="flex-1 py-3 border border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark font-medium rounded-xl hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors text-sm flex items-center justify-center gap-2">
           <SkipForward className="w-4 h-4" /> Skip for Now
         </button>
         <button onClick={handleSubmit} disabled={saving} className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-violet-600 text-white font-semibold rounded-xl hover:opacity-90 transition-all disabled:opacity-40 flex items-center justify-center gap-2">
@@ -348,12 +348,12 @@ function Step4({ licenseRequirements = [], onComplete, onSkip }) {
   if (licenseRequirements.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl text-sm text-blue-300 flex items-center gap-3">
+        <div className="p-4 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/25 dark:border-blue-500/20 rounded-xl text-sm text-blue-600 dark:text-blue-400 flex items-center gap-3">
           <Info className="w-4 h-4 flex-shrink-0" />
           No specific license requirements found for your category. You can add licenses later from Company Profile.
         </div>
         <div className="flex gap-3">
-          <button onClick={onSkip} className="flex-1 py-3 border border-slate-700 text-slate-400 font-medium rounded-xl hover:bg-slate-800 transition-colors text-sm flex items-center justify-center gap-2">
+          <button onClick={onSkip} className="flex-1 py-3 border border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark font-medium rounded-xl hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors text-sm flex items-center justify-center gap-2">
             <SkipForward className="w-4 h-4" /> Skip
           </button>
           <button onClick={onComplete} className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-violet-600 text-white font-semibold rounded-xl flex items-center justify-center gap-2">
@@ -369,23 +369,23 @@ function Step4({ licenseRequirements = [], onComplete, onSkip }) {
       {licenses.map((lic, idx) => {
         const req = licenseRequirements[idx];
         return (
-          <div key={lic.license_type} className="p-4 bg-slate-800/50 border border-slate-700 rounded-xl space-y-3">
+          <div key={lic.license_type} className="p-4 bg-panel2/60 dark:bg-panel2-dark/60 border border-edge dark:border-edge-dark rounded-xl space-y-3">
             <div className="flex items-center justify-between">
-              <p className="font-semibold text-white text-sm">{lic.license_type.replace(/_/g, ' ')}</p>
+              <p className="font-semibold text-inkA dark:text-inkA-dark text-sm">{lic.license_type.replace(/_/g, ' ')}</p>
               {req?.is_mandatory ? (
-                <span className="text-[10px] font-bold px-2 py-0.5 bg-rose-500/20 text-rose-400 rounded-full uppercase">Mandatory</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-rose-100 dark:bg-rose-500/15 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 rounded-full uppercase">Mandatory</span>
               ) : (
-                <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-600/50 text-slate-400 rounded-full uppercase">Recommended</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-600/50 text-inkB dark:text-inkB-dark rounded-full uppercase">Recommended</span>
               )}
             </div>
-            {req?.description && <p className="text-xs text-slate-500">{req.description}</p>}
+            {req?.description && <p className="text-xs text-inkB dark:text-inkB-dark">{req.description}</p>}
             <WizardInput
               value={lic.license_number}
               onChange={e => updateLicense(idx, 'license_number', e.target.value)}
               placeholder="License number"
             />
             <div>
-              <label className="block text-[11px] text-slate-500 mb-1">Expiry Date (optional)</label>
+              <label className="block text-[11px] text-inkB dark:text-inkB-dark mb-1">Expiry Date (optional)</label>
               <WizardInput
                 type="date"
                 value={lic.expiry_date}
@@ -396,7 +396,7 @@ function Step4({ licenseRequirements = [], onComplete, onSkip }) {
         );
       })}
       <div className="flex gap-3 pt-2">
-        <button onClick={onSkip} className="flex-1 py-3 border border-slate-700 text-slate-400 font-medium rounded-xl hover:bg-slate-800 transition-colors text-sm flex items-center justify-center gap-2">
+        <button onClick={onSkip} className="flex-1 py-3 border border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark font-medium rounded-xl hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors text-sm flex items-center justify-center gap-2">
           <SkipForward className="w-4 h-4" /> Skip for Now
         </button>
         <button onClick={handleSubmit} disabled={saving} className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-violet-600 text-white font-semibold rounded-xl hover:opacity-90 transition-all disabled:opacity-40 flex items-center justify-center gap-2">
@@ -448,14 +448,14 @@ function Step5({ onComplete, onSkip }) {
       </div>
 
       <div>
-        <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-300">
+        <label className="flex items-center gap-2 cursor-pointer text-sm text-inkB dark:text-inkB-dark">
           <input type="checkbox" checked={addBank} onChange={e => setAddBank(e.target.checked)} className="rounded" />
           Add primary bank account (for invoices)
         </label>
       </div>
 
       {addBank && (
-        <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-xl space-y-3">
+        <div className="p-4 bg-panel2/60 dark:bg-panel2-dark/60 border border-edge dark:border-edge-dark rounded-xl space-y-3">
           <FieldGroup label="Bank Name" required>
             <WizardInput value={bank.bank_name} onChange={e => setB('bank_name', e.target.value)} placeholder="State Bank of India" />
           </FieldGroup>
@@ -474,7 +474,7 @@ function Step5({ onComplete, onSkip }) {
       )}
 
       <div className="flex gap-3 pt-2">
-        <button onClick={onSkip} className="flex-1 py-3 border border-slate-700 text-slate-400 font-medium rounded-xl hover:bg-slate-800 transition-colors text-sm flex items-center justify-center gap-2">
+        <button onClick={onSkip} className="flex-1 py-3 border border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark font-medium rounded-xl hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors text-sm flex items-center justify-center gap-2">
           <SkipForward className="w-4 h-4" /> Skip for Now
         </button>
         <button onClick={handleSubmit} disabled={saving} className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-violet-600 text-white font-semibold rounded-xl hover:opacity-90 transition-all disabled:opacity-40 flex items-center justify-center gap-2">
@@ -518,13 +518,13 @@ function Step6({ onComplete, onSkip }) {
       <FieldGroup label="Company Logo" hint="Upload your logo (PNG, JPG). Will appear on invoices.">
         <div className="flex items-center gap-4">
           {logo ? (
-            <img src={logo} alt="logo" className="w-16 h-16 object-contain rounded-xl border border-slate-700 bg-slate-800 p-1" />
+            <img src={logo} alt="logo" className="w-16 h-16 object-contain rounded-xl border border-edge dark:border-edge-dark bg-panel2 dark:bg-panel2-dark p-1" />
           ) : (
-            <div className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-700 flex items-center justify-center text-slate-500">
+            <div className="w-16 h-16 rounded-xl border-2 border-dashed border-edge dark:border-edge-dark flex items-center justify-center text-inkB dark:text-inkB-dark">
               <Palette className="w-6 h-6" />
             </div>
           )}
-          <label className="cursor-pointer px-4 py-2 border border-slate-700 rounded-xl text-sm text-slate-300 hover:bg-slate-800 transition-colors">
+          <label className="cursor-pointer px-4 py-2 border border-edge dark:border-edge-dark rounded-xl text-sm text-inkB dark:text-inkB-dark hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors">
             Choose File
             <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
           </label>
@@ -537,15 +537,15 @@ function Step6({ onComplete, onSkip }) {
             type="color"
             value={color}
             onChange={e => setColor(e.target.value)}
-            className="w-12 h-12 rounded-lg border border-slate-700 cursor-pointer bg-slate-900"
+            className="w-12 h-12 rounded-lg border border-edge dark:border-edge-dark cursor-pointer bg-panel dark:bg-panel-dark"
           />
-          <span className="text-slate-400 text-sm font-mono">{color}</span>
+          <span className="text-inkB dark:text-inkB-dark text-sm font-mono">{color}</span>
           <div className="w-8 h-8 rounded-lg" style={{ backgroundColor: color }} />
         </div>
       </FieldGroup>
 
       <div className="flex gap-3 pt-2">
-        <button onClick={() => handleComplete(true)} disabled={saving} className="flex-1 py-3 border border-slate-700 text-slate-400 font-medium rounded-xl hover:bg-slate-800 transition-colors text-sm flex items-center justify-center gap-2">
+        <button onClick={() => handleComplete(true)} disabled={saving} className="flex-1 py-3 border border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark font-medium rounded-xl hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors text-sm flex items-center justify-center gap-2">
           <SkipForward className="w-4 h-4" /> Skip for Now
         </button>
         <button onClick={() => handleComplete(false)} disabled={saving} className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-violet-600 text-white font-semibold rounded-xl hover:opacity-90 transition-all disabled:opacity-40 flex items-center justify-center gap-2">
@@ -587,29 +587,29 @@ export default function SetupWizard({ onNavigate }) {
   const completionPct = Math.round((completedSteps.size / 6) * 100);
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-900 font-sans relative overflow-hidden">
+    <div className="flex flex-col min-h-screen bg-panel dark:bg-panel-dark font-sans relative overflow-hidden">
       {/* Background */}
       <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-blue-600/20 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-violet-600/15 blur-3xl pointer-events-none" />
 
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-4">
+      <div className="sticky top-0 z-10 bg-slate-900/90 backdrop-blur-md border-b border-edge dark:border-edge-dark px-4 py-4">
         <div className="max-w-lg mx-auto">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-blue-400" />
-              <span className="text-white font-bold text-sm">Company Setup</span>
+              <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <span className="text-inkA dark:text-inkA-dark font-bold text-sm">Company Setup</span>
             </div>
             <button
               onClick={() => { onNavigate('home'); showToast('You can complete setup from Company Profile.', 'info'); }}
-              className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+              className="text-xs text-inkB dark:text-inkB-dark hover:text-slate-300 transition-colors"
             >
               Complete later
             </button>
           </div>
 
           {/* Progress bar */}
-          <div className="w-full bg-slate-800 rounded-full h-1.5 mb-2">
+          <div className="w-full bg-panel2 dark:bg-panel2-dark rounded-full h-1.5 mb-2">
             <div
               className="bg-gradient-to-r from-blue-500 to-violet-500 h-1.5 rounded-full transition-all duration-500"
               style={{ width: `${Math.max(((step - 1) / 6) * 100, 4)}%` }}
@@ -631,8 +631,8 @@ export default function SetupWizard({ onNavigate }) {
                     : s.number === step
                     ? 'bg-blue-600 text-white ring-2 ring-blue-400 ring-offset-1 ring-offset-slate-900'
                     : s.number < step
-                    ? 'bg-slate-600 text-slate-300'
-                    : 'bg-slate-800 text-slate-600'
+                    ? 'bg-slate-600 text-inkB dark:text-inkB-dark'
+                    : 'bg-panel2 dark:bg-panel2-dark text-gray-400 dark:text-slate-500'
                 }`}>
                   {completedSteps.has(s.number) ? <Check className="w-3 h-3" /> : s.number}
                 </div>
@@ -648,13 +648,13 @@ export default function SetupWizard({ onNavigate }) {
           {/* Step Header */}
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-1">
-              {React.createElement(STEPS[step - 1].icon, { className: 'w-5 h-5 text-blue-400' })}
-              <h2 className="text-xl font-bold text-white">{STEPS[step - 1].title}</h2>
+              {React.createElement(STEPS[step - 1].icon, { className: 'w-5 h-5 text-blue-600 dark:text-blue-400 dark:text-blue-400' })}
+              <h2 className="text-xl font-bold text-inkA dark:text-inkA-dark">{STEPS[step - 1].title}</h2>
               {!STEPS[step - 1].required && (
-                <span className="text-[10px] font-medium px-2 py-0.5 bg-slate-800 text-slate-400 rounded-full ml-1">Optional</span>
+                <span className="text-[10px] font-medium px-2 py-0.5 bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark rounded-full ml-1">Optional</span>
               )}
             </div>
-            <p className="text-sm text-slate-400">{STEPS[step - 1].desc}</p>
+            <p className="text-sm text-inkB dark:text-inkB-dark">{STEPS[step - 1].desc}</p>
           </div>
 
           {/* Step Content */}
