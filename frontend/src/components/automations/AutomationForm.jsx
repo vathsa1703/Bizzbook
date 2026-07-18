@@ -80,8 +80,8 @@ export default function AutomationForm({ onCancel, onSaved }) {
   return (
     <div className="max-w-4xl mx-auto pb-20">
       <div className="flex items-center space-x-4 mb-6">
-        <button onClick={onCancel} className="p-2 hover:bg-gray-100 rounded-full transition"><ArrowLeft className="w-5 h-5 text-gray-600" /></button>
-        <h2 className="text-2xl font-bold text-gray-800 flex-1">Create Automation</h2>
+        <button onClick={onCancel} className="p-2 hover:bg-panel2 dark:hover:bg-panel2-dark rounded-full transition"><ArrowLeft className="w-5 h-5 text-inkB dark:text-inkB-dark" /></button>
+        <h2 className="text-2xl font-bold text-inkA dark:text-inkA-dark flex-1">Create Automation</h2>
         <button
           onClick={handleSave}
           disabled={saving}
@@ -94,11 +94,11 @@ export default function AutomationForm({ onCancel, onSaved }) {
 
       <AutomationTemplates onSelectTemplate={applyTemplate} />
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-panel dark:bg-panel-dark rounded-xl shadow-sm border border-edge dark:border-edge-dark overflow-hidden">
         
         {/* Name */}
-        <div className="p-6 border-b border-gray-100">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Automation Name</label>
+        <div className="p-6 border-b border-edge dark:border-edge-dark">
+          <label className="block text-sm font-semibold text-inkB dark:text-inkB-dark mb-2">Automation Name</label>
           <input 
             type="text" 
             value={name} 
@@ -108,10 +108,10 @@ export default function AutomationForm({ onCancel, onSaved }) {
         </div>
 
         {/* Step 1: Trigger */}
-        <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+        <div className="p-6 border-b border-edge dark:border-edge-dark bg-panel2/50 dark:bg-panel2-dark/50">
           <div className="flex items-center space-x-3 mb-4">
-            <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">1</div>
-            <h3 className="text-lg font-semibold text-gray-800">When...</h3>
+            <div className="w-8 h-8 bg-blue-100 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center font-bold">1</div>
+            <h3 className="text-lg font-semibold text-inkA dark:text-inkA-dark">When...</h3>
           </div>
           <select 
             value={eventType} 
@@ -127,23 +127,23 @@ export default function AutomationForm({ onCancel, onSaved }) {
 
         {/* Step 2: Conditions */}
         {selectedTrigger && (
-          <div className="p-6 border-b border-gray-100">
+          <div className="p-6 border-b border-edge dark:border-edge-dark">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">2</div>
-                <h3 className="text-lg font-semibold text-gray-800">And these conditions are met (Optional)</h3>
+                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center font-bold">2</div>
+                <h3 className="text-lg font-semibold text-inkA dark:text-inkA-dark">And these conditions are met (Optional)</h3>
               </div>
-              <button onClick={addCondition} className="text-sm text-blue-600 font-medium flex items-center hover:underline">
+              <button onClick={addCondition} className="text-sm text-blue-600 dark:text-blue-400 font-medium flex items-center hover:underline">
                 <Plus className="w-4 h-4 mr-1" /> Add Condition
               </button>
             </div>
             
             {conditions.length === 0 ? (
-              <p className="text-gray-500 text-sm ml-11">No conditions. This will run every time.</p>
+              <p className="text-inkB dark:text-inkB-dark text-sm ml-11">No conditions. This will run every time.</p>
             ) : (
               <div className="space-y-3 ml-11">
                 {conditions.map((cond, idx) => (
-                  <div key={idx} className="flex items-center space-x-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                  <div key={idx} className="flex items-center space-x-3 bg-panel2 dark:bg-panel2-dark p-3 rounded-lg border border-edge dark:border-edge-dark">
                     <select 
                       value={cond.field} 
                       onChange={e => updateCondition(idx, 'field', e.target.value)}
@@ -165,7 +165,7 @@ export default function AutomationForm({ onCancel, onSaved }) {
                       onChange={e => updateCondition(idx, 'value', e.target.value)}
                       className="px-3 py-2 border border-gray-300 rounded-md flex-1 focus:ring-2 focus:ring-blue-500"
                     />
-                    <button onClick={() => removeCondition(idx)} className="p-2 text-gray-400 hover:text-red-500 transition">
+                    <button onClick={() => removeCondition(idx)} className="p-2 text-gray-400 dark:text-slate-500 hover:text-red-500 transition">
                       <Trash2 className="w-5 h-5" />
                     </button>
                   </div>
@@ -177,10 +177,10 @@ export default function AutomationForm({ onCancel, onSaved }) {
 
         {/* Step 3: Delay */}
         {selectedTrigger && (
-          <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+          <div className="p-6 border-b border-edge dark:border-edge-dark bg-panel2/50 dark:bg-panel2-dark/50">
             <div className="flex items-center space-x-3 mb-4">
-              <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">3</div>
-              <h3 className="text-lg font-semibold text-gray-800">Delay</h3>
+              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center font-bold">3</div>
+              <h3 className="text-lg font-semibold text-inkA dark:text-inkA-dark">Delay</h3>
             </div>
             <select 
               value={delayMinutes} 
@@ -196,10 +196,10 @@ export default function AutomationForm({ onCancel, onSaved }) {
 
         {/* Step 4 & 5: Action */}
         {selectedTrigger && (
-          <div className="p-6 border-b border-gray-100">
+          <div className="p-6 border-b border-edge dark:border-edge-dark">
             <div className="flex items-center space-x-3 mb-4">
-              <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">4</div>
-              <h3 className="text-lg font-semibold text-gray-800">Then do this...</h3>
+              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center font-bold">4</div>
+              <h3 className="text-lg font-semibold text-inkA dark:text-inkA-dark">Then do this...</h3>
             </div>
             <select 
               value={actionType} 
@@ -213,7 +213,7 @@ export default function AutomationForm({ onCancel, onSaved }) {
             </select>
 
             {selectedAction && selectedAction.configFields && (
-              <div className="ml-11 bg-blue-50 border border-blue-100 p-5 rounded-xl space-y-4">
+              <div className="ml-11 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/25 p-5 rounded-xl space-y-4">
                 <h4 className="font-semibold text-blue-800">Configuration</h4>
                 {selectedAction.configFields.map(field => (
                   <div key={field.id}>
@@ -222,7 +222,7 @@ export default function AutomationForm({ onCancel, onSaved }) {
                       <select 
                         value={actionPayload[field.id] || ''} 
                         onChange={e => setActionPayload({...actionPayload, [field.id]: e.target.value})}
-                        className="w-full md:w-1/2 px-3 py-2 border border-blue-200 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full md:w-1/2 px-3 py-2 border border-blue-200 dark:border-blue-500/25 rounded-md focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Choose...</option>
                         {field.options.map(o => <option key={o} value={o}>{o.replace(/_/g, ' ')}</option>)}
@@ -232,7 +232,7 @@ export default function AutomationForm({ onCancel, onSaved }) {
                         type={field.type}
                         value={actionPayload[field.id] || ''}
                         onChange={e => setActionPayload({...actionPayload, [field.id]: e.target.value})}
-                        className="w-full md:w-1/2 px-3 py-2 border border-blue-200 rounded-md focus:ring-2 focus:ring-blue-500"
+                        className="w-full md:w-1/2 px-3 py-2 border border-blue-200 dark:border-blue-500/25 rounded-md focus:ring-2 focus:ring-blue-500"
                       />
                     )}
                   </div>
@@ -245,7 +245,7 @@ export default function AutomationForm({ onCancel, onSaved }) {
         {/* Summary Review */}
         {selectedTrigger && selectedAction && (
           <div className="p-6 bg-gray-800 text-white">
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center"><Zap className="w-4 h-4 mr-1 text-yellow-400"/> Automation Summary</h3>
+            <h3 className="text-sm font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-2 flex items-center"><Zap className="w-4 h-4 mr-1 text-yellow-400"/> Automation Summary</h3>
             <p className="text-lg leading-relaxed">{getSummary()}</p>
           </div>
         )}

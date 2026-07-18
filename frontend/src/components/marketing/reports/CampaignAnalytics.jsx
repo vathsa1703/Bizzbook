@@ -25,7 +25,7 @@ export default function CampaignAnalytics({ dateFilter }) {
     setLoading(false);
   };
 
-  if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-gray-300" size={32}/></div>;
+  if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-gray-300 dark:text-slate-600" size={32}/></div>;
   if (!data) return null;
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
@@ -33,26 +33,26 @@ export default function CampaignAnalytics({ dateFilter }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Campaigns</p>
+        <div className="bg-panel dark:bg-panel-dark p-5 rounded-2xl border border-edge dark:border-edge-dark shadow-sm">
+          <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1">Total Campaigns</p>
           <div className="flex items-end gap-3">
-            <p className="text-3xl font-black text-gray-900">{data.totalCampaigns}</p>
-            <p className="text-sm font-bold text-emerald-500 mb-1">{data.activeCampaigns} Active</p>
+            <p className="text-3xl font-black text-inkA dark:text-inkA-dark">{data.totalCampaigns}</p>
+            <p className="text-sm font-bold text-emerald-500 dark:text-emerald-400 mb-1">{data.activeCampaigns} Active</p>
           </div>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Avg Campaign ROI</p>
-          <p className="text-3xl font-black text-emerald-600">{data.avgROI}</p>
+        <div className="bg-panel dark:bg-panel-dark p-5 rounded-2xl border border-edge dark:border-edge-dark shadow-sm">
+          <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1">Avg Campaign ROI</p>
+          <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{data.avgROI}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Top Performing</p>
-          <p className="text-lg font-bold text-gray-900 truncate">{data.topCampaigns[0]?.name || '-'}</p>
+        <div className="bg-panel dark:bg-panel-dark p-5 rounded-2xl border border-edge dark:border-edge-dark shadow-sm">
+          <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1">Top Performing</p>
+          <p className="text-lg font-bold text-inkA dark:text-inkA-dark truncate">{data.topCampaigns[0]?.name || '-'}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-900 mb-6">Campaigns by Type</h3>
+        <div className="bg-panel dark:bg-panel-dark p-6 rounded-2xl border border-edge dark:border-edge-dark shadow-sm">
+          <h3 className="text-sm font-bold text-inkA dark:text-inkA-dark mb-6">Campaigns by Type</h3>
           <div className="h-64">
             {data.typeDistribution && data.typeDistribution.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -69,22 +69,22 @@ export default function CampaignAnalytics({ dateFilter }) {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-gray-400">No campaigns launched</div>
+              <div className="flex h-full items-center justify-center text-sm text-gray-400 dark:text-slate-500">No campaigns launched</div>
             )}
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-900 mb-4">Recent Campaigns</h3>
+        <div className="bg-panel dark:bg-panel-dark p-6 rounded-2xl border border-edge dark:border-edge-dark shadow-sm">
+          <h3 className="text-sm font-bold text-inkA dark:text-inkA-dark mb-4">Recent Campaigns</h3>
           <div className="space-y-3">
             {data.topCampaigns.length === 0 ? (
-              <p className="text-xs text-center text-gray-400 py-10">No recent campaigns</p>
+              <p className="text-xs text-center text-gray-400 dark:text-slate-500 py-10">No recent campaigns</p>
             ) : (
               data.topCampaigns.map(c => (
-                <div key={c.id} className="flex items-center justify-between p-3 rounded-xl border border-gray-50 bg-gray-50/50">
+                <div key={c.id} className="flex items-center justify-between p-3 rounded-xl border border-edge dark:border-edge-dark bg-panel2/50 dark:bg-panel2-dark/50">
                   <div>
-                    <p className="text-sm font-bold text-gray-900">{c.name}</p>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-wider">{c.type || 'Standard'} • {c.status}</p>
+                    <p className="text-sm font-bold text-inkA dark:text-inkA-dark">{c.name}</p>
+                    <p className="text-[10px] text-inkB dark:text-inkB-dark uppercase tracking-wider">{c.type || 'Standard'} • {c.status}</p>
                   </div>
                 </div>
               ))

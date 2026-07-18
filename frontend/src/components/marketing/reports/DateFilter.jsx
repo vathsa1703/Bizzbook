@@ -17,10 +17,10 @@ export default function DateFilter({ value, onChange }) {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-100 rounded-xl shadow-sm text-sm">
-        <Calendar size={16} className="text-gray-400" />
+      <div className="flex items-center gap-2 px-3 py-2 bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-xl shadow-sm text-sm">
+        <Calendar size={16} className="text-gray-400 dark:text-slate-500" />
         <select 
-          className="bg-transparent text-gray-700 font-bold outline-none"
+          className="bg-transparent text-inkB dark:text-inkB-dark font-bold outline-none"
           value={value.range} 
           onChange={handleSelect}
         >
@@ -31,17 +31,17 @@ export default function DateFilter({ value, onChange }) {
       </div>
       
       {value.range === 'custom' && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-100 rounded-xl shadow-sm text-sm">
+        <div className="flex items-center gap-2 px-3 py-2 bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-xl shadow-sm text-sm">
           <input 
             type="date" 
-            className="outline-none text-gray-700" 
+            className="outline-none text-inkB dark:text-inkB-dark" 
             value={value.start || ''} 
             onChange={e => onChange({ ...value, start: e.target.value })} 
           />
-          <span className="text-gray-400">to</span>
+          <span className="text-gray-400 dark:text-slate-500">to</span>
           <input 
             type="date" 
-            className="outline-none text-gray-700" 
+            className="outline-none text-inkB dark:text-inkB-dark" 
             value={value.end || ''} 
             onChange={e => onChange({ ...value, end: e.target.value })} 
           />

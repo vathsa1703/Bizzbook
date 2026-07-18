@@ -23,7 +23,7 @@ export default function CommunicationAnalytics({ dateFilter }) {
     setLoading(false);
   };
 
-  if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-gray-300" size={32}/></div>;
+  if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-gray-300 dark:text-slate-600" size={32}/></div>;
   if (!data) return null;
 
   const COLORS = ['#10b981', '#3b82f6', '#f59e0b'];
@@ -31,32 +31,32 @@ export default function CommunicationAnalytics({ dateFilter }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center">
+        <div className="bg-panel dark:bg-panel-dark p-5 rounded-2xl border border-edge dark:border-edge-dark shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-500 dark:text-blue-400 flex items-center justify-center">
             <MessageSquare size={24} />
           </div>
           <div>
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Messages Sent</p>
-            <p className="text-2xl font-black text-gray-900">{data.messagesSent}</p>
+            <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1">Messages Sent</p>
+            <p className="text-2xl font-black text-inkA dark:text-inkA-dark">{data.messagesSent}</p>
           </div>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1"><Send size={12}/> Delivered</p>
-          <p className="text-3xl font-black text-emerald-600">{data.delivered}</p>
+        <div className="bg-panel dark:bg-panel-dark p-5 rounded-2xl border border-edge dark:border-edge-dark shadow-sm">
+          <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1"><Send size={12}/> Delivered</p>
+          <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{data.delivered}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1"><XCircle size={12}/> Failed</p>
-          <p className="text-3xl font-black text-red-600">{data.failed}</p>
+        <div className="bg-panel dark:bg-panel-dark p-5 rounded-2xl border border-edge dark:border-edge-dark shadow-sm">
+          <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1"><XCircle size={12}/> Failed</p>
+          <p className="text-3xl font-black text-red-600 dark:text-red-400">{data.failed}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Delivery Rate</p>
-          <p className="text-3xl font-black text-emerald-600">{data.deliveryRate}</p>
+        <div className="bg-panel dark:bg-panel-dark p-5 rounded-2xl border border-edge dark:border-edge-dark shadow-sm">
+          <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1">Delivery Rate</p>
+          <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{data.deliveryRate}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-900 mb-6">Dispatch Trend</h3>
+        <div className="lg:col-span-2 bg-panel dark:bg-panel-dark p-6 rounded-2xl border border-edge dark:border-edge-dark shadow-sm">
+          <h3 className="text-sm font-bold text-inkA dark:text-inkA-dark mb-6">Dispatch Trend</h3>
           <div className="h-64">
             {data.trend && data.trend.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -75,13 +75,13 @@ export default function CommunicationAnalytics({ dateFilter }) {
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-gray-400">No dispatch data</div>
+              <div className="flex h-full items-center justify-center text-sm text-gray-400 dark:text-slate-500">No dispatch data</div>
             )}
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-900 mb-6">Channel Breakdown</h3>
+        <div className="bg-panel dark:bg-panel-dark p-6 rounded-2xl border border-edge dark:border-edge-dark shadow-sm">
+          <h3 className="text-sm font-bold text-inkA dark:text-inkA-dark mb-6">Channel Breakdown</h3>
           <div className="h-64">
             {data.channelStats && data.channelStats.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -103,13 +103,13 @@ export default function CommunicationAnalytics({ dateFilter }) {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-gray-400">No channel data</div>
+              <div className="flex h-full items-center justify-center text-sm text-gray-400 dark:text-slate-500">No channel data</div>
             )}
           </div>
           {data.channelStats && (
             <div className="flex justify-center gap-4 mt-2">
               {data.channelStats.map((c, i) => (
-                <div key={c.label} className="flex items-center gap-1.5 text-xs font-bold text-gray-600 uppercase">
+                <div key={c.label} className="flex items-center gap-1.5 text-xs font-bold text-inkB dark:text-inkB-dark uppercase">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
                   {c.label}
                 </div>

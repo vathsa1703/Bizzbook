@@ -23,7 +23,7 @@ export default function SurveyAnalytics({ dateFilter }) {
     setLoading(false);
   };
 
-  if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-gray-300" size={32}/></div>;
+  if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-gray-300 dark:text-slate-600" size={32}/></div>;
   if (!data) return null;
 
   const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#f97316', '#ef4444'];
@@ -31,23 +31,23 @@ export default function SurveyAnalytics({ dateFilter }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center">
+        <div className="bg-panel dark:bg-panel-dark p-5 rounded-2xl border border-edge dark:border-edge-dark shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-orange-50 dark:bg-orange-500/10 text-orange-500 dark:text-orange-400 flex items-center justify-center">
             <PieChartIcon size={24} />
           </div>
           <div>
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Responses</p>
-            <p className="text-2xl font-black text-gray-900">{data.totalResponses}</p>
+            <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1">Total Responses</p>
+            <p className="text-2xl font-black text-inkA dark:text-inkA-dark">{data.totalResponses}</p>
           </div>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Average CSAT Rating</p>
-          <p className="text-3xl font-black text-emerald-600">{data.averageRating} <span className="text-sm text-gray-400">/ 5.0</span></p>
+        <div className="bg-panel dark:bg-panel-dark p-5 rounded-2xl border border-edge dark:border-edge-dark shadow-sm">
+          <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1">Average CSAT Rating</p>
+          <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">{data.averageRating} <span className="text-sm text-gray-400 dark:text-slate-500">/ 5.0</span></p>
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-        <h3 className="text-sm font-bold text-gray-900 mb-6">Rating Distribution</h3>
+      <div className="bg-panel dark:bg-panel-dark p-6 rounded-2xl border border-edge dark:border-edge-dark shadow-sm">
+        <h3 className="text-sm font-bold text-inkA dark:text-inkA-dark mb-6">Rating Distribution</h3>
         <div className="h-72">
           {data.ratingDistribution && data.ratingDistribution.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
@@ -70,7 +70,7 @@ export default function SurveyAnalytics({ dateFilter }) {
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex h-full items-center justify-center text-sm text-gray-400">No survey responses</div>
+            <div className="flex h-full items-center justify-center text-sm text-gray-400 dark:text-slate-500">No survey responses</div>
           )}
         </div>
       </div>

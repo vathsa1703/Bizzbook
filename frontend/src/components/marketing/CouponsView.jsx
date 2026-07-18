@@ -29,24 +29,24 @@ export default function CouponsView() {
 
   return (
     <div className="space-y-4">
-      <h3 className="font-bold text-gray-900">Active Coupons</h3>
+      <h3 className="font-bold text-inkA dark:text-inkA-dark">Active Coupons</h3>
       {loading ? <Loader2 className="animate-spin" /> : (
         <div className="grid gap-2">
           {coupons.map(c => (
-            <div key={c.id} className="p-3 bg-violet-50 border border-violet-100 rounded-xl flex justify-between items-center">
+            <div key={c.id} className="p-3 bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/25 rounded-xl flex justify-between items-center">
               <div>
                 <p className="font-bold text-sm text-violet-900 font-mono">{c.code}</p>
-                <p className="text-xs text-violet-700">{c.discount_type === 'percentage' ? `\${c.discount_value}%` : `₹\${c.discount_value}`} Off (Min ₹{c.min_order_value || 0})</p>
+                <p className="text-xs text-violet-700 dark:text-violet-400">{c.discount_type === 'percentage' ? `\${c.discount_value}%` : `₹\${c.discount_value}`} Off (Min ₹{c.min_order_value || 0})</p>
               </div>
               <div className="text-right flex flex-col items-end">
-                <span className="text-xs text-violet-600 font-bold bg-violet-100 px-2 py-0.5 rounded">{c.times_used} Uses</span>
+                <span className="text-xs text-violet-600 dark:text-violet-400 font-bold bg-violet-100 dark:bg-violet-500/15 px-2 py-0.5 rounded">{c.times_used} Uses</span>
               </div>
             </div>
           ))}
         </div>
       )}
       <form onSubmit={handleCreate} className="pt-4 border-t space-y-3">
-         <h4 className="font-bold text-sm text-gray-900">Create Coupon</h4>
+         <h4 className="font-bold text-sm text-inkA dark:text-inkA-dark">Create Coupon</h4>
          <div className="flex gap-2">
            <input required type="text" placeholder="CODE (e.g. SUMMER50)" value={form.code} onChange={e=>setForm({...form, code: e.target.value.toUpperCase()})} className="w-full border rounded px-3 py-1.5 text-sm uppercase" />
          </div>

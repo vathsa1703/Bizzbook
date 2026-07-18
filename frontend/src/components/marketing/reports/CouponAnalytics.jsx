@@ -25,37 +25,37 @@ export default function CouponAnalytics({ dateFilter }) {
     setLoading(false);
   };
 
-  if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-gray-300" size={32}/></div>;
+  if (loading) return <div className="flex justify-center py-20"><Loader2 className="animate-spin text-gray-300 dark:text-slate-600" size={32}/></div>;
   if (!data) return null;
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center">
+        <div className="bg-panel dark:bg-panel-dark p-5 rounded-2xl border border-edge dark:border-edge-dark shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 flex items-center justify-center">
             <Tag size={24} />
           </div>
           <div>
-            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Issued</p>
-            <p className="text-2xl font-black text-gray-900">{data.issued}</p>
+            <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1">Issued</p>
+            <p className="text-2xl font-black text-inkA dark:text-inkA-dark">{data.issued}</p>
           </div>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Redeemed</p>
-          <p className="text-3xl font-black text-gray-900">{data.redeemed}</p>
+        <div className="bg-panel dark:bg-panel-dark p-5 rounded-2xl border border-edge dark:border-edge-dark shadow-sm">
+          <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1">Redeemed</p>
+          <p className="text-3xl font-black text-inkA dark:text-inkA-dark">{data.redeemed}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Redemption Rate</p>
-          <p className="text-3xl font-black text-blue-600">{data.redemptionRate}</p>
+        <div className="bg-panel dark:bg-panel-dark p-5 rounded-2xl border border-edge dark:border-edge-dark shadow-sm">
+          <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1">Redemption Rate</p>
+          <p className="text-3xl font-black text-blue-600 dark:text-blue-400">{data.redemptionRate}</p>
         </div>
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
-          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Driven Revenue</p>
-          <p className="text-3xl font-black text-emerald-600">${data.revenue.toLocaleString()}</p>
+        <div className="bg-panel dark:bg-panel-dark p-5 rounded-2xl border border-edge dark:border-edge-dark shadow-sm">
+          <p className="text-[11px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider mb-1">Driven Revenue</p>
+          <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">${data.revenue.toLocaleString()}</p>
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-        <h3 className="text-sm font-bold text-gray-900 mb-6">Most Used Coupons</h3>
+      <div className="bg-panel dark:bg-panel-dark p-6 rounded-2xl border border-edge dark:border-edge-dark shadow-sm">
+        <h3 className="text-sm font-bold text-inkA dark:text-inkA-dark mb-6">Most Used Coupons</h3>
         <div className="h-64">
           {data.topCoupons && data.topCoupons.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
@@ -68,7 +68,7 @@ export default function CouponAnalytics({ dateFilter }) {
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex h-full items-center justify-center text-sm text-gray-400">No redemptions in this period</div>
+            <div className="flex h-full items-center justify-center text-sm text-gray-400 dark:text-slate-500">No redemptions in this period</div>
           )}
         </div>
       </div>

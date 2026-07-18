@@ -34,7 +34,7 @@ export default function SurveysView() {
   return (
     <div className="grid grid-cols-2 gap-6">
       <form onSubmit={handleSend} className="space-y-3">
-        <h4 className="font-bold text-sm text-gray-900 border-b pb-2">Trigger Survey</h4>
+        <h4 className="font-bold text-sm text-inkA dark:text-inkA-dark border-b pb-2">Trigger Survey</h4>
         <input type="number" placeholder="Campaign ID (Optional)" value={form.campaign_id} onChange={e=>setForm({...form, campaign_id: e.target.value})} className="w-full border rounded px-3 py-1.5 text-sm" />
         <select value={form.type} onChange={e=>setForm({...form, type: e.target.value})} className="w-full border rounded px-3 py-1.5 text-sm">
           <option value="nps">NPS (0-10)</option>
@@ -44,7 +44,7 @@ export default function SurveysView() {
         <button type="submit" className="w-full bg-gray-900 text-white py-2 rounded font-bold text-sm hover:bg-black">Send Survey</button>
       </form>
       <form onSubmit={handleSubmit} className="space-y-3 border-l pl-6">
-        <h4 className="font-bold text-sm text-gray-900 border-b pb-2">Mock Response</h4>
+        <h4 className="font-bold text-sm text-inkA dark:text-inkA-dark border-b pb-2">Mock Response</h4>
         <input required type="number" placeholder="Survey ID" value={responseForm.survey_id} onChange={e=>setResponseForm({...responseForm, survey_id: e.target.value})} className="w-full border rounded px-3 py-1.5 text-sm" />
         <input required type="number" placeholder="Customer ID" value={responseForm.cust_id} onChange={e=>setResponseForm({...responseForm, cust_id: e.target.value})} className="w-full border rounded px-3 py-1.5 text-sm" />
         <input required type="number" min="1" max="10" placeholder="Rating" value={responseForm.rating} onChange={e=>setResponseForm({...responseForm, rating: e.target.value})} className="w-full border rounded px-3 py-1.5 text-sm" />

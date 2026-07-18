@@ -36,7 +36,7 @@ export default function WalletView() {
 
   return (
     <div className="space-y-4">
-      <h3 className="font-bold text-gray-900 mb-2">Customer Wallet Lookup</h3>
+      <h3 className="font-bold text-inkA dark:text-inkA-dark mb-2">Customer Wallet Lookup</h3>
       <div className="flex gap-2">
         <input type="number" placeholder="Customer ID (e.g. 1)" value={customerId} onChange={e=>setCustomerId(e.target.value)} className="border rounded px-3 py-1 text-sm flex-1" />
         <button onClick={fetchWallet} className="bg-gray-900 text-white px-3 py-1 rounded text-sm font-bold">Search</button>
@@ -46,9 +46,9 @@ export default function WalletView() {
         balances.length > 0 && (
           <div className="grid grid-cols-2 gap-3 mt-4">
             {balances.map(b => (
-              <div key={b.balance_type} className="bg-gray-50 p-3 rounded-xl border">
-                <p className="text-[10px] text-gray-500 uppercase">{b.balance_type}</p>
-                <p className="font-bold text-lg text-gray-900">₹{b.balance}</p>
+              <div key={b.balance_type} className="bg-panel2 dark:bg-panel2-dark p-3 rounded-xl border">
+                <p className="text-[10px] text-inkB dark:text-inkB-dark uppercase">{b.balance_type}</p>
+                <p className="font-bold text-lg text-inkA dark:text-inkA-dark">₹{b.balance}</p>
               </div>
             ))}
           </div>
@@ -57,7 +57,7 @@ export default function WalletView() {
 
       {customerId && (
         <form onSubmit={handleAdjust} className="mt-4 pt-4 border-t space-y-3">
-          <h4 className="font-bold text-sm text-gray-900">Manual Adjustment</h4>
+          <h4 className="font-bold text-sm text-inkA dark:text-inkA-dark">Manual Adjustment</h4>
           <div className="flex gap-2">
             <select value={adjustForm.type} onChange={e=>setAdjustForm({...adjustForm, type: e.target.value})} className="border rounded px-2 text-sm">
               <option value="earn">Earn (Credit)</option>
