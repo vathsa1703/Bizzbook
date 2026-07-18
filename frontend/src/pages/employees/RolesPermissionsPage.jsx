@@ -126,7 +126,7 @@ export default function RolesPermissionsPage() {
   };
 
   return (
-    <div className="p-4 lg:p-6 flex-col h-full space-y-5">
+    <div className="p-4 lg:p-6 flex flex-col h-full space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-inkA dark:text-inkA-dark">Roles & Permissions</h1>
@@ -140,9 +140,9 @@ export default function RolesPermissionsPage() {
       {loading ? (
         <div className="text-center py-10 text-inkB dark:text-inkB-dark">Loading...</div>
       ) : (
-        <div className="flex-1 flex-col lg:flex-row gap-6 min-h-0">
+        <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
           {/* Roles List Sidebar */}
-          <div className="w-full lg:w-72 flex-shrink-0 flex-col gap-3">
+          <div className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-3">
             <h2 className="text-sm font-bold text-inkB dark:text-inkB-dark uppercase tracking-wider px-1">Available Roles</h2>
             <div className="flex-1 overflow-y-auto space-y-2 pr-2 scrollbar-thin">
               {data.roles.map(role => (
@@ -185,7 +185,7 @@ export default function RolesPermissionsPage() {
           </div>
 
           {/* Permissions Matrix */}
-          <div className="flex-1 bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl flex-col min-h-[500px]">
+          <div className="flex-1 bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl flex flex-col min-h-[500px]">
             {selectedRole ? (
               <>
                 <div className="p-5 border-b border-edge dark:border-edge-dark flex items-center justify-between">
@@ -208,9 +208,9 @@ export default function RolesPermissionsPage() {
                 </div>
                 
                 <div className="flex-1 overflow-y-auto p-5 scrollbar-thin">
-                  <div className="grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {data.permissionGroups.map(group => (
-                      <div key={group.id} className="bg-slate-950/50 rounded-xl p-4 border-edge dark:border-edge-dark">
+                      <div key={group.id} className="bg-slate-950/50 rounded-xl p-4 border border-edge dark:border-edge-dark">
                         <h3 className="text-sm font-bold text-inkB dark:text-inkB-dark mb-3 border-b border-edge dark:border-edge-dark pb-2">{group.name}</h3>
                         <div className="space-y-2">
                           {group.permissions.map(perm => (
@@ -223,7 +223,7 @@ export default function RolesPermissionsPage() {
                                   disabled={selectedRole.is_system === 1 && selectedRole.name === 'Owner'}
                                   className="w-4 h-4 rounded border-slate-600 bg-panel dark:bg-panel-dark checked:bg-blue-500 checked:border-blue-500 appearance-none transition-all peer"
                                 />
-                                <Check className="w-3 h-3 text-inkA dark:text-inkA-dark absolute opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" strokeWidth={3} />
+                                <Check className="w-3 h-3 text-white absolute opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" strokeWidth={3} />
                               </div>
                               <div>
                                 <div className="text-sm font-medium text-inkB dark:text-inkB-dark group-hover/item:text-white transition-colors">{perm.action}</div>
@@ -262,7 +262,7 @@ export default function RolesPermissionsPage() {
             </div>
           </div>
           {!editingRole && (
-            <div className="p-3 bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/25 dark:border-blue-500/20 rounded-xl mt-4">
+            <div className="p-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/25 dark:border-blue-500/20 rounded-xl mt-4">
               <p className="text-xs text-blue-600 dark:text-blue-400">After creating the role, you can assign granular permissions in the matrix view.</p>
             </div>
           )}

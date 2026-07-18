@@ -77,7 +77,7 @@ function Field({ label, required, children }) {
 function Input({ className = '', ...props }) {
   return (
     <input
-      className={`w-full px-3 py-2 bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-lg text-sm text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all ${className}`}
+      className={`w-full px-3 py-2 bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-lg text-sm text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all ${className}`}
       {...props}
     />
   );
@@ -86,7 +86,7 @@ function Input({ className = '', ...props }) {
 function Select({ children, className = '', ...props }) {
   return (
     <select
-      className={`w-full px-3 py-2 bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-lg text-sm text-inkA dark:text-inkA-dark outline-none focus:border-blue-500 transition-all ${className}`}
+      className={`w-full px-3 py-2 bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-lg text-sm text-inkA dark:text-inkA-dark outline-none focus:border-blue-500 transition-all ${className}`}
       {...props}
     >
       {children}
@@ -109,7 +109,7 @@ function SaveButton({ loading, onClick, children = 'Save Changes' }) {
 
 function SectionCard({ title, subtitle, children, action }) {
   return (
-    <div className="bg-slate-800/60 border-slate-700/50 rounded-2xl p-5 mb-4">
+    <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 mb-4">
       <div className="flex items-start justify-between mb-4">
         <div>
           <h3 className="text-sm font-bold text-inkA dark:text-inkA-dark">{title}</h3>
@@ -127,7 +127,7 @@ function ExpiryAlertBanner({ alerts, onDismiss }) {
   return (
     <div className="mb-4 space-y-2">
       {alerts.map(alert => (
-        <div key={alert.id} className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/25 dark:border-amber-500/30 rounded-xl">
+        <div key={alert.id} className="flex items-center justify-between px-4 py-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 dark:border-amber-500/30 rounded-xl">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
             <div>
@@ -135,7 +135,7 @@ function ExpiryAlertBanner({ alerts, onDismiss }) {
                 {alert.license_type.replace(/_/g, ' ')} expires in {alert.days_until_expiry} day{alert.days_until_expiry !== 1 ? 's' : ''}
               </p>
               {alert.license_number && (
-                <p className="text-xs text-amber-600 dark:text-amber-400/70">#{alert.license_number} · Expires {alert.expiry_date}</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 dark:text-amber-400/70">#{alert.license_number} · Expires {alert.expiry_date}</p>
               )}
             </div>
           </div>
@@ -166,10 +166,10 @@ function OverviewTab({ data }) {
       <ExpiryAlertBanner alerts={expiryAlerts} onDismiss={handleDismiss} />
 
       {/* Company card */}
-      <div className="bg-gradient-to-br from-blue-600/20 to-violet-600/20 border-blue-200 dark:border-blue-500/25 dark:border-blue-500/20 rounded-2xl p-5">
+      <div className="bg-gradient-to-br from-blue-600/20 to-violet-600/20 border border-blue-200 dark:border-blue-500/25 dark:border-blue-500/20 rounded-2xl p-5">
         <div className="flex items-start gap-4">
           {data.branding?.logo_url ? (
-            <img src={data.branding.logo_url} alt="logo" className="w-16 h-16 rounded-xl object-contain border-edge dark:border-edge-dark bg-panel2 dark:bg-panel2-dark p-1" />
+            <img src={data.branding.logo_url} alt="logo" className="w-16 h-16 rounded-xl object-contain border border-edge dark:border-edge-dark bg-panel2 dark:bg-panel2-dark p-1" />
           ) : (
             <div className="w-16 h-16 rounded-xl bg-gradient-to-tr from-blue-600 to-violet-600 flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
               {initials}
@@ -180,7 +180,7 @@ function OverviewTab({ data }) {
             {company?.legal_business_name && company.legal_business_name !== company.name && (
               <p className="text-xs text-inkB dark:text-inkB-dark">{company.legal_business_name}</p>
             )}
-            <div className="flex-wrap gap-2 mt-2">
+            <div className="flex flex-wrap gap-2 mt-2">
               {company?.company_code && (
                 <span className="text-[11px] font-mono bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark px-2 py-0.5 rounded">{company.company_code}</span>
               )}
@@ -192,7 +192,7 @@ function OverviewTab({ data }) {
           </div>
         </div>
 
-        <div className="mt-4 grid-cols-2 gap-3">
+        <div className="mt-4 grid grid-cols-2 gap-3">
           {company?.gstin && (
             <div>
               <p className="text-[11px] text-inkB dark:text-inkB-dark uppercase font-semibold">GSTIN</p>
@@ -216,7 +216,7 @@ function OverviewTab({ data }) {
             style={{ width: `${setupCompletionPct}%` }}
           />
         </div>
-        <div className="grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {(setupProgress || []).map(step => (
             <div key={step.step_number} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium flex items-center gap-1.5 ${
               step.status === 'completed' ? 'bg-green-500/15 text-green-600 dark:text-green-400' :
@@ -233,14 +233,14 @@ function OverviewTab({ data }) {
       </SectionCard>
 
       {/* Quick stats */}
-      <div className="grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         {[
           { label: 'Addresses', value: data.addresses?.length || 0, icon: MapPin },
           { label: 'Licenses', value: data.licenses?.length || 0, icon: FileText },
           { label: 'Bank Accounts', value: data.bankAccounts?.length || 0, icon: CreditCard },
           { label: 'Expiry Alerts', value: data.expiryAlerts?.length || 0, icon: Bell },
         ].map(stat => (
-          <div key={stat.label} className="bg-slate-800/60 border-slate-700/50 rounded-xl p-3 flex items-center gap-3">
+          <div key={stat.label} className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-3 flex items-center gap-3">
             <stat.icon className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
             <div>
               <p className="text-xl font-bold text-inkA dark:text-inkA-dark">{stat.value}</p>
@@ -286,7 +286,7 @@ function IdentityTab({ data, onRefresh }) {
     <div className="space-y-4">
       <SectionCard title="Legal Identity" subtitle="Core registration details">
         <div className="space-y-4">
-          <div className="grid-cols-1 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             <Field label="Business Name (Display Name)" required>
               <Input value={form.name || ''} onChange={e => set('name', e.target.value)} />
             </Field>
@@ -297,7 +297,7 @@ function IdentityTab({ data, onRefresh }) {
               <Input value={form.trade_name || ''} onChange={e => set('trade_name', e.target.value)} placeholder="Brand or trade name" />
             </Field>
           </div>
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Business Type">
               <Select value={form.business_type || ''} onChange={e => set('business_type', e.target.value)}>
                 {BUSINESS_TYPES.map(bt => <option key={bt.value} value={bt.value}>{bt.label}</option>)}
@@ -312,7 +312,7 @@ function IdentityTab({ data, onRefresh }) {
               </Select>
             </Field>
           </div>
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="GSTIN">
               <Input value={form.gstin || ''} onChange={e => set('gstin', e.target.value.toUpperCase())} maxLength={15} placeholder="29ABCDE1234F1Z5" className="font-mono" />
             </Field>
@@ -325,7 +325,7 @@ function IdentityTab({ data, onRefresh }) {
 
       <SectionCard title="Business Details">
         <div className="space-y-4">
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Industry">
               <Input value={form.industry || ''} onChange={e => set('industry', e.target.value)} />
             </Field>
@@ -333,7 +333,7 @@ function IdentityTab({ data, onRefresh }) {
               <Input value={form.business_category || ''} onChange={e => set('business_category', e.target.value)} />
             </Field>
           </div>
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Date of Incorporation">
               <Input type="date" value={form.date_of_incorporation || ''} onChange={e => set('date_of_incorporation', e.target.value)} />
             </Field>
@@ -341,7 +341,7 @@ function IdentityTab({ data, onRefresh }) {
               <Input value={form.nic_code || ''} onChange={e => set('nic_code', e.target.value)} placeholder="e.g. 47110" />
             </Field>
           </div>
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Business Size">
               <Select value={form.business_size_bracket || ''} onChange={e => set('business_size_bracket', e.target.value)}>
                 <option value="">Select range</option>
@@ -355,7 +355,7 @@ function IdentityTab({ data, onRefresh }) {
               </Select>
             </Field>
           </div>
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Phone">
               <Input value={form.phone || ''} onChange={e => set('phone', e.target.value)} />
             </Field>
@@ -412,7 +412,7 @@ function AddressesTab({ data, onRefresh }) {
   return (
     <div className="space-y-3">
       {addresses.map(addr => (
-        <div key={addr.id} className="bg-slate-800/60 border-slate-700/50 rounded-xl p-4">
+        <div key={addr.id} className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4">
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -437,9 +437,9 @@ function AddressesTab({ data, onRefresh }) {
       </button>
 
       {showForm && (
-        <div className="bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark rounded-2xl p-5 space-y-4">
+        <div className="bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-2xl p-5 space-y-4">
           <h4 className="font-bold text-inkA dark:text-inkA-dark text-sm">{editId ? 'Edit' : 'New'} Address</h4>
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Type">
               <Select value={form.address_type} onChange={e => set('address_type', e.target.value)}>
                 {['registered','branch','billing','shipping','warehouse'].map(t => <option key={t} value={t}>{t}</option>)}
@@ -453,11 +453,11 @@ function AddressesTab({ data, onRefresh }) {
           </div>
           <Field label="Address Line 1" required><Input value={form.address_line1||''} onChange={e => set('address_line1', e.target.value)} /></Field>
           <Field label="Address Line 2"><Input value={form.address_line2||''} onChange={e => set('address_line2', e.target.value)} /></Field>
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="City" required><Input value={form.city||''} onChange={e => set('city', e.target.value)} /></Field>
             <Field label="District"><Input value={form.district||''} onChange={e => set('district', e.target.value)} /></Field>
           </div>
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="State" required>
               <Select value={form.state||''} onChange={e => set('state', e.target.value)}>
                 <option value="">Select state</option>
@@ -468,7 +468,7 @@ function AddressesTab({ data, onRefresh }) {
           </div>
           <Field label="Branch GSTIN (optional)"><Input value={form.gstin||''} onChange={e => set('gstin', e.target.value.toUpperCase())} className="font-mono" /></Field>
           <div className="flex gap-3">
-            <button onClick={() => setShowForm(false)} className="flex-1 py-2 border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark rounded-lg text-sm hover:bg-panel2 dark:hover:bg-panel2-dark">Cancel</button>
+            <button onClick={() => setShowForm(false)} className="flex-1 py-2 border border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark rounded-lg text-sm hover:bg-panel2 dark:hover:bg-panel2-dark">Cancel</button>
             <SaveButton loading={saving} onClick={handleSave} children="Save Address" />
           </div>
         </div>
@@ -532,7 +532,7 @@ function LicensesTab({ data, onRefresh }) {
       {licenses.map(lic => {
         const badge = getLicenseBadge(lic);
         return (
-          <div key={lic.id} className="bg-slate-800/60 border-slate-700/50 rounded-xl p-4">
+          <div key={lic.id} className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4">
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
@@ -557,7 +557,7 @@ function LicensesTab({ data, onRefresh }) {
       </button>
 
       {showForm && (
-        <div className="bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark rounded-2xl p-5 space-y-4">
+        <div className="bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-2xl p-5 space-y-4">
           <h4 className="font-bold text-inkA dark:text-inkA-dark text-sm">Add License</h4>
           <Field label="License Type" required>
             <Select value={form.license_type} onChange={e => set('license_type', e.target.value)}>
@@ -566,12 +566,12 @@ function LicensesTab({ data, onRefresh }) {
           </Field>
           <Field label="License Number"><Input value={form.license_number} onChange={e => set('license_number', e.target.value)} className="font-mono" /></Field>
           <Field label="Issuing Authority"><Input value={form.issuing_authority} onChange={e => set('issuing_authority', e.target.value)} /></Field>
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Issue Date"><Input type="date" value={form.issue_date} onChange={e => set('issue_date', e.target.value)} /></Field>
             <Field label="Expiry Date"><Input type="date" value={form.expiry_date} onChange={e => set('expiry_date', e.target.value)} /></Field>
           </div>
           <div className="flex gap-3">
-            <button onClick={() => setShowForm(false)} className="flex-1 py-2 border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark rounded-lg text-sm hover:bg-panel2 dark:hover:bg-panel2-dark">Cancel</button>
+            <button onClick={() => setShowForm(false)} className="flex-1 py-2 border border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark rounded-lg text-sm hover:bg-panel2 dark:hover:bg-panel2-dark">Cancel</button>
             <SaveButton loading={saving} onClick={handleSave} children="Add License" />
           </div>
         </div>
@@ -617,7 +617,7 @@ function BankTab({ data, onRefresh }) {
   return (
     <div className="space-y-3">
       {accounts.map(acc => (
-        <div key={acc.id} className="bg-slate-800/60 border-slate-700/50 rounded-xl p-4">
+        <div key={acc.id} className="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4">
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -647,15 +647,15 @@ function BankTab({ data, onRefresh }) {
       </button>
 
       {showForm && (
-        <div className="bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark rounded-2xl p-5 space-y-4">
+        <div className="bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-2xl p-5 space-y-4">
           <h4 className="font-bold text-inkA dark:text-inkA-dark text-sm">Add Bank Account</h4>
           <Field label="Bank Name" required><Input value={form.bank_name} onChange={e => set('bank_name', e.target.value)} /></Field>
           <Field label="Account Holder Name" required><Input value={form.account_holder_name} onChange={e => set('account_holder_name', e.target.value)} /></Field>
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Account Number" required><Input value={form.account_number} onChange={e => set('account_number', e.target.value)} /></Field>
             <Field label="IFSC Code" required><Input value={form.ifsc} onChange={e => set('ifsc', e.target.value.toUpperCase())} className="font-mono" maxLength={11} /></Field>
           </div>
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Branch Name"><Input value={form.branch_name} onChange={e => set('branch_name', e.target.value)} /></Field>
             <Field label="UPI ID"><Input value={form.upi_id} onChange={e => set('upi_id', e.target.value)} /></Field>
           </div>
@@ -668,7 +668,7 @@ function BankTab({ data, onRefresh }) {
             </label>
           </div>
           <div className="flex gap-3">
-            <button onClick={() => setShowForm(false)} className="flex-1 py-2 border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark rounded-lg text-sm hover:bg-panel2 dark:hover:bg-panel2-dark">Cancel</button>
+            <button onClick={() => setShowForm(false)} className="flex-1 py-2 border border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark rounded-lg text-sm hover:bg-panel2 dark:hover:bg-panel2-dark">Cancel</button>
             <SaveButton loading={saving} onClick={handleSave} children="Add Account" />
           </div>
         </div>
@@ -704,7 +704,7 @@ function FinanceTab({ data, onRefresh }) {
   return (
     <div className="space-y-4">
       <SectionCard title="Invoice Prefixes">
-        <div className="grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <Field label="Invoice Prefix"><Input value={fin.invoice_prefix||'INV'} onChange={e => setF('invoice_prefix', e.target.value)} maxLength={10} /></Field>
           <Field label="Purchase Prefix"><Input value={fin.purchase_prefix||'PO'} onChange={e => setF('purchase_prefix', e.target.value)} maxLength={10} /></Field>
           <Field label="Credit Note Prefix"><Input value={fin.credit_note_prefix||'CN'} onChange={e => setF('credit_note_prefix', e.target.value)} maxLength={10} /></Field>
@@ -712,7 +712,7 @@ function FinanceTab({ data, onRefresh }) {
       </SectionCard>
 
       <SectionCard title="Accounting & Tax">
-        <div className="grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <Field label="Default GST Rate %">
             <Select value={gst.default_gst_rate || 18} onChange={e => setG('default_gst_rate', e.target.value)}>
               {[0,5,12,18,28].map(r => <option key={r} value={r}>{r}%</option>)}
@@ -754,7 +754,7 @@ function FinanceTab({ data, onRefresh }) {
       </SectionCard>
 
       <SectionCard title="Currency & Locale">
-        <div className="grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <Field label="Currency">
             <Select value={fin.currency||'INR'} onChange={e => setF('currency', e.target.value)}>
               <option value="INR">INR — Indian Rupee</option>
@@ -811,23 +811,23 @@ function BrandingTab({ data, onRefresh }) {
           <Field label="Company Logo">
             <div className="flex items-center gap-4">
               {form.logo_url ? (
-                <img src={form.logo_url} alt="logo" className="w-16 h-16 object-contain rounded-xl border-edge dark:border-edge-dark bg-panel2 dark:bg-panel2-dark p-1" />
+                <img src={form.logo_url} alt="logo" className="w-16 h-16 object-contain rounded-xl border border-edge dark:border-edge-dark bg-panel2 dark:bg-panel2-dark p-1" />
               ) : (
                 <div className="w-16 h-16 rounded-xl border-2 border-dashed border-edge dark:border-edge-dark flex items-center justify-center text-gray-400 dark:text-slate-500">
                   <Palette className="w-6 h-6" />
                 </div>
               )}
-              <label className="cursor-pointer px-4 py-2 border-edge dark:border-edge-dark rounded-lg text-sm text-inkB dark:text-inkB-dark hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors">
+              <label className="cursor-pointer px-4 py-2 border border-edge dark:border-edge-dark rounded-lg text-sm text-inkB dark:text-inkB-dark hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors">
                 Upload Logo <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
               </label>
               {form.logo_url && <button onClick={() => set('logo_url', '')} className="text-rose-600 dark:text-rose-400 text-xs hover:text-rose-300">Remove</button>}
             </div>
           </Field>
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Field label="Brand Color">
               <div className="flex items-center gap-3">
                 <input type="color" value={form.brand_color||'#2563EB'} onChange={e => set('brand_color', e.target.value)}
-                  className="w-10 h-10 rounded-lg border-edge dark:border-edge-dark cursor-pointer bg-panel dark:bg-panel-dark" />
+                  className="w-10 h-10 rounded-lg border border-edge dark:border-edge-dark cursor-pointer bg-panel dark:bg-panel-dark" />
                 <span className="text-sm text-inkB dark:text-inkB-dark font-mono">{form.brand_color||'#2563EB'}</span>
               </div>
             </Field>
@@ -835,7 +835,7 @@ function BrandingTab({ data, onRefresh }) {
           <Field label="Invoice Footer Text">
             <textarea value={form.invoice_footer||''} onChange={e => set('invoice_footer', e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-lg text-sm text-inkA dark:text-inkA-dark outline-none focus:border-blue-500 resize-none"
+              className="w-full px-3 py-2 bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-lg text-sm text-inkA dark:text-inkA-dark outline-none focus:border-blue-500 resize-none"
               placeholder="Thank you for your business. GST@18% included where applicable." />
           </Field>
         </div>
@@ -871,7 +871,7 @@ function SecurityTab({ data, onRefresh }) {
     <div className="space-y-4">
       <SectionCard title="Session & Access">
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-3 bg-panel dark:bg-panel-dark rounded-xl border-edge dark:border-edge-dark">
+          <div className="flex items-center justify-between p-3 bg-panel dark:bg-panel-dark rounded-xl border border-edge dark:border-edge-dark">
             <div>
               <p className="text-sm font-medium text-inkA dark:text-inkA-dark">Two-Factor Authentication</p>
               <p className="text-xs text-inkB dark:text-inkB-dark">Add an extra layer of security at login</p>
@@ -905,14 +905,14 @@ function SubscriptionTab({ data }) {
 
   return (
     <div className="space-y-4">
-      <div className="bg-gradient-to-br from-violet-600/20 to-blue-600/20 border-violet-200 dark:border-violet-500/25 dark:border-violet-500/20 rounded-2xl p-5">
+      <div className="bg-gradient-to-br from-violet-600/20 to-blue-600/20 border border-violet-200 dark:border-violet-500/25 dark:border-violet-500/20 rounded-2xl p-5">
         <div className="flex items-center gap-2 mb-3">
           <Crown className="w-6 h-6 text-amber-600 dark:text-amber-400" />
           <p className={`text-xl font-bold ${planColors[sub.plan_id] || 'text-inkB dark:text-inkB-dark'}`}>
             {planLabels[sub.plan_id] || sub.plan_id || 'Free Plan'}
           </p>
         </div>
-        <div className="grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-xs text-inkB dark:text-inkB-dark uppercase font-semibold mb-0.5">Status</p>
             <p className="text-sm text-inkA dark:text-inkA-dark capitalize">{sub.status || 'trialing'}</p>
@@ -936,7 +936,7 @@ function SubscriptionTab({ data }) {
         </div>
       </div>
 
-      <div className="p-4 bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/25 dark:border-blue-500/20 rounded-xl text-sm text-blue-600 dark:text-blue-400">
+      <div className="p-4 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/25 dark:border-blue-500/20 rounded-xl text-sm text-blue-600 dark:text-blue-400">
         Subscription management coming soon. Contact support to upgrade your plan.
       </div>
     </div>
@@ -969,7 +969,7 @@ export default function CompanyProfile({ onNavigate }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-panel dark:bg-panel-dark">
-        <div className="flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 text-blue-500 dark:text-blue-400 animate-spin" />
           <p className="text-inkB dark:text-inkB-dark text-sm">Loading company profile...</p>
         </div>

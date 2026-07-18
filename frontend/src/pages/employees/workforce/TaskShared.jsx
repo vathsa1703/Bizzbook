@@ -35,7 +35,7 @@ export function PriorityBadge({ priority }) {
 export function TaskCard({ task, onClick }) {
   const overdue = task.due_date && task.status !== 'completed' && task.status !== 'cancelled' && task.due_date < new Date().toISOString().slice(0, 10);
   return (
-    <button onClick={() => onClick(task)} className="w-full text-left rounded-xl border-edge dark:border-edge-dark bg-panel dark:bg-panel-dark hover:border-accent/40 p-3 space-y-2">
+    <button onClick={() => onClick(task)} className="w-full text-left rounded-xl border border-edge dark:border-edge-dark bg-panel dark:bg-panel-dark hover:border-accent/40 p-3 space-y-2">
       <div className="flex items-start gap-2">
         <span className="text-sm font-semibold text-inkA dark:text-inkA-dark leading-snug flex-1">{task.title}</span>
         <PriorityBadge priority={task.priority} />
@@ -93,12 +93,12 @@ export function TaskCreateModal({ onClose, onCreated }) {
       <div className="p-5 space-y-3">
         <FormField label="Title" required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Inventory Audit" />
         <FormField label="Description" type="textarea" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
-        <div className="grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <FormField label="Priority" type="select" value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })}
             options={Object.keys(PRIORITY_META).map(k => ({ value: k, label: PRIORITY_META[k].label }))} />
           <FormField label="Category" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="e.g. Ops" />
         </div>
-        <div className="grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <FormField label="Due date" type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} />
           <FormField label="Recurring" type="select" value={form.recurrence} onChange={e => setForm({ ...form, recurrence: e.target.value })}
             options={[{ value: 'none', label: 'One-off' }, { value: 'daily', label: 'Daily' }, { value: 'weekly', label: 'Weekly' }, { value: 'monthly', label: 'Monthly' }]} />
@@ -164,7 +164,7 @@ export function TaskDetailDrawer({ taskId, onClose, onChanged }) {
             {t.description && <p className="text-sm text-inkB dark:text-inkB-dark">{t.description}</p>}
 
             {/* Status pills */}
-            <div className="flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5">
               {STATUS_ORDER.map(s => (
                 <button key={s} onClick={() => setStatus(s)} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${t.status === s ? `${STATUS_META[s].col} text-white bg-panel2 dark:bg-panel2-dark` : 'border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white'}`}>
                   <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${STATUS_META[s].dot}`} />{STATUS_META[s].label}
@@ -182,10 +182,10 @@ export function TaskDetailDrawer({ taskId, onClose, onChanged }) {
             {/* Assignees */}
             <div>
               <div className="text-[10px] uppercase text-inkB dark:text-inkB-dark font-semibold mb-1.5 flex items-center gap-1"><Users2 className="w-3.5 h-3.5" />Assignees</div>
-              <div className="flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 {(data.assignees || []).length === 0 && <span className="text-xs text-gray-400 dark:text-slate-500">Unassigned</span>}
                 {(data.assignees || []).map((a, i) => (
-                  <span key={i} className="inline-flex items-center gap-1.5 bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-full pl-1 pr-2.5 py-0.5">
+                  <span key={i} className="inline-flex items-center gap-1.5 bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-full pl-1 pr-2.5 py-0.5">
                     <Avatar name={a.name} src={a.avatar} size="sm" /><span className="text-[11px] text-inkB dark:text-inkB-dark">{a.name}</span>
                     <span className="text-[9px] text-inkB dark:text-inkB-dark uppercase">{a.assignee_type !== 'employee' ? a.assignee_type : ''}</span>
                   </span>
@@ -206,7 +206,7 @@ export function TaskDetailDrawer({ taskId, onClose, onChanged }) {
                 ))}
               </div>
               <div className="flex gap-1.5 mt-2">
-                <input value={newItem} onChange={e => setNewItem(e.target.value)} onKeyDown={e => e.key === 'Enter' && addItem()} placeholder="Add item…" className="flex-1 px-2.5 py-1.5 text-sm bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-lg text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 outline-none focus:border-blue-500" />
+                <input value={newItem} onChange={e => setNewItem(e.target.value)} onKeyDown={e => e.key === 'Enter' && addItem()} placeholder="Add item…" className="flex-1 px-2.5 py-1.5 text-sm bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-lg text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 outline-none focus:border-blue-500" />
                 <button onClick={addItem} className="p-1.5 rounded-lg bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white"><Plus className="w-4 h-4" /></button>
               </div>
             </div>
@@ -239,7 +239,7 @@ export function TaskDetailDrawer({ taskId, onClose, onChanged }) {
                 ))}
               </div>
               <div className="flex gap-1.5">
-                <input value={comment} onChange={e => setComment(e.target.value)} onKeyDown={e => e.key === 'Enter' && addComment()} placeholder="Write a comment…" className="flex-1 px-2.5 py-1.5 text-sm bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-lg text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 outline-none focus:border-blue-500" />
+                <input value={comment} onChange={e => setComment(e.target.value)} onKeyDown={e => e.key === 'Enter' && addComment()} placeholder="Write a comment…" className="flex-1 px-2.5 py-1.5 text-sm bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-lg text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 outline-none focus:border-blue-500" />
                 <button onClick={addComment} className="p-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-500"><Send className="w-4 h-4" /></button>
               </div>
             </div>

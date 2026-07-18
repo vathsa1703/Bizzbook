@@ -66,9 +66,9 @@ export default function DepartmentsPage() {
       {departments.length === 0 ? (
         <EmptyState icon={Building2} title="No departments yet" subtitle="Create your first department to organise your workforce." />
       ) : (
-        <div className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {departments.map(d => (
-            <div key={d.id} className="rounded-2xl border-edge dark:border-edge-dark bg-panel dark:bg-panel-dark p-4 relative overflow-hidden">
+            <div key={d.id} className="rounded-2xl border border-edge dark:border-edge-dark bg-panel dark:bg-panel-dark p-4 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1" style={{ background: d.color || '#3b82f6' }} />
               <div className="flex items-start gap-3">
                 <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl" style={{ background: `${d.color || '#3b82f6'}22` }}>{d.icon || '🏢'}</div>

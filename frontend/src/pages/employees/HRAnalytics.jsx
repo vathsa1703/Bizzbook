@@ -61,7 +61,7 @@ export default function HRAnalytics() {
       </div>
 
       {/* Top Stats */}
-      <div className="grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Headcount"
           value={totalEmployees}
@@ -86,9 +86,9 @@ export default function HRAnalytics() {
         />
       </div>
 
-      <div className="grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Department Breakdown */}
-        <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl p-5">
+        <div className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl p-5">
           <h3 className="text-sm font-bold text-inkA dark:text-inkA-dark mb-4 flex items-center gap-2"><BarChart3 className="w-4 h-4 text-blue-600 dark:text-blue-400" /> Headcount by Department</h3>
           {deptBreakdown.length > 0 ? (
             <div className="space-y-4">
@@ -110,16 +110,16 @@ export default function HRAnalytics() {
         </div>
 
         {/* Payroll Trend */}
-        <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl p-5">
+        <div className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl p-5">
           <h3 className="text-sm font-bold text-inkA dark:text-inkA-dark mb-4 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-violet-600 dark:text-violet-400" /> Payroll Trend (Last 6 Months)</h3>
           {payrollHistory.length > 0 ? (
-            <div className="space-y-4 flex-col justify-end h-48">
+            <div className="space-y-4 flex flex-col justify-end h-48">
               <div className="flex items-end gap-2 h-32 w-full pt-4">
                 {payrollHistory.map((run, i) => {
                   const max = Math.max(...payrollHistory.map(r => r.total_net)) || 1;
                   const height = `${(run.total_net / max) * 100}%`;
                   return (
-                    <div key={i} className="flex-1 flex-col items-center gap-2 group">
+                    <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
                       <div className="w-full bg-violet-100 dark:bg-violet-500/15 dark:bg-violet-500/20 rounded-t-sm relative group-hover:bg-violet-500/40 transition-colors" style={{ height }}>
                         <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-panel2 dark:bg-panel2-dark text-inkA dark:text-inkA-dark text-[10px] py-1 px-2 rounded whitespace-nowrap z-10 transition-opacity">
                           {formatCurrency(run.total_net)}
@@ -142,7 +142,7 @@ export default function HRAnalytics() {
 
 function StatCard({ title, value, icon: Icon, color, trend, trendUp }) {
   return (
-    <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl p-5">
+    <div className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl p-5">
       <div className="flex justify-between items-start mb-4">
         <div className={`w-10 h-10 rounded-xl bg-${color}-500/10 text-${color}-400 flex items-center justify-center`}>
           <Icon className="w-5 h-5" />

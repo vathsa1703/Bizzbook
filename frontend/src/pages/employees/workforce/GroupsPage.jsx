@@ -64,7 +64,7 @@ export default function GroupsPage() {
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-inkB dark:text-inkB-dark" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search groups…"
-            className="pl-8 pr-3 py-2 text-sm bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark rounded-xl text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 w-40" />
+            className="pl-8 pr-3 py-2 text-sm bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-xl text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 w-40" />
         </div>
         <button onClick={() => setShowCreate(true)} className={btnPrimary}><Plus className="w-4 h-4" />New Group</button>
       </PageHeader>
@@ -72,9 +72,9 @@ export default function GroupsPage() {
       {loading ? <Loading /> : groups.length === 0 ? (
         <EmptyState icon={Boxes} title="No groups found" subtitle="Create groups like Project Alpha, Night Shift or Festival Team." />
       ) : (
-        <div className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {groups.map(g => (
-            <button key={g.id} onClick={() => openDetail(g)} className="text-left rounded-2xl border-edge dark:border-edge-dark bg-panel dark:bg-panel-dark hover:border-accent/40 p-4">
+            <button key={g.id} onClick={() => openDetail(g)} className="text-left rounded-2xl border border-edge dark:border-edge-dark bg-panel dark:bg-panel-dark hover:border-accent/40 p-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-inkA dark:text-inkA-dark font-bold" style={{ background: g.color || '#8b5cf6' }}>{g.name?.[0]?.toUpperCase()}</div>
                 <div className="min-w-0 flex-1"><div className="text-sm font-bold text-inkA dark:text-inkA-dark truncate">{g.name}</div>

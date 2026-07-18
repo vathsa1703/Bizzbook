@@ -45,9 +45,9 @@ export default function KanbanPage() {
   if (loading) return <div className="p-6"><Loading label="Loading board…" /></div>;
 
   return (
-    <div className="p-4 sm:p-6 h-full flex-col">
+    <div className="p-4 sm:p-6 h-full flex flex-col">
       <PageHeader icon={LayoutGrid} title="Kanban Board" subtitle="Drag cards between columns to update status">
-        <select value={priority} onChange={e => setPriority(e.target.value)} className="px-3 py-1.5 text-sm bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark rounded-xl text-inkA dark:text-inkA-dark outline-none">
+        <select value={priority} onChange={e => setPriority(e.target.value)} className="px-3 py-1.5 text-sm bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-xl text-inkA dark:text-inkA-dark outline-none">
           <option value="">All priorities</option>
           {Object.keys(PRIORITY_META).map(p => <option key={p} value={p}>{PRIORITY_META[p].label}</option>)}
         </select>

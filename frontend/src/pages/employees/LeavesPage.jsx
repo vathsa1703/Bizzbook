@@ -102,14 +102,14 @@ export default function LeavesPage() {
 
       <div className="flex gap-3">
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 min-w-[150px]">
+          className="bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 min-w-[150px]">
           <option value="All">All Statuses</option>
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
           <option value="cancelled">Cancelled</option>
         </select>
-        <button onClick={load} className="p-2.5 bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark rounded-xl text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white transition-colors">
+        <button onClick={load} className="p-2.5 bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-xl text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white transition-colors">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
@@ -117,14 +117,14 @@ export default function LeavesPage() {
       {loading ? (
         <div className="text-center py-10 text-inkB dark:text-inkB-dark">Loading...</div>
       ) : leaves.length === 0 ? (
-        <div className="text-center py-20 text-inkB dark:text-inkB-dark bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl">
+        <div className="text-center py-20 text-inkB dark:text-inkB-dark bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl">
           <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30 text-blue-500 dark:text-blue-400" />
           <p className="font-medium text-inkA dark:text-inkA-dark">No leave records found</p>
         </div>
       ) : (
         <div className="grid gap-3">
           {leaves.map(leave => (
-            <div key={leave.id} className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl p-4 flex-col md:flex-row md:items-center gap-4 hover:border-accent/40 transition-colors">
+            <div key={leave.id} className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl p-4 flex flex-col md:flex-row md:items-center gap-4 hover:border-accent/40 transition-colors">
               <div className="flex-1 flex items-start gap-4">
                 <div className="w-10 h-10 rounded-full bg-panel2 dark:bg-panel2-dark flex items-center justify-center font-bold text-inkA dark:text-inkA-dark uppercase flex-shrink-0">
                   {leave.employee_name?.[0] || '?'}
@@ -179,7 +179,7 @@ export default function LeavesPage() {
             <div>
               <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Employee (Admin Override)</label>
               <select value={form.employee_id} onChange={e => setForm(f => ({ ...f, employee_id: e.target.value }))}
-                className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+                className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
                 <option value="">Select Employee</option>
                 {employees.map(e => <option key={e.id} value={e.id}>{e.name} ({e.employee_code})</option>)}
               </select>
@@ -189,12 +189,12 @@ export default function LeavesPage() {
           <div>
             <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Leave Type *</label>
             <select value={form.leave_type_id} onChange={e => setForm(f => ({ ...f, leave_type_id: e.target.value }))}
-              className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+              className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
               {leaveTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
 
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <FormField label="Start Date *" type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} />
             <FormField label="End Date *" type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} />
           </div>
@@ -203,7 +203,7 @@ export default function LeavesPage() {
             <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Reason</label>
             <textarea 
               value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
-              className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 h-24 resize-none"
+              className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 h-24 resize-none"
               placeholder="Why are you taking leave?"
             />
           </div>
@@ -229,7 +229,7 @@ export default function LeavesPage() {
               <textarea 
                 value={rejectReason} onChange={e => setRejectReason(e.target.value)}
                 placeholder="Optional reason for rejection..."
-                className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-red-500 h-20 resize-none"
+                className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-red-500 h-20 resize-none"
               />
             </div>
           ) : `Are you sure you want to ${actionType} this leave for ${targetLeave?.employee_name}?`

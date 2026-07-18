@@ -109,10 +109,10 @@ export default function InvitationsPage() {
           <input 
             value={search} onChange={e => setSearch(e.target.value)} 
             placeholder="Search by email..."
-            className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-blue-500" 
+            className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-blue-500" 
           />
         </div>
-        <button onClick={load} className="p-2.5 bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark rounded-xl text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white transition-colors">
+        <button onClick={load} className="p-2.5 bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-xl text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white transition-colors">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
@@ -120,14 +120,14 @@ export default function InvitationsPage() {
       {loading ? (
         <div className="text-center py-10 text-inkB dark:text-inkB-dark">Loading invitations...</div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-20 text-inkB dark:text-inkB-dark bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl">
+        <div className="text-center py-20 text-inkB dark:text-inkB-dark bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl">
           <Mail className="w-12 h-12 mx-auto mb-3 opacity-30 text-blue-500 dark:text-blue-400" />
           <p className="font-medium text-inkA dark:text-inkA-dark">No invitations found</p>
           <p className="text-sm mt-1">Send an invitation to onboard a new employee</p>
           <button onClick={openCreate} className="mt-4 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-300 font-semibold">Send Invite Now →</button>
         </div>
       ) : (
-        <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl overflow-hidden">
+        <div className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -178,7 +178,7 @@ export default function InvitationsPage() {
           <div>
             <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Role *</label>
             <select value={form.role_id} onChange={e => setForm(f => ({ ...f, role_id: e.target.value }))}
-              className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+              className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
               {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
             </select>
             <p className="text-[10px] text-inkB dark:text-inkB-dark mt-1">Determine what this user can access upon joining.</p>
@@ -187,7 +187,7 @@ export default function InvitationsPage() {
           <div>
             <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Assign to Branch</label>
             <select value={form.branch_id} onChange={e => setForm(f => ({ ...f, branch_id: e.target.value }))}
-              className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+              className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
               <option value="">No Branch (Global Access)</option>
               {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>

@@ -85,21 +85,21 @@ export default function EmployeeProfileFull({ employee, onBack, onRefresh }) {
   ];
 
   return (
-    <div className="h-full flex-col bg-canvas dark:bg-canvas-dark">
+    <div className="h-full flex flex-col bg-canvas dark:bg-canvas-dark">
       {/* Header Profile Area */}
       <div className="bg-panel dark:bg-panel-dark border-b border-edge dark:border-edge-dark p-4 lg:p-6 shrink-0">
         <button onClick={onBack} className="flex items-center gap-2 text-sm font-semibold text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white transition-colors mb-4">
           <ChevronLeft className="w-4 h-4" /> Back to Directory
         </button>
 
-        <div className="flex-col md:flex-row gap-6 items-start md:items-center">
+        <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
           <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-4xl font-bold text-white shadow-xl shadow-blue-900/20">
             {employee.name[0]}
           </div>
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-inkA dark:text-inkA-dark">{employee.name}</h1>
             <p className="text-lg text-inkB dark:text-inkB-dark mt-1">{employee.job_title || 'Employee'} • {employee.department_name || employee.department || 'No Dept'}</p>
-            <div className="flex-wrap gap-4 mt-3">
+            <div className="flex flex-wrap gap-4 mt-3">
               <span className="flex items-center gap-1.5 text-sm text-inkB dark:text-inkB-dark"><Briefcase className="w-4 h-4" /> Code: {employee.employee_code || 'N/A'}</span>
               <span className="flex items-center gap-1.5 text-sm text-inkB dark:text-inkB-dark"><Mail className="w-4 h-4" /> {employee.email || 'N/A'}</span>
               <span className="flex items-center gap-1.5 text-sm text-inkB dark:text-inkB-dark"><Phone className="w-4 h-4" /> {employee.phone || 'N/A'}</span>
@@ -123,8 +123,8 @@ export default function EmployeeProfileFull({ employee, onBack, onRefresh }) {
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto p-4 lg:p-6">
         {activeTab === 'overview' && (
-          <div className="grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl p-5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl p-5">
               <h3 className="font-bold text-inkA dark:text-inkA-dark mb-4">Employment Details</h3>
               <div className="space-y-4">
                 <div><div className="text-xs text-inkB dark:text-inkB-dark mb-1">Status</div><div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{employee.status}</div></div>
@@ -134,7 +134,7 @@ export default function EmployeeProfileFull({ employee, onBack, onRefresh }) {
               </div>
             </div>
             
-            <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl p-5">
+            <div className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl p-5">
               <h3 className="font-bold text-inkA dark:text-inkA-dark mb-4">Personal Info</h3>
               <div className="space-y-4">
                 <div><div className="text-xs text-inkB dark:text-inkB-dark mb-1">Date of Birth</div><div className="text-sm font-medium text-inkA dark:text-inkA-dark">{employee.dob || 'Not provided'}</div></div>
@@ -156,9 +156,9 @@ export default function EmployeeProfileFull({ employee, onBack, onRefresh }) {
               </label>
             </div>
             
-            <div className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {documents.map(doc => (
-                <div key={doc.id} className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl p-4 flex items-center justify-between group">
+                <div key={doc.id} className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl p-4 flex items-center justify-between group">
                   <div className="flex items-center gap-3 overflow-hidden">
                     <div className="w-10 h-10 rounded-xl bg-panel2 dark:bg-panel2-dark flex items-center justify-center text-inkB dark:text-inkB-dark shrink-0">
                       <FileText className="w-5 h-5" />
@@ -186,9 +186,9 @@ export default function EmployeeProfileFull({ employee, onBack, onRefresh }) {
         )}
 
         {activeTab === 'salary' && (
-          <div className="grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Salary Structure */}
-            <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl overflow-hidden flex-col">
+            <div className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl overflow-hidden flex flex-col">
               <div className="p-5 border-b border-edge dark:border-edge-dark flex justify-between items-center bg-panel dark:bg-panel-dark">
                 <h3 className="font-bold text-inkA dark:text-inkA-dark">Salary Structure</h3>
                 {!editSalaryMode ? (
@@ -205,14 +205,14 @@ export default function EmployeeProfileFull({ employee, onBack, onRefresh }) {
               <div className="p-5 flex-1 overflow-y-auto">
                 {editSalaryMode ? (
                   <div className="space-y-4">
-                    <div className="grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <FormField label="Basic" type="number" value={salaryForm.basic || 0} onChange={e => setSalaryForm(f => ({ ...f, basic: Number(e.target.value) }))} />
                       <FormField label="HRA" type="number" value={salaryForm.hra || 0} onChange={e => setSalaryForm(f => ({ ...f, hra: Number(e.target.value) }))} />
                       <FormField label="DA" type="number" value={salaryForm.da || 0} onChange={e => setSalaryForm(f => ({ ...f, da: Number(e.target.value) }))} />
                       <FormField label="Medical" type="number" value={salaryForm.medical || 0} onChange={e => setSalaryForm(f => ({ ...f, medical: Number(e.target.value) }))} />
                       <FormField label="Travel" type="number" value={salaryForm.travel || 0} onChange={e => setSalaryForm(f => ({ ...f, travel: Number(e.target.value) }))} />
                     </div>
-                    <div className="border-t border-edge dark:border-edge-dark pt-4 mt-4 grid-cols-2 gap-4">
+                    <div className="border-t border-edge dark:border-edge-dark pt-4 mt-4 grid grid-cols-2 gap-4">
                       <FormField label="PF (Employee)" type="number" value={salaryForm.pf_employee || 0} onChange={e => setSalaryForm(f => ({ ...f, pf_employee: Number(e.target.value) }))} />
                       <FormField label="ESI (Employee)" type="number" value={salaryForm.esi_employee || 0} onChange={e => setSalaryForm(f => ({ ...f, esi_employee: Number(e.target.value) }))} />
                       <FormField label="TDS" type="number" value={salaryForm.tds || 0} onChange={e => setSalaryForm(f => ({ ...f, tds: Number(e.target.value) }))} />
@@ -247,7 +247,7 @@ export default function EmployeeProfileFull({ employee, onBack, onRefresh }) {
                         <span className="text-red-600 dark:text-red-400">₹{salaryStructure.pf_employee + salaryStructure.esi_employee + salaryStructure.tds + salaryStructure.professional_tax + salaryStructure.other_deductions}</span>
                       </div>
                     </div>
-                    <div className="p-4 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/25 dark:border-emerald-500/20 rounded-xl flex justify-between items-center">
+                    <div className="p-4 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/25 dark:border-emerald-500/20 rounded-xl flex justify-between items-center">
                       <span className="font-bold text-emerald-600 dark:text-emerald-400">Net Take Home</span>
                       <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">₹{salaryStructure.net_salary}</span>
                     </div>
@@ -259,11 +259,11 @@ export default function EmployeeProfileFull({ employee, onBack, onRefresh }) {
             </div>
 
             {/* Salary Slips */}
-            <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl p-5">
+            <div className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl p-5">
               <h3 className="font-bold text-inkA dark:text-inkA-dark mb-4">Salary Slips</h3>
               <div className="space-y-3">
                 {salarySlips.map(slip => (
-                  <div key={slip.id} className="p-4 rounded-xl border-edge dark:border-edge-dark bg-panel2/40 dark:bg-panel2-dark/40 flex items-center justify-between">
+                  <div key={slip.id} className="p-4 rounded-xl border border-edge dark:border-edge-dark bg-panel2/40 dark:bg-panel2-dark/40 flex items-center justify-between">
                     <div>
                       <div className="font-bold text-inkA dark:text-inkA-dark">Month: {slip.month}/{slip.year}</div>
                       <div className="text-xs text-inkB dark:text-inkB-dark mt-0.5">Net Pay: ₹{slip.net_salary} • Status: <span className="capitalize text-inkB dark:text-inkB-dark">{slip.status}</span></div>

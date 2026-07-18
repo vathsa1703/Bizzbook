@@ -98,7 +98,7 @@ export default function AttendancePage() {
 
   return (
     <div className="p-4 lg:p-6 space-y-5">
-      <div className="flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-inkA dark:text-inkA-dark">Attendance</h1>
           <p className="text-sm text-inkB dark:text-inkB-dark mt-0.5">Track daily check-ins and working hours</p>
@@ -108,7 +108,7 @@ export default function AttendancePage() {
             type="date" 
             value={date} 
             onChange={e => setDate(e.target.value)}
-            className="bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500"
+            className="bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500"
           />
           {user?.employeeId && (
             <div className="flex gap-2">
@@ -127,21 +127,21 @@ export default function AttendancePage() {
       </div>
 
       {isAdmin && summary && (
-        <div className="grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl p-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl p-4">
             <div className="text-inkB dark:text-inkB-dark text-xs font-medium uppercase tracking-wider mb-1">Total Employees</div>
             <div className="text-2xl font-bold text-inkA dark:text-inkA-dark">{summary.total_employees}</div>
           </div>
-          <div className="bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/25 dark:border-emerald-500/20 rounded-2xl p-4">
-            <div className="text-emerald-600 dark:text-emerald-400/80 text-xs font-medium uppercase tracking-wider mb-1">Present (Incl WFH)</div>
+          <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/25 dark:border-emerald-500/20 rounded-2xl p-4">
+            <div className="text-emerald-600 dark:text-emerald-400 dark:text-emerald-400/80 text-xs font-medium uppercase tracking-wider mb-1">Present (Incl WFH)</div>
             <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{summary.present}</div>
           </div>
-          <div className="bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/25 dark:border-red-500/20 rounded-2xl p-4">
-            <div className="text-red-600 dark:text-red-400/80 text-xs font-medium uppercase tracking-wider mb-1">Absent</div>
+          <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/25 dark:border-red-500/20 rounded-2xl p-4">
+            <div className="text-red-600 dark:text-red-400 dark:text-red-400/80 text-xs font-medium uppercase tracking-wider mb-1">Absent</div>
             <div className="text-2xl font-bold text-red-600 dark:text-red-400">{summary.absent}</div>
           </div>
-          <div className="bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/25 dark:border-amber-500/20 rounded-2xl p-4">
-            <div className="text-amber-600 dark:text-amber-400/80 text-xs font-medium uppercase tracking-wider mb-1">Late Arrivals</div>
+          <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 dark:border-amber-500/20 rounded-2xl p-4">
+            <div className="text-amber-600 dark:text-amber-400 dark:text-amber-400/80 text-xs font-medium uppercase tracking-wider mb-1">Late Arrivals</div>
             <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{summary.late}</div>
           </div>
         </div>
@@ -153,10 +153,10 @@ export default function AttendancePage() {
           <input 
             value={search} onChange={e => setSearch(e.target.value)} 
             placeholder="Search employee name or code..."
-            className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:border-blue-500" 
+            className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:border-blue-500" 
           />
         </div>
-        <button onClick={load} className="p-2 bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark rounded-xl text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white transition-colors">
+        <button onClick={load} className="p-2 bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-xl text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white transition-colors">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
@@ -164,12 +164,12 @@ export default function AttendancePage() {
       {loading ? (
         <div className="text-center py-10 text-inkB dark:text-inkB-dark">Loading attendance...</div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-20 text-inkB dark:text-inkB-dark bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl">
+        <div className="text-center py-20 text-inkB dark:text-inkB-dark bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl">
           <Clock className="w-12 h-12 mx-auto mb-3 opacity-30 text-blue-500 dark:text-blue-400" />
           <p className="font-medium text-inkA dark:text-inkA-dark">No attendance records for this date</p>
         </div>
       ) : (
-        <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl overflow-hidden">
+        <div className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>

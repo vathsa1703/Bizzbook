@@ -93,7 +93,7 @@ export default function Employees({ onNavigate }) {
     <div className="flex h-screen bg-canvas dark:bg-canvas-dark overflow-hidden">
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-40 w-60 bg-panel dark:bg-panel-dark border-r border-edge dark:border-edge-dark flex-col
+        fixed inset-y-0 left-0 z-40 w-60 bg-panel dark:bg-panel-dark border-r border-edge dark:border-edge-dark flex flex-col
         transform transition-transform duration-300
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:relative lg:translate-x-0 lg:flex
@@ -101,7 +101,7 @@ export default function Employees({ onNavigate }) {
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 py-4 border-b border-edge dark:border-edge-dark">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center flex-shrink-0">
-            <Users className="w-4 h-4 text-inkA dark:text-inkA-dark" />
+            <Users className="w-4 h-4 text-white" />
           </div>
           <div>
             <div className="text-sm font-bold text-inkA dark:text-inkA-dark">HR Hub</div>
@@ -164,7 +164,7 @@ export default function Employees({ onNavigate }) {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Mobile Top Bar */}
         <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-panel dark:bg-panel-dark border-b border-edge dark:border-edge-dark">
           <button onClick={() => setSidebarOpen(true)} className="text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white">

@@ -73,9 +73,9 @@ export default function TeamsPage() {
       {teams.length === 0 ? (
         <EmptyState icon={Users2} title="No teams yet" subtitle="Group employees into teams — often under a department." />
       ) : (
-        <div className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {teams.map(t => (
-            <button key={t.id} onClick={() => openDetail(t)} className="text-left rounded-2xl border-edge dark:border-edge-dark bg-panel dark:bg-panel-dark hover:border-accent/40 p-4 relative overflow-hidden">
+            <button key={t.id} onClick={() => openDetail(t)} className="text-left rounded-2xl border border-edge dark:border-edge-dark bg-panel dark:bg-panel-dark hover:border-accent/40 p-4 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1" style={{ background: t.color || '#3b82f6' }} />
               <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${t.color || '#3b82f6'}22` }}><Users2 className="w-5 h-5" style={{ color: t.color || '#3b82f6' }} /></div>
@@ -97,7 +97,7 @@ export default function TeamsPage() {
           <div className="p-5 space-y-3">
             <FormField label="Team name" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Warehouse Team" />
             <FormField label="Description" type="textarea" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
-            <div className="grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <FormField label="Department" type="select" value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })}
                 options={[{ value: '', label: '— None —' }, ...departments.map(d => ({ value: d.id, label: d.name }))]} />
               <FormField label="Team Lead" type="select" value={form.lead_id} onChange={e => setForm({ ...form, lead_id: e.target.value })}

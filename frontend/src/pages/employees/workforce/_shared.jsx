@@ -43,7 +43,7 @@ export function StatusBadge({ status }) {
 
 export function Loading({ label = 'Loading…' }) {
   return (
-    <div className="flex-col items-center justify-center py-20 text-inkB dark:text-inkB-dark">
+    <div className="flex flex-col items-center justify-center py-20 text-inkB dark:text-inkB-dark">
       <Loader2 className="w-6 h-6 animate-spin mb-2" /><span className="text-sm">{label}</span>
     </div>
   );
@@ -51,7 +51,7 @@ export function Loading({ label = 'Loading…' }) {
 
 export function EmptyState({ icon: Icon = Users, title, subtitle, action }) {
   return (
-    <div className="flex-col items-center justify-center py-16 text-center">
+    <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="w-14 h-14 rounded-2xl bg-panel2 dark:bg-panel2-dark flex items-center justify-center mb-3"><Icon className="w-6 h-6 text-inkB dark:text-inkB-dark" /></div>
       <div className="text-sm font-semibold text-inkB dark:text-inkB-dark">{title}</div>
       {subtitle && <div className="text-xs text-inkB dark:text-inkB-dark mt-1 max-w-xs">{subtitle}</div>}
@@ -95,9 +95,9 @@ export function MemberPicker({ employees, value, onChange, height = 'max-h-56' }
       <div className="relative mb-2">
         <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-gray-400 dark:text-slate-500" />
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search employees…"
-          className="w-full pl-8 pr-3 py-2 text-sm border-edge dark:border-edge-dark rounded-xl outline-none focus:border-accent" />
+          className="w-full pl-8 pr-3 py-2 text-sm border border-edge dark:border-edge-dark rounded-xl outline-none focus:border-accent" />
       </div>
-      <div className={`${height} overflow-y-auto border-edge dark:border-edge-dark rounded-xl divide-y divide-edge dark:divide-edge-dark`}>
+      <div className={`${height} overflow-y-auto border border-edge dark:border-edge-dark rounded-xl divide-y divide-edge dark:divide-edge-dark`}>
         {filtered.length === 0 && <div className="p-3 text-xs text-gray-400 dark:text-slate-500 text-center">No employees</div>}
         {filtered.map(e => (
           <label key={e.id} className="flex items-center gap-2 px-3 py-2 hover:bg-panel2 dark:hover:bg-panel2-dark cursor-pointer">

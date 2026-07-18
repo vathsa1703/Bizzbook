@@ -154,14 +154,14 @@ export default function EmployeeDirectory({ onViewChange }) {
         const ratings = employees.map(e => e.performance_rating).filter(r => r > 0);
         const avgRating = ratings.length > 0 ? (ratings.reduce((s, r) => s + r, 0) / ratings.length) : null;
         return (
-        <div className="grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             { label: 'Total', value: employees.length, color: 'blue' },
             { label: 'Active', value: employees.filter(e => e.status === 'Active').length, color: 'emerald' },
             { label: 'On Leave', value: employees.filter(e => e.status === 'On Leave').length, color: 'amber' },
             { label: 'Avg Rating', value: avgRating !== null ? avgRating.toFixed(1) : '—', color: 'violet' },
           ].map(({ label, value, color }) => (
-            <div key={label} className={`bg-${color}-500/10 border-${color}-500/20 rounded-xl p-4`}>
+            <div key={label} className={`bg-${color}-500/10 border border-${color}-500/20 rounded-xl p-4`}>
               <div className={`text-2xl font-bold text-${color}-400`}>{value ?? '—'}</div>
               <div className="text-xs text-inkB dark:text-inkB-dark mt-0.5">{label}</div>
             </div>
@@ -171,23 +171,23 @@ export default function EmployeeDirectory({ onViewChange }) {
       })()}
 
       {/* Search & Filters */}
-      <div className="flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-inkB dark:text-inkB-dark" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, email, code…"
-            className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
+            className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors" />
         </div>
         <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
-          className="bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+          className="bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
           <option value="All">All Departments</option>
           {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
         </select>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+          className="bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
           <option value="All">All Status</option>
           {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <button onClick={load} className="p-2.5 bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark rounded-xl text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white transition-colors">
+        <button onClick={load} className="p-2.5 bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-xl text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white transition-colors">
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
@@ -202,10 +202,10 @@ export default function EmployeeDirectory({ onViewChange }) {
           <p className="text-sm mt-1">Try adjusting your search or filters</p>
         </div>
       ) : (
-        <div className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map(emp => (
             <div key={emp.id} onClick={() => setSelectedEmployee(emp)}
-              className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark hover:border-blue-500/50 rounded-2xl p-4 cursor-pointer transition-all hover:shadow-lg hover:shadow-blue-500/10 group">
+              className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark hover:border-blue-500/50 rounded-2xl p-4 cursor-pointer transition-all hover:shadow-lg hover:shadow-blue-500/10 group">
               <div className="flex items-start gap-3">
                 <EmployeeAvatar emp={emp} />
                 <div className="flex-1 min-w-0">
@@ -224,7 +224,7 @@ export default function EmployeeDirectory({ onViewChange }) {
                   </button>
                 </div>
               </div>
-              <div className="mt-3 pt-3 border-t border-edge dark:border-edge-dark grid-cols-2 gap-2">
+              <div className="mt-3 pt-3 border-t border-edge dark:border-edge-dark grid grid-cols-2 gap-2">
                 {emp.email && (
                   <div className="flex items-center gap-1.5 text-xs text-inkB dark:text-inkB-dark">
                     <Mail className="w-3 h-3 flex-shrink-0" />
@@ -262,15 +262,15 @@ export default function EmployeeDirectory({ onViewChange }) {
       {/* Create/Edit Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingEmp ? 'Edit Employee' : 'Add New Employee'}>
         <div className="space-y-4">
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <FormField label="Full Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Rahul Sharma" />
             <FormField label="Job Title" value={form.job_title} onChange={e => setForm(f => ({ ...f, job_title: e.target.value }))} placeholder="Sales Manager" />
           </div>
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Department *</label>
               <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
-                className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+                className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
                 <option value="">Select Department</option>
                 {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
               </select>
@@ -278,32 +278,32 @@ export default function EmployeeDirectory({ onViewChange }) {
             <div>
               <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Branch</label>
               <select value={form.branch_id} onChange={e => setForm(f => ({ ...f, branch_id: e.target.value }))}
-                className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+                className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
                 <option value="">No Branch</option>
                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
             </div>
           </div>
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <FormField label="Salary (₹) *" type="number" value={form.salary} onChange={e => setForm(f => ({ ...f, salary: e.target.value }))} placeholder="50000" />
             <FormField label="Joining Date *" type="date" value={form.joining_date} onChange={e => setForm(f => ({ ...f, joining_date: e.target.value }))} />
           </div>
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <FormField label="Email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="rahul@company.com" />
             <FormField label="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+91 9876543210" />
           </div>
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Employment Type</label>
               <select value={form.employment_type} onChange={e => setForm(f => ({ ...f, employment_type: e.target.value }))}
-                className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+                className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
                 {EMPLOYMENT_TYPES.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Status</label>
               <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
-                className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+                className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
                 {STATUSES.map(s => <option key={s}>{s}</option>)}
               </select>
             </div>

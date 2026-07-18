@@ -151,12 +151,12 @@ export default function OrgChartPage() {
   const single = roots.length === 1 ? roots[0] : null;
 
   return (
-    <div className="p-4 sm:p-6 h-full flex-col">
+    <div className="p-4 sm:p-6 h-full flex flex-col">
       <PageHeader icon={GitBranch} title="Organization Chart" subtitle="Drag to pan · scroll to zoom · click a node to manage">
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-inkB dark:text-inkB-dark" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Find employee…"
-            className="pl-8 pr-3 py-2 text-sm bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark rounded-xl text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 w-40" />
+            className="pl-8 pr-3 py-2 text-sm bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark rounded-xl text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 outline-none focus:border-blue-500 w-40" />
         </div>
         {canManage && <button onClick={() => setModal({ type: 'add', node: null })} className={btnPrimary}><UserPlus className="w-4 h-4" />Add</button>}
         <button onClick={() => setZoom(z => Math.min(1.6, z + 0.15))} className="p-2 rounded-xl bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white"><ZoomIn className="w-4 h-4" /></button>
@@ -168,7 +168,7 @@ export default function OrgChartPage() {
         <EmptyState icon={GitBranch} title="No employees yet" subtitle="Add employees and set their reporting managers to see the chart."
           action={canManage ? <button onClick={() => setModal({ type: 'add', node: null })} className={btnPrimary}><UserPlus className="w-4 h-4" />Add Employee</button> : null} />
       ) : (
-        <div className="relative flex-1 min-h-[420px] rounded-2xl border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark overflow-hidden">
+        <div className="relative flex-1 min-h-[420px] rounded-2xl border border-edge dark:border-edge-dark bg-canvas dark:bg-canvas-dark overflow-hidden">
           <div className="absolute inset-0 cursor-grab active:cursor-grabbing overflow-auto"
             onWheel={onWheel} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerLeave={onPointerUp}>
             <div className="inline-block p-10 origin-top-left transition-transform duration-75" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
@@ -179,7 +179,7 @@ export default function OrgChartPage() {
                 </Tree>
               ) : (
                 <Tree lineWidth="2px" lineColor="#334155" lineBorderRadius="8px"
-                  label={<div className="inline-flex items-center gap-2 rounded-2xl border-edge dark:border-edge-dark bg-panel2 dark:bg-panel2-dark px-4 py-3 text-inkA dark:text-inkA-dark font-bold"><Building2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />Company</div>}>
+                  label={<div className="inline-flex items-center gap-2 rounded-2xl border border-edge dark:border-edge-dark bg-panel2 dark:bg-panel2-dark px-4 py-3 text-inkA dark:text-inkA-dark font-bold"><Building2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />Company</div>}>
                   {roots.map(renderNode)}
                 </Tree>
               )}
@@ -187,7 +187,7 @@ export default function OrgChartPage() {
           </div>
 
           {detail && (
-            <div className="absolute top-3 right-3 w-64 rounded-2xl border-edge dark:border-edge-dark bg-slate-900/95 backdrop-blur p-4 shadow-xl">
+            <div className="absolute top-3 right-3 w-64 rounded-2xl border border-edge dark:border-edge-dark bg-slate-900/95 backdrop-blur p-4 shadow-xl">
               <button onClick={clearSelection} className="absolute top-2 right-2 text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-white"><X className="w-4 h-4" /></button>
               <div className="flex items-center gap-2.5">
                 <Avatar name={detail.employee?.name} src={detail.employee?.avatar} size="lg" />
@@ -199,7 +199,7 @@ export default function OrgChartPage() {
                   <div className="text-xs text-inkB dark:text-inkB-dark">{detail.managers.map(m => m.name).join(' › ')}</div></div>
               )}
               <div className="mt-3"><div className="text-[10px] uppercase text-inkB dark:text-inkB-dark font-semibold mb-1">Direct reports ({detail.subordinates?.length || 0})</div>
-                <div className="flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1">
                   {(detail.subordinates || []).slice(0, 8).map(s => <span key={s.id} className="text-[11px] bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark px-1.5 py-0.5 rounded-full">{s.name}</span>)}
                   {(detail.subordinates?.length || 0) === 0 && <span className="text-[11px] text-inkB dark:text-inkB-dark">None</span>}
                 </div></div>
@@ -265,19 +265,19 @@ function EmployeeFormModal({ mode, node, managerNode, departments, onClose, onDo
   return (
     <Modal isOpen title={mode === 'add' ? (managerNode ? `Add report under ${managerNode.name}` : 'Add Employee') : `Edit ${node.name}`} onClose={onClose} size="lg">
       <div className="p-5 space-y-3">
-        <div className="grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <FormField label="Name" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
           <FormField label="Designation" value={form.job_title} onChange={e => setForm({ ...form, job_title: e.target.value })} placeholder="e.g. Sales Executive" />
         </div>
-        <div className="grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <FormField label="Department" type="select" value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })} options={deptOptions} required={mode === 'add'} />
           <FormField label="Employment Type" type="select" value={form.employment_type} onChange={e => setForm({ ...form, employment_type: e.target.value })} options={EMP_TYPES.map(t => ({ value: t, label: t }))} />
         </div>
-        <div className="grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <FormField label={mode === 'add' ? 'Salary (₹)' : 'Salary (₹) — optional'} type="number" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} required={mode === 'add'} />
           <FormField label="Joining Date" type="date" value={form.joining_date} onChange={e => setForm({ ...form, joining_date: e.target.value })} />
         </div>
-        <div className="grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <FormField label="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
           <FormField label="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
         </div>
@@ -331,7 +331,7 @@ function CreateTeamModal({ leadNode, departments, employees, onClose, onDone }) 
   return (
     <Modal isOpen title={`New team led by ${leadNode.name}`} onClose={onClose} size="lg">
       <div className="p-5 space-y-3">
-        <div className="flex items-center gap-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/25">
+        <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25">
           <Crown className="w-4 h-4 text-amber-500 dark:text-amber-400" /><span className="text-sm text-amber-700 dark:text-amber-400 font-medium">{leadNode.name} will be the team lead</span>
         </div>
         <FormField label="Team name" required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Field Sales Team" />

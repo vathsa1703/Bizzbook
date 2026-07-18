@@ -104,16 +104,16 @@ export default function BranchesPage() {
         <input 
           value={search} onChange={e => setSearch(e.target.value)} 
           placeholder="Search branches..."
-          className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-blue-500" 
+          className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark placeholder-gray-400 dark:placeholder-slate-500 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-blue-500" 
         />
       </div>
 
       {loading ? (
         <div className="text-center py-10 text-inkB dark:text-inkB-dark">Loading...</div>
       ) : (
-        <div className="grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(b => (
-            <div key={b.id} className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl p-5 hover:border-accent/40 transition-colors group">
+            <div key={b.id} className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl p-5 hover:border-accent/40 transition-colors group">
               <div className="flex justify-between items-start mb-3">
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${b.is_hq ? 'bg-blue-100 dark:bg-blue-500/15 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' : 'bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark'}`}>
@@ -159,12 +159,12 @@ export default function BranchesPage() {
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingBranch ? 'Edit Branch' : 'Add Branch'}>
         <div className="space-y-4">
           <FormField label="Branch Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="E.g., North Regional Office" />
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <FormField label="Branch Code" value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} placeholder="NRO-01" />
             <FormField label="Location (City/State)" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="New Delhi" />
           </div>
           <FormField label="Full Address" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} placeholder="123 Corporate Park, Block B..." />
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <FormField label="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+91 11 2345 6789" />
             <FormField label="GSTIN (Optional)" value={form.gstin} onChange={e => setForm(f => ({ ...f, gstin: e.target.value }))} placeholder="07XXXXX0000X1Z5" />
           </div>

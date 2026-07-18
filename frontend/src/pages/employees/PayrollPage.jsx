@@ -98,22 +98,22 @@ export default function PayrollPage() {
           </div>
         </div>
 
-        <div className="grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl p-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl p-5">
             <div className="text-sm text-inkB dark:text-inkB-dark mb-1">Total Net Pay</div>
             <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(selectedRun.total_net)}</div>
           </div>
-          <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl p-5">
+          <div className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl p-5">
             <div className="text-sm text-inkB dark:text-inkB-dark mb-1">Total Deductions</div>
             <div className="text-2xl font-bold text-red-600 dark:text-red-400">{formatCurrency(selectedRun.total_deductions)}</div>
           </div>
-          <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl p-5">
+          <div className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl p-5">
             <div className="text-sm text-inkB dark:text-inkB-dark mb-1">Total Gross</div>
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{formatCurrency(selectedRun.total_gross)}</div>
           </div>
         </div>
 
-        <div className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl overflow-hidden">
+        <div className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -137,7 +137,7 @@ export default function PayrollPage() {
                       {slip.lop_days > 0 && <span className="ml-2 text-xs text-red-600 dark:text-red-400">({slip.lop_days} LOP)</span>}
                     </td>
                     <td className="px-5 py-3 text-inkB dark:text-inkB-dark">{formatCurrency(slip.gross_salary)}</td>
-                    <td className="px-5 py-3 text-red-600 dark:text-red-400/90">{formatCurrency(slip.pf_employee + slip.esi_employee + slip.professional_tax + slip.tds + slip.other_deductions)}</td>
+                    <td className="px-5 py-3 text-red-600 dark:text-red-400 dark:text-red-400/90">{formatCurrency(slip.pf_employee + slip.esi_employee + slip.professional_tax + slip.tds + slip.other_deductions)}</td>
                     <td className="px-5 py-3 font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(slip.net_salary)}</td>
                   </tr>
                 ))}
@@ -164,7 +164,7 @@ export default function PayrollPage() {
       {loading ? (
         <div className="text-center py-10 text-inkB dark:text-inkB-dark">Loading payroll history...</div>
       ) : runs.length === 0 ? (
-        <div className="text-center py-20 text-inkB dark:text-inkB-dark bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark rounded-2xl">
+        <div className="text-center py-20 text-inkB dark:text-inkB-dark bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-2xl">
           <DollarSign className="w-12 h-12 mx-auto mb-3 opacity-30 text-blue-500 dark:text-blue-400" />
           <p className="font-medium text-inkA dark:text-inkA-dark">No payroll runs found</p>
           <p className="text-sm mt-1">Start by running payroll for the current month</p>
@@ -172,7 +172,7 @@ export default function PayrollPage() {
       ) : (
         <div className="grid gap-3">
           {runs.map(run => (
-            <div key={run.id} onClick={() => openRunDetails(run)} className="bg-panel dark:bg-panel-dark border-edge dark:border-edge-dark hover:border-accent/40 rounded-2xl p-4 flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer transition-all hover:shadow-lg hover:shadow-blue-500/5 group">
+            <div key={run.id} onClick={() => openRunDetails(run)} className="bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark hover:border-accent/40 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer transition-all hover:shadow-lg hover:shadow-blue-500/5 group">
               <div className="flex items-center gap-4">
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${run.status === 'paid' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 dark:text-emerald-400' : 'bg-blue-50 dark:bg-blue-500/10 text-blue-500 dark:text-blue-400'}`}>
                   <DollarSign className="w-6 h-6" />
@@ -213,18 +213,18 @@ export default function PayrollPage() {
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Run Payroll">
         <div className="space-y-4">
-          <div className="grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Month</label>
               <select value={form.month} onChange={e => setForm(f => ({ ...f, month: parseInt(e.target.value) }))}
-                className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+                className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
                 {MONTHS.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Year</label>
               <select value={form.year} onChange={e => setForm(f => ({ ...f, year: parseInt(e.target.value) }))}
-                className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+                className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
                 {[new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1].map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
@@ -232,12 +232,12 @@ export default function PayrollPage() {
           <div>
             <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Branch (Optional)</label>
             <select value={form.branch_id} onChange={e => setForm(f => ({ ...f, branch_id: e.target.value }))}
-              className="w-full bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
+              className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
               <option value="">All Branches</option>
               {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </div>
-          <div className="p-4 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/25 dark:border-amber-500/20 rounded-xl">
+          <div className="p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 dark:border-amber-500/20 rounded-xl">
             <h4 className="text-sm font-bold text-amber-600 dark:text-amber-400 mb-1">Important</h4>
             <p className="text-xs text-amber-200/70">
               This will calculate salaries for all active employees based on their current salary structure and attendance/LOP for the selected period. This cannot be easily undone once processed.
