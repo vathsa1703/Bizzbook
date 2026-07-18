@@ -28,27 +28,27 @@ export default function Modal({ isOpen = true, title, children, onClose, size = 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm transition-opacity duration-300 animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 dark:bg-black/60 backdrop-blur-sm transition-opacity duration-300 animate-fadeIn">
       {/* Backdrop clickable area */}
       <div className="absolute inset-0" onClick={onClose} />
 
       {/* Modal Card */}
       <div
-        className={`relative w-full ${sizeClasses[size] || sizeClasses.md} bg-white rounded-t-2xl sm:rounded-2xl shadow-card-md flex flex-col max-h-[85vh] sm:max-h-[90vh] overflow-hidden transform transition-all duration-300 animate-slideUp`}
+        className={`relative w-full ${sizeClasses[size] || sizeClasses.md} bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-t-2xl sm:rounded-xl shadow-card-md dark:shadow-none flex flex-col max-h-[85vh] sm:max-h-[90vh] overflow-hidden transform transition-all duration-300 animate-slideUp`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-white sticky top-0 z-10">
-          <h3 className="text-lg font-bold text-gray-950">{title}</h3>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-edge dark:border-edge-dark bg-panel dark:bg-panel-dark sticky top-0 z-10">
+          <h3 className="text-lg font-bold text-inkA dark:text-inkA-dark">{title}</h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-900 transition-colors"
+            className="p-1 rounded-full hover:bg-panel2 dark:hover:bg-panel2-dark text-inkB dark:text-inkB-dark transition-colors"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 bg-gray-50/50">
+        <div className="flex-1 overflow-y-auto px-5 py-4 bg-canvas/60 dark:bg-canvas-dark/60">
           {children}
         </div>
       </div>

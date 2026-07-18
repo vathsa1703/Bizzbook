@@ -15,14 +15,14 @@ export default function FormField({
   disabled = false,
   list,
 }) {
-  const inputClass = `w-full px-3.5 py-2 text-sm bg-white border rounded-xl outline-none transition-all ${
-    error ? 'border-brand-red focus:border-brand-red focus:ring-1 focus:ring-brand-red' : 'border-gray-200 focus:border-brand-blue focus:ring-1 focus:ring-brand-blue'
-  } ${disabled ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'text-gray-900'}`;
+  const inputClass = `w-full min-h-[44px] px-3.5 py-2 text-[15px] md:text-sm bg-panel dark:bg-panel-dark border rounded-xl outline-none transition-all ${
+    error ? 'border-brand-red focus:border-brand-red focus:ring-1 focus:ring-brand-red' : 'border-gray-300 dark:border-edge-dark focus:border-accent focus:ring-1 focus:ring-accent'
+  } ${disabled ? 'bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark cursor-not-allowed' : 'text-inkA dark:text-inkA-dark'}`;
 
   return (
     <div className="space-y-1.5 w-full">
       {label && (
-        <label className="block text-xs font-semibold text-gray-700">
+        <label className="block text-xs font-semibold text-inkB dark:text-inkB-dark">
           {label} {required && <span className="text-brand-red font-bold">*</span>}
         </label>
       )}

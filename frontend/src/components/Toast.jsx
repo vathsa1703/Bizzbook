@@ -4,19 +4,23 @@ import { CheckCircle2, AlertTriangle, AlertCircle, Info, X } from 'lucide-react'
 export default function Toast({ type = 'info', message, onClose }) {
   const styles = {
     success: {
-      bg: 'bg-brand-greenSoft border-brand-green/20 text-brand-green',
+      stripe: 'border-l-green-500',
+      iconColor: 'text-green-600 dark:text-green-400',
       icon: CheckCircle2,
     },
     error: {
-      bg: 'bg-brand-redSoft border-brand-red/20 text-brand-red',
+      stripe: 'border-l-red-500',
+      iconColor: 'text-red-600 dark:text-red-400',
       icon: AlertCircle,
     },
     warning: {
-      bg: 'bg-brand-amberSoft border-brand-amber/20 text-brand-amber',
+      stripe: 'border-l-amber-500',
+      iconColor: 'text-amber-600 dark:text-amber-400',
       icon: AlertTriangle,
     },
     info: {
-      bg: 'bg-brand-blueSoft border-brand-blue/20 text-brand-blue',
+      stripe: 'border-l-accent',
+      iconColor: 'text-accent',
       icon: Info,
     },
   };
@@ -26,14 +30,14 @@ export default function Toast({ type = 'info', message, onClose }) {
 
   return (
     <div
-      className={`flex items-center gap-3 p-3 rounded-xl border shadow-card max-w-sm w-full animate-slideUp pointer-events-auto ${currentStyle.bg}`}
+      className={`flex items-center gap-3 p-3 rounded-xl bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark border-l-4 shadow-card dark:shadow-none max-w-sm w-full animate-slideUp pointer-events-auto ${currentStyle.stripe}`}
       role="alert"
     >
-      <Icon size={18} className="flex-shrink-0" />
-      <p className="text-xs font-semibold flex-1 leading-relaxed">{message}</p>
+      <Icon size={18} className={`flex-shrink-0 ${currentStyle.iconColor}`} />
+      <p className="text-[13px] font-semibold text-inkA dark:text-inkA-dark flex-1 leading-relaxed">{message}</p>
       <button
         onClick={onClose}
-        className="text-gray-400 hover:text-gray-600 transition-colors p-0.5 rounded-lg"
+        className="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 transition-colors p-0.5 rounded-lg"
       >
         <X size={14} />
       </button>
