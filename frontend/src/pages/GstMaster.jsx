@@ -139,8 +139,8 @@ function GstMaster() {
     <div className="space-y-6 animate-fade-in pb-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">GST Master</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage official HSN codes, GST rates, and UQCs</p>
+          <h1 className="text-2xl font-bold text-inkA dark:text-inkA-dark">GST Master</h1>
+          <p className="text-inkB dark:text-inkB-dark text-sm mt-1">Manage official HSN codes, GST rates, and UQCs</p>
         </div>
         <button
           onClick={handleOpenCreate}
@@ -151,23 +151,23 @@ function GstMaster() {
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 flex gap-4 bg-gray-50/50">
+      <div className="bg-panel dark:bg-panel-dark rounded-2xl shadow-sm border border-edge dark:border-edge-dark overflow-hidden">
+        <div className="p-4 border-b border-edge dark:border-edge-dark flex gap-4 bg-panel2/50 dark:bg-panel2-dark/50">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500" size={18} />
             <input
               type="text"
               placeholder="Search by HSN or Description..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all text-sm"
+              className="w-full pl-10 pr-4 py-2 bg-panel dark:bg-panel-dark border border-edge dark:border-edge-dark rounded-xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all text-sm"
             />
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-gray-600 font-semibold border-b border-gray-100">
+            <thead className="bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark font-semibold border-b border-edge dark:border-edge-dark">
               <tr>
                 <th className="py-4 px-6 whitespace-nowrap">HSN Code</th>
                 <th className="py-4 px-6">Description</th>
@@ -178,29 +178,29 @@ function GstMaster() {
                 <th className="py-4 px-6 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-edge dark:divide-edge-dark">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="py-10 text-center text-gray-400">Loading...</td>
+                  <td colSpan="7" className="py-10 text-center text-gray-400 dark:text-slate-500">Loading...</td>
                 </tr>
               ) : hsnList.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="py-10 text-center text-gray-400">
+                  <td colSpan="7" className="py-10 text-center text-gray-400 dark:text-slate-500">
                     <AlertCircle className="mx-auto mb-2 opacity-50" size={24} />
                     <p>No HSN codes found.</p>
                   </td>
                 </tr>
               ) : (
                 hsnList.map(hsn => (
-                  <tr key={hsn.hsn_code} className="hover:bg-gray-50/50 transition-colors group">
-                    <td className="py-3 px-6 font-medium text-gray-900">{hsn.hsn_code}</td>
-                    <td className="py-3 px-6 text-gray-600">{hsn.description || '-'}</td>
-                    <td className="py-3 px-6 text-gray-600 font-semibold">{hsn.gst_rate}%</td>
-                    <td className="py-3 px-6 text-gray-500">{hsn.uqc}</td>
-                    <td className="py-3 px-6 text-gray-500">{hsn.cess_rate}%</td>
+                  <tr key={hsn.hsn_code} className="hover:bg-panel2/60 dark:hover:bg-panel2-dark/60 transition-colors group">
+                    <td className="py-3 px-6 font-medium text-inkA dark:text-inkA-dark">{hsn.hsn_code}</td>
+                    <td className="py-3 px-6 text-inkB dark:text-inkB-dark">{hsn.description || '-'}</td>
+                    <td className="py-3 px-6 text-inkB dark:text-inkB-dark font-semibold">{hsn.gst_rate}%</td>
+                    <td className="py-3 px-6 text-inkB dark:text-inkB-dark">{hsn.uqc}</td>
+                    <td className="py-3 px-6 text-inkB dark:text-inkB-dark">{hsn.cess_rate}%</td>
                     <td className="py-3 px-6 text-center">
                       <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-bold ${
-                        hsn.is_active ? 'bg-brand-emeraldSoft text-brand-emerald' : 'bg-gray-100 text-gray-500'
+                        hsn.is_active ? 'bg-emerald-50 dark:bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 dark:text-emerald-400' : 'bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark'
                       }`}>
                         {hsn.is_active ? 'Active' : 'Inactive'}
                       </span>
@@ -216,7 +216,7 @@ function GstMaster() {
                         </button>
                         <button
                           onClick={() => handleDelete(hsn.hsn_code)}
-                          className="p-1.5 text-brand-red hover:bg-brand-red/10 rounded-lg transition-colors"
+                          className="p-1.5 text-red-600 dark:text-red-400 dark:text-red-400 hover:bg-brand-red/10 rounded-lg transition-colors"
                           title="Delete"
                         >
                           <Trash2 size={16} />
@@ -233,14 +233,14 @@ function GstMaster() {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-scale-in">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <h2 className="text-lg font-bold text-gray-900">
+          <div className="bg-panel dark:bg-panel-dark rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-scale-in">
+            <div className="px-6 py-4 border-b border-edge dark:border-edge-dark flex justify-between items-center bg-panel2/50 dark:bg-panel2-dark/50">
+              <h2 className="text-lg font-bold text-inkA dark:text-inkA-dark">
                 {editingHsn ? 'Edit HSN Code' : 'New HSN Code'}
               </h2>
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 dark:text-slate-500 hover:text-gray-600 transition-colors"
               >
                 ✕
               </button>
@@ -310,7 +310,7 @@ function GstMaster() {
                       onChange={handleFormChange}
                       className="w-4 h-4 text-brand-primary rounded border-gray-300 focus:ring-brand-primary focus:ring-offset-0"
                     />
-                    <span className="text-sm font-medium text-gray-700">Active</span>
+                    <span className="text-sm font-medium text-inkB dark:text-inkB-dark">Active</span>
                   </label>
                 </div>
 
@@ -318,7 +318,7 @@ function GstMaster() {
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-5 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 transition-colors"
+                    className="px-5 py-2.5 rounded-xl font-bold text-inkB dark:text-inkB-dark hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors"
                   >
                     Cancel
                   </button>

@@ -35,11 +35,11 @@ const REPORTS = [
 ];
 
 function scoreColor(s) {
-  if (s >= 85) return { text: 'text-brand-green', bg: 'bg-brand-greenSoft', ring: '#16A34A' };
-  if (s >= 60) return { text: 'text-brand-amber', bg: 'bg-brand-amberSoft', ring: '#D97706' };
-  return { text: 'text-brand-red', bg: 'bg-brand-redSoft', ring: '#DC2626' };
+  if (s >= 85) return { text: 'text-green-600 dark:text-green-400 dark:text-green-400', bg: 'bg-green-50 dark:bg-green-500/10 dark:bg-green-500/10', ring: '#16A34A' };
+  if (s >= 60) return { text: 'text-amber-600 dark:text-amber-400 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10 dark:bg-amber-500/10', ring: '#D97706' };
+  return { text: 'text-red-600 dark:text-red-400 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10', ring: '#DC2626' };
 }
-const PRIORITY = { critical: 'bg-red-50 text-red-600', high: 'bg-amber-50 text-amber-600', medium: 'bg-blue-50 text-blue-600', low: 'bg-gray-50 text-gray-500' };
+const PRIORITY = { critical: 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400', high: 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400', medium: 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400', low: 'bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark' };
 
 function blobDownload(blob, filename) {
   const url = window.URL.createObjectURL(blob);
@@ -59,7 +59,7 @@ function ScoreRing({ score }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className={`text-3xl font-black ${c.text}`}>{score}%</span>
-        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Compliant</span>
+        <span className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-wider">Compliant</span>
       </div>
     </div>
   );
@@ -77,25 +77,25 @@ function ProfileForm({ initial, onSaved }) {
   };
   return (
     <SectionCard>
-      <div className="flex items-center gap-2 mb-4"><Sparkles size={18} className="text-violet-600" /><h3 className="font-bold text-gray-900">Tell us about your business</h3></div>
-      <p className="text-xs text-gray-500 mb-4 leading-relaxed">We'll work out every licence, filing and renewal that applies to you — automatically.</p>
-      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Business Type</label>
-      <select value={form.entity_type} onChange={e => set('entity_type', e.target.value)} className="w-full border rounded-xl px-3 py-2.5 text-sm mb-3 bg-gray-50">{ENTITY_TYPES.map(t => <option key={t}>{t}</option>)}</select>
-      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Industry</label>
-      <select value={form.industry} onChange={e => set('industry', e.target.value)} className="w-full border rounded-xl px-3 py-2.5 text-sm mb-3 bg-gray-50">{INDUSTRIES.map(t => <option key={t}>{t}</option>)}</select>
-      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">State</label>
-      <input value={form.state || ''} onChange={e => set('state', e.target.value)} placeholder="e.g. Karnataka" className="w-full border rounded-xl px-3 py-2.5 text-sm mb-3 bg-gray-50" />
+      <div className="flex items-center gap-2 mb-4"><Sparkles size={18} className="text-violet-600 dark:text-violet-400" /><h3 className="font-bold text-inkA dark:text-inkA-dark">Tell us about your business</h3></div>
+      <p className="text-xs text-inkB dark:text-inkB-dark mb-4 leading-relaxed">We'll work out every licence, filing and renewal that applies to you — automatically.</p>
+      <label className="block text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-1">Business Type</label>
+      <select value={form.entity_type} onChange={e => set('entity_type', e.target.value)} className="w-full border rounded-xl px-3 py-2.5 text-sm mb-3 bg-panel2 dark:bg-panel2-dark">{ENTITY_TYPES.map(t => <option key={t}>{t}</option>)}</select>
+      <label className="block text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-1">Industry</label>
+      <select value={form.industry} onChange={e => set('industry', e.target.value)} className="w-full border rounded-xl px-3 py-2.5 text-sm mb-3 bg-panel2 dark:bg-panel2-dark">{INDUSTRIES.map(t => <option key={t}>{t}</option>)}</select>
+      <label className="block text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-1">State</label>
+      <input value={form.state || ''} onChange={e => set('state', e.target.value)} placeholder="e.g. Karnataka" className="w-full border rounded-xl px-3 py-2.5 text-sm mb-3 bg-panel2 dark:bg-panel2-dark" />
       <div className="grid grid-cols-2 gap-3 mb-3">
-        <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Annual Turnover (₹)</label><input type="number" value={form.annual_turnover} onChange={e => set('annual_turnover', Number(e.target.value))} className="w-full border rounded-xl px-3 py-2.5 text-sm bg-gray-50" /></div>
-        <div><label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1"># Employees</label><input type="number" value={form.employee_count} onChange={e => set('employee_count', Number(e.target.value))} className="w-full border rounded-xl px-3 py-2.5 text-sm bg-gray-50" /></div>
+        <div><label className="block text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-1">Annual Turnover (₹)</label><input type="number" value={form.annual_turnover} onChange={e => set('annual_turnover', Number(e.target.value))} className="w-full border rounded-xl px-3 py-2.5 text-sm bg-panel2 dark:bg-panel2-dark" /></div>
+        <div><label className="block text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-1"># Employees</label><input type="number" value={form.employee_count} onChange={e => set('employee_count', Number(e.target.value))} className="w-full border rounded-xl px-3 py-2.5 text-sm bg-panel2 dark:bg-panel2-dark" /></div>
       </div>
-      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Applicable to you</label>
+      <label className="block text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-2">Applicable to you</label>
       <div className="grid grid-cols-2 gap-2 mb-5">
         {TOGGLES.map(({ key, label }) => {
           const on = !!form[key];
           return (
-            <button key={key} onClick={() => set(key, on ? 0 : 1)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-semibold text-left transition-colors ${on ? 'bg-brand-blueSoft border-brand-blue text-brand-blue' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
-              <span className={`w-4 h-4 rounded-md flex items-center justify-center flex-shrink-0 ${on ? 'bg-brand-blue' : 'bg-gray-300'}`}>{on && <CheckCircle2 size={12} className="text-white" />}</span>{label}
+            <button key={key} onClick={() => set(key, on ? 0 : 1)} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-semibold text-left transition-colors ${on ? 'bg-accent/10 dark:bg-accent/15 border-accent text-accent' : 'bg-panel2 dark:bg-panel2-dark border-edge dark:border-edge-dark text-inkB dark:text-inkB-dark'}`}>
+              <span className={`w-4 h-4 rounded-md flex items-center justify-center flex-shrink-0 ${on ? 'bg-accent' : 'bg-gray-300'}`}>{on && <CheckCircle2 size={12} className="text-white" />}</span>{label}
             </button>
           );
         })}
@@ -110,17 +110,17 @@ function ProfileForm({ initial, onSaved }) {
 function DeadlineRow({ d, onOpen, onDone }) {
   const overdue = d.daysRemaining < 0;
   const soon = d.daysRemaining >= 0 && d.daysRemaining <= 7;
-  const badge = overdue ? 'bg-brand-redSoft text-brand-red' : soon ? 'bg-brand-amberSoft text-brand-amber' : 'bg-brand-greenSoft text-brand-green';
+  const badge = overdue ? 'bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 text-red-600 dark:text-red-400 dark:text-red-400' : soon ? 'bg-amber-50 dark:bg-amber-500/10 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 dark:text-amber-400' : 'bg-green-50 dark:bg-green-500/10 dark:bg-green-500/10 text-green-600 dark:text-green-400 dark:text-green-400';
   const label = overdue ? `${Math.abs(d.daysRemaining)}d overdue` : d.daysRemaining === 0 ? 'Due today' : `${d.daysRemaining}d left`;
   return (
-    <div className="flex items-center gap-3 py-3 border-b border-gray-50 last:border-0">
+    <div className="flex items-center gap-3 py-3 border-b border-edge dark:border-edge-dark last:border-0">
       <div className={`w-2 h-2 rounded-full flex-shrink-0 ${overdue ? 'bg-brand-red' : soon ? 'bg-brand-amber' : 'bg-brand-green'}`} />
       <button onClick={() => onOpen(d.id)} className="min-w-0 flex-1 text-left">
-        <p className="text-sm font-semibold text-gray-800 leading-tight truncate">{d.title}</p>
-        <p className="text-[11px] text-gray-400 capitalize">{d.frequency} · {d.next_due_date}</p>
+        <p className="text-sm font-semibold text-inkA dark:text-inkA-dark leading-tight truncate">{d.title}</p>
+        <p className="text-[11px] text-gray-400 dark:text-slate-500 capitalize">{d.frequency} · {d.next_due_date}</p>
       </button>
       <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${badge}`}>{label}</span>
-      {onDone && <button onClick={() => onDone(d.id)} title="Mark done" className="text-gray-300 hover:text-brand-green"><CheckCircle2 size={20} /></button>}
+      {onDone && <button onClick={() => onDone(d.id)} title="Mark done" className="text-gray-300 dark:text-slate-600 hover:text-brand-green"><CheckCircle2 size={20} /></button>}
     </div>
   );
 }
@@ -137,14 +137,14 @@ function Copilot() {
   };
   return (
     <SectionCard>
-      <div className="flex items-center gap-2 mb-3"><div className="w-7 h-7 rounded-full bg-brand-blue flex items-center justify-center"><span className="text-white text-[10px] font-bold">AI</span></div><p className="text-sm font-bold text-gray-900">Compliance Copilot</p></div>
+      <div className="flex items-center gap-2 mb-3"><div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center"><span className="text-white text-[10px] font-bold">AI</span></div><p className="text-sm font-bold text-inkA dark:text-inkA-dark">Compliance Copilot</p></div>
       <div className="space-y-2 mb-3 max-h-80 overflow-y-auto">
-        {log.length === 0 && <div className="flex flex-wrap gap-2">{suggestions.map(s => <button key={s} onClick={() => ask(s)} className="text-[11px] font-semibold text-brand-blue bg-brand-blueSoft px-3 py-1.5 rounded-full active:scale-95">{s}</button>)}</div>}
-        {log.map((m, i) => <div key={i} className={`text-sm leading-relaxed p-3 rounded-xl ${m.role === 'user' ? 'bg-gray-900 text-white ml-8' : 'bg-gray-50 text-gray-700 mr-4'}`}>{m.text}</div>)}
-        {busy && <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={14} className="animate-spin" /> thinking…</div>}
+        {log.length === 0 && <div className="flex flex-wrap gap-2">{suggestions.map(s => <button key={s} onClick={() => ask(s)} className="text-[11px] font-semibold text-accent bg-accent/10 dark:bg-accent/15 px-3 py-1.5 rounded-full active:scale-95">{s}</button>)}</div>}
+        {log.map((m, i) => <div key={i} className={`text-sm leading-relaxed p-3 rounded-xl ${m.role === 'user' ? 'bg-gray-900 text-white ml-8' : 'bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark mr-4'}`}>{m.text}</div>)}
+        {busy && <div className="flex items-center gap-2 text-gray-400 dark:text-slate-500 text-xs"><Loader2 size={14} className="animate-spin" /> thinking…</div>}
       </div>
       <div className="flex items-center gap-2">
-        <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && ask(q)} placeholder="Ask about your compliance…" className="flex-1 border rounded-xl px-3 py-2.5 text-sm bg-gray-50" />
+        <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && ask(q)} placeholder="Ask about your compliance…" className="flex-1 border rounded-xl px-3 py-2.5 text-sm bg-panel2 dark:bg-panel2-dark" />
         <button onClick={() => ask(q)} disabled={busy} className="w-10 h-10 rounded-xl bg-gray-900 text-white flex items-center justify-center disabled:opacity-60"><Send size={16} /></button>
       </div>
     </SectionCard>
@@ -197,21 +197,21 @@ export default function Compliance() {
 
   return (
     <div className="pb-24">
-      <div className="bg-white px-5 pt-12 pb-4">
+      <div className="bg-panel dark:bg-panel-dark px-5 pt-12 pb-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md"><ShieldCheck size={20} className="text-white" /></div>
-          <div><h1 className="text-xl font-black text-gray-900 leading-tight">Compliance</h1><p className="text-xs text-gray-500 font-medium mt-0.5">Your legal auto-pilot</p></div>
+          <div><h1 className="text-xl font-black text-inkA dark:text-inkA-dark leading-tight">Compliance</h1><p className="text-xs text-inkB dark:text-inkB-dark font-medium mt-0.5">Your legal auto-pilot</p></div>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-gray-300" size={26} /></div>
+        <div className="flex justify-center py-16"><Loader2 className="animate-spin text-gray-300 dark:text-slate-600" size={26} /></div>
       ) : !configured ? (
         <div className="px-4 py-4"><ProfileForm initial={profile} onSaved={load} /></div>
       ) : (
         <>
-          <div className="flex gap-2 overflow-x-auto hide-scrollbar px-4 py-3 bg-white border-b border-gray-100 sticky top-0 z-10">
-            {TABS.map(t => <button key={t.id} onClick={() => setTab(t.id)} className={`whitespace-nowrap px-4 py-2 rounded-full text-[11px] font-bold transition-all ${tab === t.id ? 'bg-gray-900 text-white shadow-md' : 'bg-gray-50 text-gray-500'}`}>{t.label}</button>)}
+          <div className="flex gap-2 overflow-x-auto hide-scrollbar px-4 py-3 bg-panel dark:bg-panel-dark border-b border-edge dark:border-edge-dark sticky top-0 z-10">
+            {TABS.map(t => <button key={t.id} onClick={() => setTab(t.id)} className={`whitespace-nowrap px-4 py-2 rounded-full text-[11px] font-bold transition-all ${tab === t.id ? 'bg-gray-900 text-white shadow-md' : 'bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark'}`}>{t.label}</button>)}
           </div>
 
           <div className="px-4 py-4 space-y-4">
@@ -222,11 +222,11 @@ export default function Compliance() {
                   <div className="flex items-center gap-5">
                     <ScoreRing score={overview.overallScore} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-gray-900 mb-2">Compliance Score</p>
+                      <p className="text-sm font-bold text-inkA dark:text-inkA-dark mb-2">Compliance Score</p>
                       <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="bg-brand-greenSoft rounded-xl py-2"><p className="text-lg font-black text-brand-green">{overview.counts.completed}</p><p className="text-[9px] text-gray-500 font-bold uppercase">Done</p></div>
-                        <div className="bg-brand-amberSoft rounded-xl py-2"><p className="text-lg font-black text-brand-amber">{overview.counts.dueSoon}</p><p className="text-[9px] text-gray-500 font-bold uppercase">Due Soon</p></div>
-                        <div className="bg-brand-redSoft rounded-xl py-2"><p className="text-lg font-black text-brand-red">{overview.counts.overdue}</p><p className="text-[9px] text-gray-500 font-bold uppercase">Overdue</p></div>
+                        <div className="bg-green-50 dark:bg-green-500/10 dark:bg-green-500/10 rounded-xl py-2"><p className="text-lg font-black text-green-600 dark:text-green-400 dark:text-green-400">{overview.counts.completed}</p><p className="text-[9px] text-inkB dark:text-inkB-dark font-bold uppercase">Done</p></div>
+                        <div className="bg-amber-50 dark:bg-amber-500/10 dark:bg-amber-500/10 rounded-xl py-2"><p className="text-lg font-black text-amber-600 dark:text-amber-400 dark:text-amber-400">{overview.counts.dueSoon}</p><p className="text-[9px] text-inkB dark:text-inkB-dark font-bold uppercase">Due Soon</p></div>
+                        <div className="bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 rounded-xl py-2"><p className="text-lg font-black text-red-600 dark:text-red-400 dark:text-red-400">{overview.counts.overdue}</p><p className="text-[9px] text-inkB dark:text-inkB-dark font-bold uppercase">Overdue</p></div>
                       </div>
                     </div>
                   </div>
@@ -234,28 +234,28 @@ export default function Compliance() {
 
                 {/* Alert cards */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3">
-                    <div className="flex items-center gap-2 mb-1"><FileWarning size={16} className="text-brand-amber" /><span className="text-lg font-black text-gray-900">{overview.counts.missingDocuments}</span></div>
-                    <p className="text-xs font-bold text-gray-700">Missing Documents</p>
-                    <p className="text-[10px] text-gray-400">items need proof uploaded</p>
+                  <div className="bg-panel dark:bg-panel-dark rounded-2xl border border-edge dark:border-edge-dark shadow-sm p-3">
+                    <div className="flex items-center gap-2 mb-1"><FileWarning size={16} className="text-amber-600 dark:text-amber-400 dark:text-amber-400" /><span className="text-lg font-black text-inkA dark:text-inkA-dark">{overview.counts.missingDocuments}</span></div>
+                    <p className="text-xs font-bold text-inkB dark:text-inkB-dark">Missing Documents</p>
+                    <p className="text-[10px] text-gray-400 dark:text-slate-500">items need proof uploaded</p>
                   </div>
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3">
-                    <div className="flex items-center gap-2 mb-1"><BadgeCheck size={16} className="text-brand-red" /><span className="text-lg font-black text-gray-900">{overview.licensesExpiringSoon.length}</span></div>
-                    <p className="text-xs font-bold text-gray-700">Licenses Expiring</p>
-                    <p className="text-[10px] text-gray-400">within 30 days</p>
+                  <div className="bg-panel dark:bg-panel-dark rounded-2xl border border-edge dark:border-edge-dark shadow-sm p-3">
+                    <div className="flex items-center gap-2 mb-1"><BadgeCheck size={16} className="text-red-600 dark:text-red-400 dark:text-red-400" /><span className="text-lg font-black text-inkA dark:text-inkA-dark">{overview.licensesExpiringSoon.length}</span></div>
+                    <p className="text-xs font-bold text-inkB dark:text-inkB-dark">Licenses Expiring</p>
+                    <p className="text-[10px] text-gray-400 dark:text-slate-500">within 30 days</p>
                   </div>
                 </div>
 
                 <div>
-                  <p className="text-xs font-bold text-gray-500 tracking-widest uppercase mb-3">Breakdown</p>
+                  <p className="text-xs font-bold text-inkB dark:text-inkB-dark tracking-widest uppercase mb-3">Breakdown</p>
                   <div className="grid grid-cols-2 gap-3">
                     {overview.breakdown.map(b => {
                       const Icon = CAT_ICON[b.key] || FileText; const c = scoreColor(b.score);
                       return (
-                        <div key={b.key} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3">
+                        <div key={b.key} className="bg-panel dark:bg-panel-dark rounded-2xl border border-edge dark:border-edge-dark shadow-sm p-3">
                           <div className="flex items-center justify-between mb-2"><div className={`w-8 h-8 rounded-lg ${c.bg} flex items-center justify-center`}><Icon size={16} className={c.text} /></div><span className={`text-lg font-black ${c.text}`}>{b.score}%</span></div>
-                          <p className="text-xs font-bold text-gray-800 leading-tight">{b.name}</p>
-                          <p className="text-[10px] text-gray-400">{b.total} item{b.total > 1 ? 's' : ''}{b.overdue ? ` · ${b.overdue} overdue` : ''}</p>
+                          <p className="text-xs font-bold text-inkA dark:text-inkA-dark leading-tight">{b.name}</p>
+                          <p className="text-[10px] text-gray-400 dark:text-slate-500">{b.total} item{b.total > 1 ? 's' : ''}{b.overdue ? ` · ${b.overdue} overdue` : ''}</p>
                         </div>
                       );
                     })}
@@ -263,18 +263,18 @@ export default function Compliance() {
                 </div>
 
                 <SectionCard>
-                  <p className="text-sm font-bold text-gray-900 mb-1">Upcoming Deadlines</p>
-                  {overview.deadlines.length === 0 ? <p className="text-sm text-gray-400 py-4 text-center">Nothing due in the next 60 days 🎉</p>
+                  <p className="text-sm font-bold text-inkA dark:text-inkA-dark mb-1">Upcoming Deadlines</p>
+                  {overview.deadlines.length === 0 ? <p className="text-sm text-gray-400 dark:text-slate-500 py-4 text-center">Nothing due in the next 60 days 🎉</p>
                     : overview.deadlines.slice(0, 6).map(d => <DeadlineRow key={d.id} d={d} onOpen={setOpenItem} onDone={markDone} />)}
                 </SectionCard>
 
                 {overview.recentActivity?.length > 0 && (
                   <SectionCard>
-                    <p className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-1.5"><Activity size={15} className="text-gray-400" /> Recent Activity</p>
+                    <p className="text-sm font-bold text-inkA dark:text-inkA-dark mb-2 flex items-center gap-1.5"><Activity size={15} className="text-gray-400 dark:text-slate-500" /> Recent Activity</p>
                     {overview.recentActivity.map((a, i) => (
-                      <div key={i} className="flex items-center justify-between py-1.5 text-xs border-b border-gray-50 last:border-0">
-                        <span className="text-gray-700">{ACTIVITY_LABEL[a.event_type] || a.event_type}{a.title ? ` · ${a.title}` : ''}</span>
-                        <span className="text-[10px] text-gray-400">{(a.created_at || '').slice(0, 10)}</span>
+                      <div key={i} className="flex items-center justify-between py-1.5 text-xs border-b border-edge dark:border-edge-dark last:border-0">
+                        <span className="text-inkB dark:text-inkB-dark">{ACTIVITY_LABEL[a.event_type] || a.event_type}{a.title ? ` · ${a.title}` : ''}</span>
+                        <span className="text-[10px] text-gray-400 dark:text-slate-500">{(a.created_at || '').slice(0, 10)}</span>
                       </div>
                     ))}
                   </SectionCard>
@@ -291,25 +291,25 @@ export default function Compliance() {
             {/* ── LICENSE CENTER ── */}
             {tab === 'licenses' && (
               <SectionCard>
-                <p className="text-sm font-bold text-gray-900 mb-1">Licenses & Renewals</p>
-                {licenses.length === 0 ? <p className="text-sm text-gray-400 py-6 text-center">No licences apply to your business.</p>
+                <p className="text-sm font-bold text-inkA dark:text-inkA-dark mb-1">Licenses & Renewals</p>
+                {licenses.length === 0 ? <p className="text-sm text-gray-400 dark:text-slate-500 py-6 text-center">No licences apply to your business.</p>
                   : licenses.map(it => {
                     const dr = it.daysRemaining;
                     const dot = dr == null ? 'bg-gray-300' : dr < 0 ? 'bg-brand-red' : dr <= 30 ? 'bg-brand-amber' : 'bg-brand-green';
                     return (
-                      <button key={it.id} onClick={() => setOpenItem(it.id)} className="w-full text-left py-3 border-b border-gray-50 last:border-0">
+                      <button key={it.id} onClick={() => setOpenItem(it.id)} className="w-full text-left py-3 border-b border-edge dark:border-edge-dark last:border-0">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-start gap-2.5 min-w-0">
                             <span className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0 ${dot}`} />
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-gray-800 leading-tight">{it.title}</p>
-                              <p className="text-[11px] text-gray-400 mt-0.5">{it.department}</p>
-                              <p className="text-[10px] text-gray-500 mt-0.5">{it.uploaded_docs || 0}/{it.required_docs || 0} docs{it.next_due_date ? ` · next ${it.next_due_date}` : ''}</p>
+                              <p className="text-sm font-semibold text-inkA dark:text-inkA-dark leading-tight">{it.title}</p>
+                              <p className="text-[11px] text-gray-400 dark:text-slate-500 mt-0.5">{it.department}</p>
+                              <p className="text-[10px] text-inkB dark:text-inkB-dark mt-0.5">{it.uploaded_docs || 0}/{it.required_docs || 0} docs{it.next_due_date ? ` · next ${it.next_due_date}` : ''}</p>
                             </div>
                           </div>
                           <div className="flex flex-col items-end gap-1 flex-shrink-0">
                             <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full capitalize ${PRIORITY[it.priority] || PRIORITY.medium}`}>{it.priority}</span>
-                            {dr != null && <span className={`text-[10px] font-bold ${dr < 0 ? 'text-brand-red' : dr <= 30 ? 'text-brand-amber' : 'text-gray-400'}`}>{dr < 0 ? `${Math.abs(dr)}d overdue` : `${dr}d`}</span>}
+                            {dr != null && <span className={`text-[10px] font-bold ${dr < 0 ? 'text-red-600 dark:text-red-400 dark:text-red-400' : dr <= 30 ? 'text-amber-600 dark:text-amber-400 dark:text-amber-400' : 'text-gray-400 dark:text-slate-500'}`}>{dr < 0 ? `${Math.abs(dr)}d overdue` : `${dr}d`}</span>}
                           </div>
                         </div>
                       </button>
@@ -321,15 +321,15 @@ export default function Compliance() {
             {/* ── REPORTS ── */}
             {tab === 'reports' && (
               <SectionCard>
-                <p className="text-sm font-bold text-gray-900 mb-1">Download Reports</p>
-                <p className="text-xs text-gray-400 mb-3">Export your compliance data as CSV or JSON.</p>
+                <p className="text-sm font-bold text-inkA dark:text-inkA-dark mb-1">Download Reports</p>
+                <p className="text-xs text-gray-400 dark:text-slate-500 mb-3">Export your compliance data as CSV or JSON.</p>
                 {REPORTS.map(r => (
-                  <div key={r.type} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
-                    <span className="text-sm font-semibold text-gray-800">{r.label}</span>
+                  <div key={r.type} className="flex items-center justify-between py-2.5 border-b border-edge dark:border-edge-dark last:border-0">
+                    <span className="text-sm font-semibold text-inkA dark:text-inkA-dark">{r.label}</span>
                     <div className="flex gap-2">
-                      <button onClick={() => dlReport(r.type, 'pdf')} className="flex items-center gap-1 text-[11px] font-bold text-brand-red bg-brand-redSoft px-2.5 py-1.5 rounded-lg"><Download size={13} /> PDF</button>
-                      <button onClick={() => dlReport(r.type, 'csv')} className="flex items-center gap-1 text-[11px] font-bold text-brand-blue bg-brand-blueSoft px-2.5 py-1.5 rounded-lg"><Download size={13} /> CSV</button>
-                      <button onClick={() => dlReport(r.type, 'json')} className="flex items-center gap-1 text-[11px] font-bold text-gray-600 bg-gray-100 px-2.5 py-1.5 rounded-lg"><Download size={13} /> JSON</button>
+                      <button onClick={() => dlReport(r.type, 'pdf')} className="flex items-center gap-1 text-[11px] font-bold text-red-600 dark:text-red-400 dark:text-red-400 bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 px-2.5 py-1.5 rounded-lg"><Download size={13} /> PDF</button>
+                      <button onClick={() => dlReport(r.type, 'csv')} className="flex items-center gap-1 text-[11px] font-bold text-accent bg-accent/10 dark:bg-accent/15 px-2.5 py-1.5 rounded-lg"><Download size={13} /> CSV</button>
+                      <button onClick={() => dlReport(r.type, 'json')} className="flex items-center gap-1 text-[11px] font-bold text-inkB dark:text-inkB-dark bg-panel2 dark:bg-panel2-dark px-2.5 py-1.5 rounded-lg"><Download size={13} /> JSON</button>
                     </div>
                   </div>
                 ))}
@@ -342,7 +342,7 @@ export default function Compliance() {
             {/* ── COPILOT ── */}
             {tab === 'copilot' && <Copilot />}
 
-            <button onClick={() => api.compliance.recompute().then(load)} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gray-50 text-gray-600 text-xs font-bold border border-gray-200 active:bg-gray-100">
+            <button onClick={() => api.compliance.recompute().then(load)} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-panel2 dark:bg-panel2-dark text-inkB dark:text-inkB-dark text-xs font-bold border border-edge dark:border-edge-dark active:bg-panel2 dark:active:bg-panel2-dark">
               <RefreshCw size={14} /> Re-check my compliance
             </button>
           </div>

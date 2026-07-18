@@ -139,7 +139,7 @@ function ExpiryAlertBanner({ alerts, onDismiss }) {
               )}
             </div>
           </div>
-          <button onClick={() => onDismiss(alert.id)} className="text-amber-500 hover:text-amber-300 ml-4">
+          <button onClick={() => onDismiss(alert.id)} className="text-amber-500 dark:text-amber-400 hover:text-amber-300 ml-4">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -879,7 +879,7 @@ function SecurityTab({ data, onRefresh }) {
             <label className="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" className="sr-only" checked={!!form.two_factor_enabled} onChange={e => set('two_factor_enabled', e.target.checked ? 1 : 0)} />
               <div className={`w-11 h-6 rounded-full transition-colors ${form.two_factor_enabled ? 'bg-blue-600' : 'bg-slate-700'}`}>
-                <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.two_factor_enabled ? 'translate-x-5' : ''}`} />
+                <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-panel dark:bg-panel-dark rounded-full shadow transition-transform ${form.two_factor_enabled ? 'translate-x-5' : ''}`} />
               </div>
             </label>
           </div>
@@ -970,7 +970,7 @@ export default function CompanyProfile({ onNavigate }) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-900">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+          <Loader2 className="w-8 h-8 text-blue-500 dark:text-blue-400 animate-spin" />
           <p className="text-slate-400 text-sm">Loading company profile...</p>
         </div>
       </div>

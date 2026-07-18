@@ -20,7 +20,7 @@ function isValidGSTIN(v) {
 function StatusBadge({ ok, label }) {
   return (
     <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
-      ok ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+      ok ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400'
     }`}>
       {ok
         ? <CheckCircle2 size={11} />
@@ -34,11 +34,11 @@ function StatusBadge({ ok, label }) {
 function FormField({ label, required, children, hint }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-        {label} {required && <span className="text-red-500">*</span>}
+      <label className="block text-xs font-semibold text-inkB dark:text-inkB-dark uppercase tracking-wide mb-1">
+        {label} {required && <span className="text-red-500 dark:text-red-400">*</span>}
       </label>
       {children}
-      {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">{hint}</p>}
     </div>
   );
 }
@@ -144,25 +144,25 @@ export default function GstSettings({ onNavigate }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="animate-spin text-blue-600" size={32} />
+        <Loader2 className="animate-spin text-blue-600 dark:text-blue-400" size={32} />
       </div>
     );
   }
 
   return (
-    <div className="pb-28 min-h-screen bg-gray-50">
+    <div className="pb-28 min-h-screen bg-panel2 dark:bg-panel2-dark">
       {/* Header */}
-      <div className="bg-white px-5 pt-12 pb-5 border-b border-gray-100 sticky top-0 z-10">
+      <div className="bg-panel dark:bg-panel-dark px-5 pt-12 pb-5 border-b border-edge dark:border-edge-dark sticky top-0 z-10">
         <div className="flex items-center gap-3 mb-1">
           <button
             onClick={() => onNavigate('more')}
-            className="p-1.5 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
+            className="p-1.5 rounded-xl text-inkB dark:text-inkB-dark hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors"
           >
             <ChevronLeft size={20} />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">GST Registration</h1>
-            <p className="text-xs text-gray-500">Required for GSTR-1 filing exports</p>
+            <h1 className="text-xl font-bold text-inkA dark:text-inkA-dark">GST Registration</h1>
+            <p className="text-xs text-inkB dark:text-inkB-dark">Required for GSTR-1 filing exports</p>
           </div>
         </div>
 
@@ -180,11 +180,11 @@ export default function GstSettings({ onNavigate }) {
       <div className="px-4 pt-4 space-y-4">
 
         {/* GST Registration Toggle */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+        <div className="bg-panel dark:bg-panel-dark rounded-2xl shadow-sm border border-edge dark:border-edge-dark p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-semibold text-gray-800 text-sm">GST Registered Business</p>
-              <p className="text-xs text-gray-400 mt-0.5">Enable GST calculations and GSTR-1 filing exports</p>
+              <p className="font-semibold text-inkA dark:text-inkA-dark text-sm">GST Registered Business</p>
+              <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">Enable GST calculations and GSTR-1 filing exports</p>
             </div>
             <button
               type="button"
@@ -195,15 +195,15 @@ export default function GstSettings({ onNavigate }) {
               }`}
             >
               <span
-                className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-panel dark:bg-panel-dark shadow transition duration-200 ease-in-out ${
                   isGstReg ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
             </button>
           </div>
           {!isGstReg && (
-            <div className="mt-3 flex gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
-              <Info size={14} className="text-amber-600 mt-0.5 shrink-0" />
+            <div className="mt-3 flex gap-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 rounded-xl p-3">
+              <Info size={14} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
               <p className="text-xs text-amber-800 leading-relaxed">
                 This business is not GST registered. GST calculations and filing are disabled.
                 Sales will be recorded without any tax calculations.
@@ -214,8 +214,8 @@ export default function GstSettings({ onNavigate }) {
 
         {/* Info banner — only when GST registered and incomplete */}
         {isGstReg && !allRequired && (
-          <div className="flex gap-2.5 bg-amber-50 border border-amber-200 rounded-2xl p-3.5">
-            <Info size={16} className="text-amber-600 mt-0.5 shrink-0" />
+          <div className="flex gap-2.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 rounded-2xl p-3.5">
+            <Info size={16} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
             <p className="text-xs text-amber-800 leading-relaxed">
               Complete all required fields below before downloading GSTR-1 exports.
               These details appear on every filing document.
@@ -225,12 +225,12 @@ export default function GstSettings({ onNavigate }) {
 
         {/* GSTIN & Tax IDs — only shown when GST registered */}
         {isGstReg && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-4">
+          <div className="bg-panel dark:bg-panel-dark rounded-2xl shadow-sm border border-edge dark:border-edge-dark p-4 space-y-4">
             <div className="flex items-center gap-2 mb-1">
-              <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Hash size={14} className="text-blue-700" />
+              <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-500/15 flex items-center justify-center">
+                <Hash size={14} className="text-blue-700 dark:text-blue-400" />
               </div>
-              <span className="font-semibold text-gray-800 text-sm">Tax Identifiers</span>
+              <span className="font-semibold text-inkA dark:text-inkA-dark text-sm">Tax Identifiers</span>
             </div>
 
             <FormField label="GSTIN" required hint="15-character GST Identification Number. PAN & state code auto-fill.">
@@ -242,13 +242,13 @@ export default function GstSettings({ onNavigate }) {
                 placeholder="e.g. 29AABCU9603R1ZX"
                 className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-mono tracking-widest focus:outline-none focus:ring-2 transition-all ${
                   gstinError
-                    ? 'border-red-300 focus:ring-red-200 bg-red-50'
+                    ? 'border-red-300 focus:ring-red-200 bg-red-50 dark:bg-red-500/10'
                     : gstinValid
-                    ? 'border-emerald-300 focus:ring-emerald-200 bg-emerald-50'
-                    : 'border-gray-200 focus:ring-blue-200'
+                    ? 'border-emerald-300 focus:ring-emerald-200 bg-emerald-50 dark:bg-emerald-500/10'
+                    : 'border-edge dark:border-edge-dark focus:ring-blue-200'
                 }`}
               />
-              {gstinError && <p className="mt-1 text-xs text-red-600">{gstinError}</p>}
+              {gstinError && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{gstinError}</p>}
             </FormField>
 
             <FormField label="PAN" hint="Auto-derived from GSTIN (chars 3–12). Edit only if different.">
@@ -258,19 +258,19 @@ export default function GstSettings({ onNavigate }) {
                 maxLength={10}
                 onChange={e => handleChange('pan', e.target.value.toUpperCase())}
                 placeholder="AABCU9603R"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-edge dark:border-edge-dark text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
               />
             </FormField>
           </div>
         )}
 
         {/* Business Names — always shown */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-4">
+        <div className="bg-panel dark:bg-panel-dark rounded-2xl shadow-sm border border-edge dark:border-edge-dark p-4 space-y-4">
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center">
-              <Building2 size={14} className="text-violet-700" />
+            <div className="w-7 h-7 rounded-lg bg-violet-100 dark:bg-violet-500/15 flex items-center justify-center">
+              <Building2 size={14} className="text-violet-700 dark:text-violet-400" />
             </div>
-            <span className="font-semibold text-gray-800 text-sm">Business Names</span>
+            <span className="font-semibold text-inkA dark:text-inkA-dark text-sm">Business Names</span>
           </div>
 
           <FormField label="Legal Name" required hint="Registered name on GST certificate.">
@@ -279,7 +279,7 @@ export default function GstSettings({ onNavigate }) {
               value={form.legal_name}
               onChange={e => handleChange('legal_name', e.target.value)}
               placeholder="XYZ ENTERPRISES PVT LTD"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-edge dark:border-edge-dark text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
             />
           </FormField>
 
@@ -289,7 +289,7 @@ export default function GstSettings({ onNavigate }) {
               value={form.trade_name}
               onChange={e => handleChange('trade_name', e.target.value)}
               placeholder="XYZ Store"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-edge dark:border-edge-dark text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
             />
           </FormField>
 
@@ -299,25 +299,25 @@ export default function GstSettings({ onNavigate }) {
               value={form.company_name}
               onChange={e => handleChange('company_name', e.target.value)}
               placeholder="My Shop"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-edge dark:border-edge-dark text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
             />
           </FormField>
         </div>
 
         {/* Location — state is always relevant, but required label only for GST registered */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-4">
+        <div className="bg-panel dark:bg-panel-dark rounded-2xl shadow-sm border border-edge dark:border-edge-dark p-4 space-y-4">
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-7 h-7 rounded-lg bg-teal-100 flex items-center justify-center">
-              <MapPin size={14} className="text-teal-700" />
+            <div className="w-7 h-7 rounded-lg bg-teal-100 dark:bg-teal-500/15 flex items-center justify-center">
+              <MapPin size={14} className="text-teal-700 dark:text-teal-400" />
             </div>
-            <span className="font-semibold text-gray-800 text-sm">Location</span>
+            <span className="font-semibold text-inkA dark:text-inkA-dark text-sm">Location</span>
           </div>
 
           <FormField label="State" required={isGstReg} hint={isGstReg ? 'Your GST registration state — determines IGST vs CGST/SGST.' : 'Your business state.'}>
             <select
               value={form.state_code}
               onChange={e => handleChange('state_code', e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-edge dark:border-edge-dark text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 bg-panel dark:bg-panel-dark transition-all"
             >
               <option value="">Select state…</option>
               {GST_STATES.map(s => (
@@ -334,7 +334,7 @@ export default function GstSettings({ onNavigate }) {
               onChange={e => handleChange('address', e.target.value)}
               rows={3}
               placeholder="Shop / building address"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-edge dark:border-edge-dark text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none transition-all"
             />
           </FormField>
 
@@ -345,18 +345,18 @@ export default function GstSettings({ onNavigate }) {
               maxLength={6}
               onChange={e => handleChange('pincode', e.target.value.replace(/\D/g,''))}
               placeholder="560001"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-edge dark:border-edge-dark text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
             />
           </FormField>
         </div>
 
         {/* Contact */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-4">
+        <div className="bg-panel dark:bg-panel-dark rounded-2xl shadow-sm border border-edge dark:border-edge-dark p-4 space-y-4">
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center">
-              <FileText size={14} className="text-orange-700" />
+            <div className="w-7 h-7 rounded-lg bg-orange-100 dark:bg-orange-500/15 flex items-center justify-center">
+              <FileText size={14} className="text-orange-700 dark:text-orange-400" />
             </div>
-            <span className="font-semibold text-gray-800 text-sm">Contact & Defaults</span>
+            <span className="font-semibold text-inkA dark:text-inkA-dark text-sm">Contact & Defaults</span>
           </div>
 
           <FormField label="Phone">
@@ -365,7 +365,7 @@ export default function GstSettings({ onNavigate }) {
               value={form.phone}
               onChange={e => handleChange('phone', e.target.value)}
               placeholder="+91 98765 43210"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-edge dark:border-edge-dark text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
             />
           </FormField>
 
@@ -375,7 +375,7 @@ export default function GstSettings({ onNavigate }) {
               value={form.email}
               onChange={e => handleChange('email', e.target.value)}
               placeholder="gst@myshop.com"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-edge dark:border-edge-dark text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
             />
           </FormField>
 
@@ -385,7 +385,7 @@ export default function GstSettings({ onNavigate }) {
               value={form.default_hsn_prefix}
               onChange={e => handleChange('default_hsn_prefix', e.target.value)}
               placeholder="e.g. 0901"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-edge dark:border-edge-dark text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
             />
           </FormField>
         </div>
