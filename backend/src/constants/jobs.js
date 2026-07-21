@@ -3,6 +3,7 @@ const JobTypes = {
   SEND_EMAIL: 'communications.send_email',
   SEND_WHATSAPP: 'communications.send_whatsapp',
   SEND_SMS: 'communications.send_sms',
+  COMM_SEND_BATCH: 'communications.send_batch',
   
   // Automations & Marketing
   ISSUE_COUPON: 'marketing.issue_coupon',
