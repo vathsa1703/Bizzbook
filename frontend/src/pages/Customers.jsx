@@ -493,7 +493,7 @@ export default function Customers() {
                   <div>
                     <h2 className="text-lg font-bold text-inkA dark:text-inkA-dark">{customerDetails.name}</h2>
                     <p className="text-xs text-inkB dark:text-inkB-dark mt-0.5">
-                      Total Purchases: <span className="font-bold text-inkA dark:text-inkA-dark">₹{customerDetails.total_purchases.toLocaleString('en-IN')}</span>
+                      Total Purchases: <span className="font-bold text-inkA dark:text-inkA-dark">₹{(customerDetails.total_purchases || 0).toLocaleString('en-IN')}</span>
                     </p>
                   </div>
                 </div>
@@ -598,7 +598,7 @@ export default function Customers() {
                           <p className="font-semibold text-inkA dark:text-inkA-dark">{sale.product_name}</p>
                           <p className="text-[10px] text-gray-400 dark:text-slate-500">{sale.sale_date} · Qty: {sale.quantity}</p>
                         </div>
-                        <span className="font-bold text-inkA dark:text-inkA-dark">₹{sale.revenue.toLocaleString('en-IN')}</span>
+                        <span className="font-bold text-inkA dark:text-inkA-dark">₹{(sale.revenue || 0).toLocaleString('en-IN')}</span>
                       </div>
                     ))}
                   </div>
