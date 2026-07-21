@@ -6,6 +6,7 @@ const path = require('path');
 const { extractTextFromImage } = require('../services/ocrService');
 const { parseOCR } = require('../services/aiService');
 const { getDb } = require('../config/db');
+const { ocrRateLimit } = require('../middleware/aiRateLimit');
 
 const upload = multer({ dest: path.join(__dirname, '../../uploads/') });
 
@@ -52,7 +53,7 @@ function matchProducts(parsedItems, companyId) {
   }
 }
 
-router.post('/:type', upload.single('image'), async (req, res, next) => {
+router.post('/:type', ocrRateLimit, upload.single('image'), async (req, res, next) => {
   try {
     console.log('OCR request received for type:', req.params.type);
     const { type } = req.params; // 'sales' or 'stock'

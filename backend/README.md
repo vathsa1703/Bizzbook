@@ -6,7 +6,8 @@ Built and tested:
 - [x] SQLite schema (products, sales, inventory, customers, invoices)
 - [x] Synthetic data generator with engineered patterns (seed.js)
 - [x] Deterministic analytics functions (dataService.js) — these run real SQL, never the LLM
-- [x] Function-calling agent layer (aiAgent.js) — provider-agnostic via OPENAI_BASE_URL
+- [ ] ~~Function-calling agent layer (aiAgent.js)~~ — never built; the live Chat AI uses static context
+      injection (deterministic backend code selects and formats data into the prompt), not tool-calling
 - [x] REST endpoints for testing the data layer directly (routes/analytics.js)
 - [x] Main chat endpoint (routes/chat.js)
 - [x] Voice transcription endpoint (routes/voice.js)
@@ -21,9 +22,10 @@ Not built yet (next steps):
 
 Everything in `src/` is meant to be read top to bottom: `server.js` → `app.js` → `routes/*` → `services/*`.
 The single most important design rule in this codebase: **the LLM never does arithmetic on business data.**
-It only ever (1) picks which function in `dataService.js` to call, and (2) turns the numbers that function
-returns into a sentence. If you're adding a new capability, add a new deterministic function in
-`dataService.js` first, register its schema in `tools/toolDefinitions.js`, and only then wire it into the agent.
+Deterministic backend code decides what to fetch (via `dataService.js`/`metricsService.js`/`marketingEngine.js`)
+and formats it into the prompt as static context; the LLM only turns those pre-assembled numbers into a
+sentence — there is no live tool/function-calling agent loop. If you're adding a new capability, add a new
+deterministic function first, then have the context-building code call it and include the result in the prompt.
 
 ## Setup
 

@@ -6,6 +6,7 @@ const { calculateCampaignROI } = require('../services/roiEngine');
 const { calculateStoreHealthScore, getChannelROIRanking, getSuggestedBudgetSplit, getSegmentSpendPriority, getBreakEvenCalculator, getWeeklyRecommendation, getPostSpendReportCards, getDoNotSpendFlags } = require('../services/spendIntelligenceEngine');
 const { getDb } = require('../config/db');
 const { withBranchScope } = require('../utils/BranchScopedQuery');
+const { marketingAiRateLimit } = require('../middleware/aiRateLimit');
 
 const router = express.Router();
 
@@ -104,7 +105,7 @@ router.get('/campaigns/:id', (req, res) => {
 });
 
 // POST /api/marketing/campaigns/generate
-router.post('/campaigns/generate', async (req, res) => {
+router.post('/campaigns/generate', marketingAiRateLimit, async (req, res) => {
   const { segmentId, opportunityId, objective, coupon_id, channel } = req.body;
   if (!objective) return res.status(400).json({ error: 'objective required' });
   if (!segmentId && !opportunityId) return res.status(400).json({ error: 'segmentId or opportunityId required' });

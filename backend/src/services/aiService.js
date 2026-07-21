@@ -208,6 +208,32 @@ async function callLLM(userId, companyId, sessionId, userMessage, businessType =
   };
 }
 
+// Generic single-shot chat completion for any AI caller that needs the same
+// client construction (OPENAI_API_KEY / OPENAI_BASE_URL / CHAT_MODEL) as the
+// primary Chat AI, without going through callLLM()'s business-snapshot context
+// building and chat-history persistence (e.g. the Growth Advisor, which has its
+// own system prompt and its own session-history table). Throws on failure so
+// callers can apply their own domain-appropriate fallback copy.
+async function chatCompletion(messages, { maxTokens = 800, temperature = 0.7 } = {}) {
+  const client = getClient();
+  if (!client) {
+    throw new Error('OpenAI client not initialized (missing API key)');
+  }
+  const CHAT_MODEL = process.env.CHAT_MODEL || 'llama-3.3-70b-versatile';
+  try {
+    const response = await client.chat.completions.create({
+      model: CHAT_MODEL,
+      messages,
+      max_tokens: maxTokens,
+      temperature,
+    });
+    return response.choices[0]?.message?.content || '';
+  } catch (err) {
+    console.error('LLM API Error:', err);
+    throw new Error('Failed to reach AI service.');
+  }
+}
+
 async function transcribeAudio(filePath) {
   const fs = require('fs');
   const client = getClient();
@@ -232,5 +258,6 @@ module.exports = {
   callLLM,
   buildAIContext,
   transcribeAudio,
-  parseOCR
+  parseOCR,
+  chatCompletion
 };

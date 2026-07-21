@@ -284,14 +284,19 @@ const rawApi = {
   },
 
   // Sales CRUD
+  // createSale/createBulkSale/updateSale accept an optional branchId: the backend
+  // derives which branch a sale belongs to from the X-Branch-ID header (not the
+  // request body), and rejects sale creation outright for an OWNER account whose
+  // company has multiple branches but sent no header — see Sales.jsx's branch
+  // selector, which is the UI that supplies this value.
   getSales: (filters = {}) => {
     const params = new URLSearchParams(filters);
     return request(`/sales?${params}`);
   },
   getSale: (id) => request(`/sales/${id}`),
-  createSale: (data) => request('/sales', { method: 'POST', body: JSON.stringify(data) }),
-  createBulkSale: (data) => request('/sales/bulk', { method: 'POST', body: JSON.stringify(data) }),
-  updateSale: (id, data) => request(`/sales/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  createSale: (data, branchId) => request('/sales', { method: 'POST', body: JSON.stringify(data), ...(branchId ? { headers: { 'X-Branch-ID': String(branchId) } } : {}) }),
+  createBulkSale: (data, branchId) => request('/sales/bulk', { method: 'POST', body: JSON.stringify(data), ...(branchId ? { headers: { 'X-Branch-ID': String(branchId) } } : {}) }),
+  updateSale: (id, data, branchId) => request(`/sales/${id}`, { method: 'PUT', body: JSON.stringify(data), ...(branchId ? { headers: { 'X-Branch-ID': String(branchId) } } : {}) }),
   deleteSale: (id) => request(`/sales/${id}`, { method: 'DELETE' }),
 
   // GST States
