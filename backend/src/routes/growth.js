@@ -12,6 +12,8 @@ const fs = require('fs');
 const router = express.Router();
 const svc = require('../services/growthService');
 const { getDb } = require('../config/db');
+const aiService = require('../services/aiService');
+const { growthAdvisorRateLimit } = require('../middleware/aiRateLimit');
 
 const isAdmin = (req) => ['admin', 'OWNER', 'MANAGER'].includes(req.user.role);
 
@@ -738,7 +740,7 @@ router.delete('/roadmap/:id', (req, res) => {
 // AI GROWTH ADVISOR
 // ════════════════════════════════════════════════════════════════════════════
 
-router.post('/advisor', async (req, res) => {
+router.post('/advisor', growthAdvisorRateLimit, async (req, res) => {
   try {
     const { message, sessionId } = req.body;
     if (!message) return res.status(400).json({ error: 'message is required' });
@@ -757,16 +759,16 @@ router.post('/advisor', async (req, res) => {
 
     let aiResponse = 'The AI Growth Advisor is temporarily unavailable. Please try again shortly.';
     try {
-      const { OpenAI } = require('openai');
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: message }],
-        max_tokens: 800, temperature: 0.7,
-      });
-      aiResponse = completion.choices[0]?.message?.content || aiResponse;
+      // Routed through the shared aiService client (respects OPENAI_BASE_URL/
+      // CHAT_MODEL like every other AI call in the app) instead of constructing
+      // a separate OpenAI client hardcoded to gpt-4o-mini against api.openai.com.
+      const completionText = await aiService.chatCompletion(
+        [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: message }],
+        { maxTokens: 800, temperature: 0.7 }
+      );
+      aiResponse = completionText || aiResponse;
     } catch (aiErr) {
-      console.error('[GrowthAdvisor] OpenAI error:', aiErr.message);
+      console.error('[GrowthAdvisor] AI error:', aiErr.message);
       aiResponse = `Great question! While the AI service is warming up, here are key steps based on your profile: focus on completing your pitch deck, setting up your cap table, and running a valuation estimate — these are the foundations investors look for.`;
     }
 
