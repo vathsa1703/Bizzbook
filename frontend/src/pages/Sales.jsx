@@ -41,6 +41,7 @@ export default function Sales({ onNavigate }) {
   const [employees, setEmployees] = useState([]);
   const [productGroups, setProductGroups] = useState([]);
   const [gstStates, setGstStates] = useState([]);
+  const [branches, setBranches] = useState([]);
   
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,6 +78,7 @@ export default function Sales({ onNavigate }) {
 
   // Form states
   const [formValues, setFormValues] = useState({
+    branch_id: '',
     product_id: '',
     customer_id: '',
     employee_id: '',
@@ -105,7 +107,7 @@ export default function Sales({ onNavigate }) {
   const refreshData = async () => {
     setLoading(true);
     try {
-      const [t, tp, tg, s, sl, custs, prods, emps, groups, statesRes] = await Promise.all([
+      const [t, tp, tg, s, sl, custs, prods, emps, groups, statesRes, brs] = await Promise.all([
         api.revenueTrend(7).catch(() => []),
         api.topProducts().catch(() => []),
         api.topGroups(5).catch(() => []),
@@ -116,6 +118,7 @@ export default function Sales({ onNavigate }) {
         api.getEmployees().catch(() => []),
         api.getProductGroups().catch(() => []),
         api.getGstStates().catch(() => []),
+        api.getBranches().catch(() => []),
       ]);
       setTrend(Array.isArray(t) ? t : []);
       setTopProducts(Array.isArray(tp) ? tp : []);
@@ -127,6 +130,7 @@ export default function Sales({ onNavigate }) {
       setEmployees(emps.filter(emp => emp.department === 'Sales'));
       setProductGroups(groups.data || []);
       setGstStates(Array.isArray(statesRes) ? statesRes : (statesRes.data || []));
+      setBranches(Array.isArray(brs) ? brs : (brs.data || []));
     } catch (err) {
       showToast('error', 'Failed to fetch sales data');
     } finally {
@@ -170,6 +174,7 @@ export default function Sales({ onNavigate }) {
     setCustomerType('b2b');
     setNewCustomer({ name: '', phone: '', gstin: '', state_code: '' });
     setFormValues({
+      branch_id: branches.length === 1 ? branches[0].id : '',
       product_id: '',
       customer_id: '',
       employee_id: '',
@@ -190,6 +195,7 @@ export default function Sales({ onNavigate }) {
   const handleOpenEdit = (sale) => {
     setEditingSale(sale);
     setFormValues({
+      branch_id: sale.branch_id || (branches.length === 1 ? branches[0].id : ''),
       product_id: sale.product_id || '',
       customer_id: sale.customer_id || '',
       employee_id: sale.employee_id || '',
@@ -209,6 +215,7 @@ export default function Sales({ onNavigate }) {
   // Validate form
   const validateForm = () => {
     const newErrors = {};
+    if (branches.length > 1 && !formValues.branch_id) newErrors.branch_id = 'Branch is required';
     if (!formValues.product_id) newErrors.product_id = 'Product is required';
     if (!formValues.employee_id) newErrors.employee_id = 'Assigned sales employee is required';
     if (!formValues.quantity || formValues.quantity <= 0) newErrors.quantity = 'Quantity must be greater than 0';
@@ -299,13 +306,14 @@ export default function Sales({ onNavigate }) {
       }
 
       const salePayload = { ...formValues, customer_id: finalCustomerId };
+      const branchId = formValues.branch_id || null;
 
       if (editingSale) {
-        await api.updateSale(editingSale.id, salePayload);
+        await api.updateSale(editingSale.id, salePayload, branchId);
         showToast('success', 'Sale transaction updated successfully');
         setIsModalOpen(false);
       } else {
-        const data = await api.createSale(salePayload);
+        const data = await api.createSale(salePayload, branchId);
         showToast('success', 'Sale created, inventory and ledger updated automatically');
         setIsModalOpen(false);
         setSaleSuccessInvoice(data);
@@ -718,6 +726,20 @@ export default function Sales({ onNavigate }) {
 
           {!setupError && (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {branches.length > 1 && (
+                <FormField
+                  label="Branch"
+                  name="branch_id"
+                  type="select"
+                  value={formValues.branch_id}
+                  onChange={handleFormChange}
+                  options={branches.map(b => ({ value: b.id, label: b.is_hq ? `${b.name} (HQ)` : b.name }))}
+                  placeholder="-- Choose Branch --"
+                  error={errors.branch_id}
+                  required
+                />
+              )}
+
               <FormField
               label="Select Product"
               name="product_id"

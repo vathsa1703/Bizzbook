@@ -108,12 +108,23 @@ router.post('/', async (req, res, next) => {
       revenue    : req.body.revenue,
     }];
 
-    if (req.scopeContext.type === 'global') {
-      return res.status(400).json({ error: 'Cannot create a sale in global scope. Please specify a branch.' });
-    }
-    const branchId = req.scopeContext.type === 'branch' ? req.scopeContext.branchId : (req.scopeContext.allowedBranches[0] || null);
-    if (!branchId) {
-       return res.status(400).json({ error: 'No branch assigned to this user.' });
+    let branchId = null;
+    if (req.scopeContext.type === 'branch') {
+      branchId = req.scopeContext.branchId;
+    } else if (req.scopeContext.type === 'global') {
+      // OWNER with no X-Branch-ID header. Only acceptable while the company has
+      // no branches configured at all (single-store default, stays branchless);
+      // once branches exist, the frontend's branch selector supplies the header.
+      const hasBranches = db.prepare('SELECT 1 FROM branches WHERE company_id = ?').get(companyId);
+      if (hasBranches) {
+        return res.status(400).json({ error: 'This company has multiple branches configured. Please select a branch before creating a sale.' });
+      }
+    } else {
+      // 'multi-branch' scope (non-owner without an explicit header)
+      branchId = req.scopeContext.allowedBranches[0] || null;
+      if (!branchId) {
+        return res.status(400).json({ error: 'No branch assigned to this user.' });
+      }
     }
 
     const { customer_id, employee_id, sale_date, payment_status = 'PAID', due_date } = req.body;
