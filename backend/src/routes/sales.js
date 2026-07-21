@@ -266,20 +266,44 @@ router.post('/', async (req, res, next) => {
     // (already set in each branch above)
 
     // ── 9. Create invoice record — stamped with company_id ───────────────────
-    const invoiceRes = db.prepare(`
-      INSERT INTO invoices (
-        invoice_number, customer_id, invoice_date, status, payment_status,
-        subtotal, taxable_value, cgst, sgst, igst, grand_total, amount,
-        place_of_supply, company_id
-      ) VALUES (?, ?, ?, 'issued', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      finalInvoiceNumber, customer_id || null, sale_date,
-      payment_status.toUpperCase(),
-      totals.subtotal, totals.taxable_value,
-      totals.cgst, totals.sgst, totals.igst,
-      totals.grand_total, totals.grand_total,
-      placeOfSupply, companyId
-    );
+    // invoices.invoice_number carries a DATABASE-WIDE unique constraint (not
+    // scoped to company_id), but the number above was generated per-company
+    // (MAX+1 within this company's own invoices) — so two different companies'
+    // first invoice of a given month can independently compute the same
+    // candidate and collide here. Retry with the next sequence number rather
+    // than failing the sale; nothing else has been written yet in this
+    // transaction, so it's safe to just bump the candidate and re-attempt.
+    let invoiceRes;
+    let invoiceInsertAttempts = 0;
+    const invoiceNumberPrefix = finalInvoiceNumber.slice(0, -4); // e.g. 'INV-202607-'
+    let invoiceSeq = parseInt(finalInvoiceNumber.slice(-4), 10);
+    for (;;) {
+      try {
+        invoiceRes = db.prepare(`
+          INSERT INTO invoices (
+            invoice_number, customer_id, invoice_date, status, payment_status,
+            subtotal, taxable_value, cgst, sgst, igst, grand_total, amount,
+            place_of_supply, company_id
+          ) VALUES (?, ?, ?, 'issued', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          finalInvoiceNumber, customer_id || null, sale_date,
+          payment_status.toUpperCase(),
+          totals.subtotal, totals.taxable_value,
+          totals.cgst, totals.sgst, totals.igst,
+          totals.grand_total, totals.grand_total,
+          placeOfSupply, companyId
+        );
+        break;
+      } catch (insErr) {
+        const isInvoiceNumberCollision = insErr.message
+          && insErr.message.includes('UNIQUE constraint failed')
+          && insErr.message.includes('invoice_number');
+        if (!isInvoiceNumberCollision || invoiceInsertAttempts >= 20) throw insErr;
+        invoiceInsertAttempts++;
+        invoiceSeq++;
+        finalInvoiceNumber = `${invoiceNumberPrefix}${String(invoiceSeq).padStart(4, '0')}`;
+      }
+    }
     const invoiceId = invoiceRes.lastInsertRowid;
 
     // ── 9. Insert sales + invoice_items + inventory ──────────────────────────
