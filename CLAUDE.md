@@ -23,8 +23,9 @@ at least one of these goals — if it doesn't, question whether it belongs:
 
 AI assists business operations; it never *is* the business logic. All deterministic calculations — GST,
 ROI, AOV, LTV, payroll, accounting, permissions, and analytics of any kind — must always live in backend
-services and run as real code/SQL. The LLM's job is limited to: deciding what to look up, and turning
-numbers that already exist into a sentence. See "The AI layer never does arithmetic" under Architecture.
+services and run as real code/SQL. The LLM's job is limited to turning numbers that deterministic backend
+code already selected and computed into a sentence — it does not decide what to look up itself (see "The
+AI layer never does arithmetic" under Architecture for what actually decides that).
 
 ## UI Philosophy
 
@@ -140,7 +141,7 @@ SQL or business rules — that belongs in a service (see Module Isolation below)
   and are stale — see Known Footguns. Never point tooling at them.)
 - Schema defined in `backend/src/db/schema.sql` using `CREATE TABLE IF NOT EXISTS` (never destructive).
 - `backend/src/config/db.js` `getDb()` runs the schema file, then `runMigrations(db)`, on **every** call —
-  migrations are idempotent and tracked in a `schema_versions` table (currently at version 18). Each
+  migrations are idempotent and tracked in a `schema_versions` table (currently at version 28). Each
   migration is a numbered `if (!hasVersion(N))` block that adds columns via `addColumnIfNotExists` or
   creates new tables, wrapped in its own transaction with rollback on failure.
 - **To change schema**: add the table/column to `schema.sql` (idempotent `IF NOT EXISTS`) AND, if altering
@@ -166,11 +167,13 @@ Every business table carries `company_id` (see migration 11). Most business tabl
    in-memory cache), falling back to legacy role checks for modules not yet migrated to granular perms.
 
 ### Route registration is fail-safe by design
-`app.js` mounts routes via two helpers: `registerCoreRoute` (crashes the process on load failure — DB,
-auth, sales, products, customers, product-groups, analytics, jobs, automations must work) vs
-`registerOptionalRoute` (catches load errors, logs a warning, and mounts a 503 stub instead of taking down
-the server — AI, OCR, marketing, HR modules, GST filing, etc.). When adding a new feature module's route,
-default to `registerOptionalRoute` unless it's genuinely core.
+`app.js` mounts **45 route files total** via two helpers: `registerCoreRoute` (crashes the process on load
+failure — 10 files: auth, gst-master, product-groups, analytics, sales, customers, products, jobs,
+automations, communication) vs `registerOptionalRoute` (catches load errors, logs a warning, and mounts a
+503 stub instead of taking down the server — the other 35 files: AI, OCR, marketing (+ marketing-copilot),
+HR/employee modules, GST filing/states, compliance, trade, growth, and the rest of the business-domain
+routes). When adding a new feature module's route, default to `registerOptionalRoute` unless it's genuinely
+core.
 
 ### Module isolation & dependency boundaries
 - **Auth is untouchable.** Per `architecture_guidelines.md`: `middleware/auth.js` / `services/authService.js`
@@ -185,9 +188,15 @@ default to `registerOptionalRoute` unless it's genuinely core.
   actually work everywhere — bypassing it with a local `fetch` call breaks that guarantee.
 
 ### The AI layer never does arithmetic
-This is the one rule everything else defers to: the LLM only (1) decides which deterministic function to
-call and (2) turns numbers that function returns into a sentence — it never computes business numbers
-itself. See the AI Subsystem Breakdown below for how this plays out across all four AI integration points.
+This is the one rule everything else defers to: the LLM never computes business numbers itself. In this
+codebase that's achieved via **static context injection, not live tool/function-calling** — deterministic
+backend code (`metricsService.js`, `marketingEngine.js`, a keyword-matched `isStrategicQuery()` check in
+`aiService.js`) decides up front what data to fetch, formats it into a fixed-shape text block, and pastes
+it into the prompt before the single chat-completion call is made. The LLM only turns that pre-assembled
+context into a sentence; it never chooses what to query and the completion call is made without `tools`/
+`tool_choice`. (An earlier `tools/toolDefinitions.js` sketched a function-calling schema for this, but it
+was never wired to an agent loop — no `aiAgent.js` ever existed — and has been removed as dead code.) See
+the AI Subsystem Breakdown below for how this plays out across all four AI integration points.
 
 ### AI subsystem breakdown
 There are **four distinct LLM integration points** — don't assume there's a single "the AI":
@@ -201,18 +210,21 @@ There are **four distinct LLM integration points** — don't assume there's a si
    opportunity (from `marketingEngine.js`) plus an objective, and generates a structured campaign (a
    "Business Consultant" report + marketing message) as JSON, explicitly instructed to ground every claim in
    the evidence passed in rather than invent numbers.
-3. **HR AI** (`services/hrAIService.js`) — uses **Google Gemini** (`@google/generative-ai`) via
-   `GEMINI_API_KEY` (or `OPENAI_API_KEY` as a fallback key, which won't authenticate against Gemini's API).
-   Scores leave-request risk and returns JSON. **The Gemini SDK is not installed** (not in
-   `backend/package.json`), so this call always throws and falls back to the rule-based scorer — see Known
-   Footguns. Don't assume HR AI shares Chat AI's provider or is currently LLM-backed in practice.
+3. **HR AI** (`services/hrAIService.js`) — **deterministic, not LLM-backed.** It previously attempted a
+   Google Gemini call, but `@google/generative-ai` was never added to `backend/package.json`, so that path
+   always threw and every caller silently landed on rule-based logic. That Gemini code has since been
+   removed entirely — the rule-based leave-risk scorer and the live-data HR chat context echo are now the
+   real, intended implementation, not a fallback for a missing key. Don't assume HR AI shares Chat AI's
+   provider or is LLM-backed.
 4. **OCR parsing** (`parseOCR` in `services/aiService.js`) — same OpenAI-compatible client as Chat AI. Takes
    raw OCR text and extracts structured line items/totals/supplier info as JSON. This is a second
    responsibility bolted onto `aiService.js`, not a separate file — the image-to-text step happens in
    `ocrService.js` (see OCR Architecture below), separately from this text-to-JSON step.
 
-To add a new AI capability: write the deterministic function in `dataService.js` first, register its schema
-in `tools/toolDefinitions.js`, then wire it into the agent — never let the model free-form a number.
+To add a new AI capability: write the deterministic function in `dataService.js` (or `metricsService.js`/
+`marketingEngine.js` for the Chat AI context) first, then have the relevant context-building function
+(e.g. `buildAIContext()` in `aiService.js`) call it and format the result into the prompt — never let the
+model free-form a number. There is no tool/function-calling agent loop to register a schema with.
 
 ### Marketing Intelligence architecture
 A "detect → score → act" pipeline for growth opportunities, separate from ad hoc chat:
