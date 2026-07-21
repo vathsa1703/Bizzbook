@@ -562,7 +562,7 @@ export default function Sales({ onNavigate }) {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-right font-bold text-inkA dark:text-inkA-dark whitespace-nowrap">
-                            ₹{sale.revenue.toLocaleString('en-IN')}
+                            ₹{(sale.revenue || 0).toLocaleString('en-IN')}
                           </td>
                           <td className="px-4 py-3">
                             <span
