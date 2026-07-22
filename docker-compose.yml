@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: bizbook-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bizbook
+      POSTGRES_PASSWORD: bizbook_dev_only
+      POSTGRES_DB: bizbook_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - bizbook_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  bizbook_postgres_data:
