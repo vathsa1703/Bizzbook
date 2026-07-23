@@ -87,10 +87,10 @@ async function validateSystem(app) {
       const testEmail = 'validator_test_' + Date.now() + '@internal.com';
       await pgDb.withTransaction(async (tx) => {
         await tx.query(
-          'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4)',
+          'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)',
           ['Validator', testEmail, 'mockhash', 'employee']
         );
-        const user = await tx.getOne('SELECT id FROM users WHERE email = $1', [testEmail]);
+        const user = await tx.getOne('SELECT id FROM users WHERE email = ?', [testEmail]);
         if (!user) throw new Error('Failed to read back inserted user');
         throw new Error('__VALIDATOR_ROLLBACK__');
       });

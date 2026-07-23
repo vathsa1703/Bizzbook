@@ -21,6 +21,7 @@
 // =============================================================================
 
 const path = require('path');
+const { dbGet } = require('../config/dbEngine');
 
 // ─── State Master ─────────────────────────────────────────────────────────────
 // Single import. Every other module that needs state data must use these helpers.
@@ -115,6 +116,63 @@ function getCompanyGstProfile(db, companyId) {
     ORDER BY (address_type = 'registered') DESC, is_primary DESC, id ASC
     LIMIT 1
   `).get(companyId) || {};
+
+  const stateCode = resolveStateCode(gstSettings.state_code) || resolveStateCode(address.state);
+  const stateEntry = stateCode ? getStateByCode(stateCode) : null;
+  const addressLine = [address.address_line1, address.address_line2, address.city, address.district]
+    .filter(Boolean)
+    .join(', ');
+
+  return {
+    // Tax-calculation fields
+    gstin: (company.gstin || '').trim().toUpperCase(),
+    state_code: stateCode,
+    is_gst_registered: gstSettings.is_gst_registered,
+    inclusive_pricing: gstSettings.inclusive_pricing,
+    // Display / filing fields
+    name: company.name || '',
+    legal_name: company.legal_business_name || company.name || '',
+    trade_name: company.trade_name || company.name || '',
+    pan: company.pan || (company.gstin ? company.gstin.slice(2, 12) : ''),
+    state_name: stateEntry ? stateEntry.name : (address.state || ''),
+    address: addressLine,
+    pincode: address.pincode || '',
+    phone: company.phone || '',
+    email: company.email || '',
+    logo: branding.logo_url || '',
+  };
+}
+
+// Phase 2: async twin of getCompanyGstProfile, for callers that need to run on
+// either SQLite or Postgres (currently only sales.js). Uses dbEngine.js's
+// dbGet, which already dispatches per DB_ENGINE — so this one function works
+// correctly against both engines with no branching of its own. The original
+// sync getCompanyGstProfile(db, companyId) above is UNCHANGED and still used
+// as-is by purchases.js and gstFilingService.js, which remain SQLite-only
+// until their own Phase 2 module commits; forcing this function to be async
+// would have made it a Promise for every caller, and gstFilingService.js's
+// buildGstrData() (routes/gstFiling.js's entry point) is not async today —
+// rippling that change now would reach into a module not scheduled yet.
+// Once purchases.js and gstFilingService.js are migrated, the sync version
+// above can be deleted and every caller unified onto this one.
+async function getCompanyGstProfileAsync(companyId) {
+  const company = await dbGet(
+    'SELECT name, gstin, pan, legal_business_name, trade_name, phone, email FROM companies WHERE id = ?',
+    [companyId]
+  ) || {};
+  const gstSettings = await dbGet(
+    'SELECT state_code, is_gst_registered, inclusive_pricing FROM company_gst_settings WHERE company_id = ?',
+    [companyId]
+  ) || {};
+  const branding = await dbGet(
+    'SELECT logo_url FROM company_branding WHERE company_id = ?',
+    [companyId]
+  ) || {};
+  const address = await dbGet(`
+    SELECT * FROM company_addresses WHERE company_id = ?
+    ORDER BY (address_type = 'registered') DESC, is_primary DESC, id ASC
+    LIMIT 1
+  `, [companyId]) || {};
 
   const stateCode = resolveStateCode(gstSettings.state_code) || resolveStateCode(address.state);
   const stateEntry = stateCode ? getStateByCode(stateCode) : null;
@@ -279,6 +337,51 @@ function enrichItems(db, items) {
       rate         : rate,
     };
   });
+}
+
+// Phase 2: async twin of enrichItems, same reasoning as getCompanyGstProfileAsync
+// above — used only by sales.js so far. Sequential (not Promise.all) to match
+// the original's per-item ordering exactly; item count per sale is small.
+async function enrichItemsAsync(items) {
+  const enriched = [];
+  for (const item of items) {
+    const prod = await dbGet(
+      'SELECT id, name, hsn_code, use_custom_gst, gst_rate, uqc, cess_rate FROM products WHERE id = ?',
+      [item.product_id]
+    ) || {};
+    const hsnMaster = prod.hsn_code
+      ? (await dbGet('SELECT hsn_code, gst_rate, uqc, cess_rate FROM gst_hsn_master WHERE hsn_code = ?', [prod.hsn_code])) || {}
+      : {};
+
+    const qty = Number(item.quantity) || 0;
+    const rate = qty > 0 ? (Number(item.revenue) || 0) / qty : 0;
+
+    let finalGstRate = 0;
+    let finalUqc = 'NOS';
+    let finalCessRate = 0;
+
+    if (prod.use_custom_gst) {
+      finalGstRate = prod.gst_rate != null ? Number(prod.gst_rate) : 0;
+      finalUqc = prod.uqc || 'NOS';
+      finalCessRate = prod.cess_rate != null ? Number(prod.cess_rate) : 0;
+    } else {
+      finalGstRate = hsnMaster.gst_rate != null ? Number(hsnMaster.gst_rate) : 0;
+      finalUqc = hsnMaster.uqc || 'NOS';
+      finalCessRate = hsnMaster.cess_rate != null ? Number(hsnMaster.cess_rate) : 0;
+    }
+
+    enriched.push({
+      product_id   : item.product_id,
+      product_name : prod.name || '',
+      hsn_code     : prod.hsn_code || '',
+      gst_rate     : finalGstRate,
+      cess_rate    : finalCessRate,
+      uqc          : finalUqc,
+      quantity     : qty,
+      rate         : rate,
+    });
+  }
+  return enriched;
 }
 
 // ─── Invoice-level totals ─────────────────────────────────────────────────────
@@ -497,6 +600,7 @@ module.exports = {
   resolveStateCode,
   getStateByCode,
   getCompanyGstProfile,
+  getCompanyGstProfileAsync,
 
   // Classification
   determineTransactionType,
@@ -504,6 +608,7 @@ module.exports = {
   // Calculation
   calculateLineGST,
   enrichItems,
+  enrichItemsAsync,
   buildInvoiceTotals,
 
   // Validation

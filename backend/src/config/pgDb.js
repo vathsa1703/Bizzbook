@@ -23,9 +23,32 @@ const { getPgPool } = require('./pgPool');
 const SCHEMA_PATH = path.join(__dirname, '..', 'db', 'schema.postgres.sql');
 const BOOTSTRAP_VERSION = 1;
 
+// Every SQL-text-accepting function in this file (query/getOne/getAll, and
+// withTransaction's tx.query/getOne/getAll) is written and called in SQLite's
+// plain '?' placeholder style, matching BranchScopedQuery.js and dbEngine.js —
+// see dbEngine.js's own comment for why the conversion happens on the fully-
+// assembled string in one place rather than requiring callers to hand-author
+// '$1, $2, ...'. This used to live only in dbEngine.js's dbGet/dbAll, which
+// missed withTransaction()'s tx.query/getOne/getAll entirely — sales.js's
+// Phase 2 transaction code called tx.query() with '?' SQL that never got
+// converted, and Postgres rejected it as a syntax error. Moving the
+// conversion down into this file's own query() means every caller through
+// every path (plain query, getOne/getAll, and every transaction) converts
+// exactly once, in exactly one place, with no way to forget it.
+function toPgPlaceholders(sql, params) {
+  let i = 0;
+  const converted = sql.replace(/\?/g, () => `$${++i}`);
+  if (i !== params.length) {
+    throw new Error(
+      `[pgDb] Placeholder/param mismatch: SQL has ${i} '?' but ${params.length} params were given.\nSQL: ${sql}`
+    );
+  }
+  return converted;
+}
+
 async function query(text, params = []) {
   const pool = getPgPool();
-  return pool.query(text, params);
+  return pool.query(toPgPlaceholders(text, params), params);
 }
 
 async function getOne(text, params = []) {
@@ -47,7 +70,7 @@ async function withTransaction(fn) {
   try {
     await client.query('BEGIN');
 
-    const txQuery = (text, params = []) => client.query(text, params);
+    const txQuery = (text, params = []) => client.query(toPgPlaceholders(text, params), params);
     const txGetOne = async (text, params = []) => {
       const result = await txQuery(text, params);
       return result.rows[0] || null;
@@ -84,7 +107,7 @@ async function addColumnIfNotExists(table, column, columnDef) {
 
 async function isBootstrapped() {
   try {
-    const row = await getOne('SELECT 1 FROM schema_versions WHERE version = $1', [BOOTSTRAP_VERSION]);
+    const row = await getOne('SELECT 1 FROM schema_versions WHERE version = ?', [BOOTSTRAP_VERSION]);
     return !!row;
   } catch (e) {
     // relation "schema_versions" does not exist yet -> genuinely empty database
@@ -130,4 +153,5 @@ module.exports = {
   withTransaction,
   addColumnIfNotExists,
   bootstrapPostgresSchema,
+  toPgPlaceholders,
 };

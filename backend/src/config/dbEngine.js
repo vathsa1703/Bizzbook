@@ -2,35 +2,20 @@ const { getDb } = require('./db');
 const pgDb = require('./pgDb');
 
 // Shared SQLite/Postgres dispatch for services being rewritten in Phase 2.
-// Only dataService.js (analytics module) is wired to this so far — no other
-// service has been touched. Later Phase 2 modules import this same file
-// rather than re-implementing the switch.
-//
-// Query text stays written in SQLite's plain '?' placeholder style
-// everywhere, including in utils/BranchScopedQuery.js, which is unchanged by
-// Phase 2: it always appends '... AND col = ?' / '... AND col IN (?,?,...)'
-// regardless of engine. toPgPlaceholders() below converts '?' -> '$1,$2,...'
-// on the FINAL, fully-concatenated SQL string, immediately before it's sent
-// to Postgres — after BranchScopedQuery has already appended its predicate,
-// not before. This is deliberate: numbering a fragment in isolation (e.g.
-// having BranchScopedQuery itself emit '$3' because it's told "the base used
-// 2 placeholders") is exactly the kind of manual bookkeeping that goes stale
-// the moment a query changes shape. Converting the assembled string in one
-// pass makes the base-query/appended-predicate split irrelevant to
-// correctness — there is no separate renumbering step to get wrong. A
-// runtime assertion (thrown, not logged) catches any '?' count / params
-// count mismatch immediately rather than silently sending malformed SQL.
-function toPgPlaceholders(sql, params) {
-  let i = 0;
-  const converted = sql.replace(/\?/g, () => `$${++i}`);
-  if (i !== params.length) {
-    throw new Error(
-      `[dbEngine] Placeholder/param mismatch: SQL has ${i} '?' but ${params.length} params were given.\nSQL: ${sql}`
-    );
-  }
-  return converted;
-}
-
+// Query text stays written in SQLite's plain '?' placeholder style everywhere,
+// including in utils/BranchScopedQuery.js, which is unchanged by Phase 2: it
+// always appends '... AND col = ?' / '... AND col IN (?,?,...)' regardless of
+// engine. The '?' -> '$1,$2,...' conversion lives in pgDb.js's query() (and is
+// therefore shared by dbGet/dbAll here, withTransaction()'s tx.query/getOne/
+// getAll, and any other pgDb.js caller) — NOT duplicated here. It used to be
+// duplicated here, which is exactly how a real bug happened: sales.js's
+// Phase 2 rewrite called withTransaction()'s tx.query() with '?' SQL,
+// assuming it converted like dbGet/dbAll do, but withTransaction() never ran
+// through this file at all, so Postgres received literal '?' characters and
+// rejected them as a syntax error. Converting once, at the lowest layer
+// (pgDb.js's query()), means every Postgres access path — plain reads here,
+// and every transaction — converts through the same code with no way for a
+// caller to forget it.
 function engine() {
   return (process.env.DB_ENGINE || 'sqlite').toLowerCase();
 }
@@ -38,7 +23,7 @@ function engine() {
 // Single-row fetch. sql/params are always written SQLite-style ('?').
 async function dbGet(sql, params = []) {
   if (engine() === 'postgres') {
-    return pgDb.getOne(toPgPlaceholders(sql, params), params);
+    return pgDb.getOne(sql, params);
   }
   const db = getDb();
   try {
@@ -51,7 +36,7 @@ async function dbGet(sql, params = []) {
 // Multi-row fetch. sql/params are always written SQLite-style ('?').
 async function dbAll(sql, params = []) {
   if (engine() === 'postgres') {
-    return pgDb.getAll(toPgPlaceholders(sql, params), params);
+    return pgDb.getAll(sql, params);
   }
   const db = getDb();
   try {
@@ -61,4 +46,4 @@ async function dbAll(sql, params = []) {
   }
 }
 
-module.exports = { dbGet, dbAll, toPgPlaceholders, engine };
+module.exports = { dbGet, dbAll, engine };
