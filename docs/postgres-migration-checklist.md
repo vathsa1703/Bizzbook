@@ -62,9 +62,17 @@ Numbers below are from a grep of `backend/src` at the time this was written.
 - Export the live `backend/data/business.db` and load it into the target Postgres database.
   `pgloader` (supports SQLite → Postgres directly, handles type coercion) is the standard tool —
   simpler than hand-writing a dump/import script given ~40+ tables.
-- Verify foreign-key integrity explicitly: SQLite only enforces `FOREIGN KEY` constraints if
-  `PRAGMA foreign_keys = ON` was set (check whether this codebase ever sets it — if not, there may
-  be orphaned rows that only surface as hard errors once Postgres enforces FKs by default).
+- Verify foreign-key integrity explicitly — but note this is **not** the speculative risk it looks
+  like at first: confirmed directly (`PRAGMA foreign_keys` queried against a fresh `node:sqlite`
+  `DatabaseSync` instance) that it **defaults to `1`/ON**. That's `node:sqlite`'s own default,
+  different from the `better-sqlite3`/`sqlite3` npm bindings (default OFF) this assumption is
+  usually made against. No code in the live path sets this pragma explicitly (`backend/seed_demo.js`
+  toggles it, but that script is unwired legacy, never run by the app). Practical effect: FK
+  constraints are **already enforced today**, on the current SQLite app, not just a
+  migration-time risk — see the `PUT /api/employees/:id` "FOREIGN KEY constraint failed" bug fixed
+  on `fix/employee-fk-and-credits` for a real example. This actually makes the Postgres cutover
+  *safer* than the original framing here suggested: Postgres enforcing FKs by default won't newly
+  reject data that SQLite was silently accepting — SQLite already rejects it too.
 - Re-verify GST/financial numeric columns after import — confirm `REAL`/`INTEGER` columns landed as
   the intended Postgres numeric type (`NUMERIC` for currency amounts is safer than `REAL`/`FLOAT`
   for GST math; this is a good opportunity to fix precision issues if any exist).

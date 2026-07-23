@@ -156,7 +156,7 @@ export default function Sales({ onNavigate }) {
       if (name === 'product_id' || name === 'quantity') {
         const prod = products.find((p) => String(p.id) === String(updated.product_id));
         if (prod) {
-          updated.revenue = prod.selling_price * parseInt(updated.quantity || 1, 10);
+          updated.revenue = (prod.selling_price || 0) * parseInt(updated.quantity || 1, 10);
         }
       }
       return updated;

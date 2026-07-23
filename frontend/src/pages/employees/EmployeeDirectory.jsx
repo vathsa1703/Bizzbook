@@ -276,7 +276,14 @@ export default function EmployeeDirectory({ onViewChange }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Department *</label>
-              <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
+              <select value={form.department} onChange={e => {
+                const selectedName = e.target.value;
+                const matched = departments.find(d => d.name === selectedName);
+                // Keep department_id in sync with the actual selection — it must
+                // never be left frozen at whatever openEdit/openCreate set it to,
+                // or a real department change here can save a mismatched id.
+                setForm(f => ({ ...f, department: selectedName, department_id: matched ? matched.id : '' }));
+              }}
                 className="w-full bg-panel2 dark:bg-panel2-dark border border-edge dark:border-edge-dark text-inkA dark:text-inkA-dark rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500">
                 <option value="">Select Department</option>
                 {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}

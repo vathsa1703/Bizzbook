@@ -413,5 +413,15 @@ in `localStorage` — be aware of this when a page "shows data" against a fresh/
   provider.
 - SQLite access is the built-in `node:sqlite` `DatabaseSync` (synchronous, Node ≥22.5 required per
   `package.json` `engines`), not the `sqlite3` npm package — despite `sqlite3` being a listed dependency.
+- **`FOREIGN KEY` constraints ARE enforced, not advisory.** `node:sqlite`'s `DatabaseSync` defaults
+  `PRAGMA foreign_keys` to **ON** — confirmed directly by querying it on a fresh instance. This is
+  different from the `better-sqlite3`/`sqlite3` npm bindings (default OFF), which is where the
+  "SQLite doesn't enforce FKs" assumption usually comes from — it does not hold here. No code in the
+  live path sets this pragma explicitly (`backend/seed_demo.js` toggles it, but that script is
+  unwired legacy, never run by the app — see Migration/seed scripts above). Concretely: binding an
+  empty string or any other non-matching value into an FK column (e.g. `department_id`, `manager_id`)
+  throws `FOREIGN KEY constraint failed` at write time — route handlers must convert `''`/`undefined`
+  to real `NULL` for optional references, not rely on `?? null` (which doesn't catch `''`) or assume
+  the constraint is a no-op.
 - No linter/formatter is configured anywhere in the repo (no `.eslintrc*`) — don't assume a `lint` script
   exists or invent a config unless asked.
