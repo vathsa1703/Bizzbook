@@ -4,6 +4,16 @@ const { hashPassword } = require('../services/authService');
 
 const router = express.Router();
 
+// Optional FK columns (department_id, manager_id) must bind as real NULL when
+// unset, not '' or undefined -- an empty string satisfies neither `?? null`
+// nor a FOREIGN KEY reference, and the frontend's "No Department"/"No Branch"-
+// style dropdowns send '' for "nothing selected". `?? null` only catches
+// null/undefined, not ''.
+function toNullableId(v) {
+  if (v === '' || v === undefined || v === null) return null;
+  return v;
+}
+
 // GET employee analytics (ranking, dept stats, etc.) — scoped to company
 router.get('/analytics', (req, res, next) => {
   const db = getDb();
@@ -257,7 +267,7 @@ router.post('/', (req, res, next) => {
       )
       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      name, department || '', department_id || null, employment_type, manager_id || null,
+      name, department || '', toNullableId(department_id), employment_type, toNullableId(manager_id),
       salary, joining_date, 
       performance_rating, attendance, status, companyId,
       employee_code, avatar, phone, email, emergency_contact, job_title
@@ -326,9 +336,9 @@ router.put('/:id', (req, res, next) => {
     `).run(
       name ?? null,
       department ?? null,
-      department_id ?? null,
+      toNullableId(department_id),
       employment_type ?? null,
-      manager_id ?? null,
+      toNullableId(manager_id),
       salary ?? null,
       joining_date ?? null,
       performance_rating ?? null,

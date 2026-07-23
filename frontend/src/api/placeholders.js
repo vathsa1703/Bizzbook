@@ -35,7 +35,7 @@ const BUSINESS_DATA = {
       { id: generateId(), date: new Date().toISOString(), total_amount: 450, customer_name: 'Ramesh Patel' },
       { id: generateId(), date: new Date().toISOString(), total_amount: 120, customer_name: 'Walk-in' },
     ],
-    creditsSummary: { outstanding_amount: 2450, overdue_count: 2 },
+    creditsSummary: { outstanding_amount: 2450, paid_amount: 1200, overdue_count: 2 },
   },
   clothing: {
     dashboardSummary: {
@@ -69,7 +69,7 @@ const BUSINESS_DATA = {
       { id: generateId(), date: new Date().toISOString(), total_amount: 2700, customer_name: 'Karan Singh' },
       { id: generateId(), date: new Date().toISOString(), total_amount: 850, customer_name: 'Walk-in' },
     ],
-    creditsSummary: { outstanding_amount: 0, overdue_count: 0 },
+    creditsSummary: { outstanding_amount: 0, paid_amount: 1800, overdue_count: 0 },
   },
   // Default fallback
   default: {
@@ -98,7 +98,7 @@ const BUSINESS_DATA = {
     sales: [
       { id: generateId(), date: new Date().toISOString(), total_amount: 500, customer_name: 'Demo Customer' },
     ],
-    creditsSummary: { outstanding_amount: 500, overdue_count: 1 },
+    creditsSummary: { outstanding_amount: 500, paid_amount: 300, overdue_count: 1 },
   }
 };
 

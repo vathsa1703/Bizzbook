@@ -192,15 +192,15 @@ export default function Credit() {
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="bg-red-50 dark:bg-red-500/10 dark:bg-red-500/10 rounded-xl p-2.5">
               <p className="text-[10px] text-inkB dark:text-inkB-dark font-semibold uppercase tracking-wider">Outstanding</p>
-              <p className="text-xs font-extrabold text-red-600 dark:text-red-400 dark:text-red-400 mt-0.5">₹{summary.outstanding_amount.toLocaleString('en-IN')}</p>
+              <p className="text-xs font-extrabold text-red-600 dark:text-red-400 dark:text-red-400 mt-0.5">₹{(summary.outstanding_amount ?? 0).toLocaleString('en-IN')}</p>
             </div>
             <div className="bg-green-50 dark:bg-green-500/10 dark:bg-green-500/10 rounded-xl p-2.5">
               <p className="text-[10px] text-inkB dark:text-inkB-dark font-semibold uppercase tracking-wider">Total Paid</p>
-              <p className="text-xs font-extrabold text-green-600 dark:text-green-400 dark:text-green-400 mt-0.5">₹{summary.paid_amount.toLocaleString('en-IN')}</p>
+              <p className="text-xs font-extrabold text-green-600 dark:text-green-400 dark:text-green-400 mt-0.5">₹{(summary.paid_amount ?? 0).toLocaleString('en-IN')}</p>
             </div>
             <div className="bg-amber-50 dark:bg-amber-500/10 dark:bg-amber-500/10 rounded-xl p-2.5">
               <p className="text-[10px] text-inkB dark:text-inkB-dark font-semibold uppercase tracking-wider">Overdue</p>
-              <p className="text-xs font-extrabold text-amber-600 dark:text-amber-400 dark:text-amber-400 mt-0.5">{summary.overdue_count} items</p>
+              <p className="text-xs font-extrabold text-amber-600 dark:text-amber-400 dark:text-amber-400 mt-0.5">{summary.overdue_count ?? 0} items</p>
             </div>
           </div>
         )}

@@ -106,11 +106,18 @@ export default function EmployeeDirectory({ onViewChange }) {
     }
     setSubmitting(true);
     try {
+      // "No Department" / "No Branch" dropdown options carry value="" — send
+      // null for unset optional references, not an empty string.
+      const payload = {
+        ...form,
+        department_id: form.department_id || null,
+        branch_id: form.branch_id || null,
+      };
       if (editingEmp) {
-        await api.updateEmployee(editingEmp.id, form);
+        await api.updateEmployee(editingEmp.id, payload);
         showToast('Employee updated!', 'success');
       } else {
-        await api.createEmployee(form);
+        await api.createEmployee(payload);
         showToast('Employee created!', 'success');
       }
       setShowModal(false);
