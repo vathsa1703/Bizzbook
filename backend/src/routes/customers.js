@@ -1,7 +1,7 @@
 const express = require('express');
-const { getDb } = require('../config/db');
 const { isValidGSTIN, extractStateCodeFromGSTIN, lookupStateCode } = require('../services/gstEngine');
 const { withBranchScope } = require('../utils/BranchScopedQuery');
+const { dbGet, dbAll } = require('../config/dbEngine');
 
 const router = express.Router();
 
@@ -20,8 +20,7 @@ function deriveStateCode(state_code, gstin) {
 
 // ─── GET all customers — scoped to company ────────────────────────────────────
 
-router.get('/', (req, res, next) => {
-  const db = getDb();
+router.get('/', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
     const search = req.query.search || '';
@@ -36,51 +35,47 @@ router.get('/', (req, res, next) => {
     const scoped = withBranchScope(query, params, req.scopeContext, 'branch_id');
     scoped.sql += ` ORDER BY total_purchases DESC, name ASC`;
 
-    res.json(db.prepare(scoped.sql).all(...scoped.params));
+    res.json(await dbAll(scoped.sql, scoped.params));
   } catch (err) {
     next(err);
-  } finally {
-    db.close();
   }
 });
 
 // ─── GET single customer with history — scoped to company ────────────────────
 
-router.get('/:id', (req, res, next) => {
-  const db = getDb();
+router.get('/:id', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
-    const customer = db.prepare('SELECT * FROM customers WHERE id = ? AND company_id = ?').get(req.params.id, companyId);
+    const customer = await dbGet('SELECT * FROM customers WHERE id = ? AND company_id = ?', [req.params.id, companyId]);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
-    const sales = db.prepare(`
+    const sales = await dbAll(`
       SELECT s.*, p.name as product_name
       FROM sales s
       LEFT JOIN products p ON s.product_id = p.id
       WHERE s.customer_id = ? AND s.company_id = ?
       ORDER BY s.sale_date DESC
-    `).all(req.params.id, companyId);
+    `, [req.params.id, companyId]);
 
-    const credits = db.prepare(
-      'SELECT * FROM credits WHERE customer_id = ? AND company_id = ? ORDER BY due_date ASC'
-    ).all(req.params.id, companyId);
+    const credits = await dbAll(
+      'SELECT * FROM credits WHERE customer_id = ? AND company_id = ? ORDER BY due_date ASC',
+      [req.params.id, companyId]
+    );
 
-    const invoices = db.prepare(
-      'SELECT * FROM invoices WHERE customer_id = ? AND company_id = ? ORDER BY invoice_date DESC, id DESC'
-    ).all(req.params.id, companyId);
+    const invoices = await dbAll(
+      'SELECT * FROM invoices WHERE customer_id = ? AND company_id = ? ORDER BY invoice_date DESC, id DESC',
+      [req.params.id, companyId]
+    );
 
     res.json({ ...customer, sales, credits, invoices });
   } catch (err) {
     next(err);
-  } finally {
-    db.close();
   }
 });
 
 // ─── POST create customer — stamped with company_id ──────────────────────────
 
-router.post('/', (req, res, next) => {
-  const db = getDb();
+router.post('/', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
     const {
@@ -118,14 +113,18 @@ router.post('/', (req, res, next) => {
       return res.status(400).json({ error: 'State selection is mandatory for all customers.' });
     }
 
-    const result = db.prepare(`
+    // No transaction needed: single INSERT, atomic on both engines by itself.
+    // RETURNING id works identically via .get() on node:sqlite and pg, so this
+    // is one shared code path rather than a dual SQLite/Postgres branch.
+    const result = await dbGet(`
       INSERT INTO customers
         (name, gstin, phone, email, state, state_code, billing_address, is_gst_registered, total_purchases, last_purchase_date, company_id)
       VALUES
         (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?)
-    `).run(name.trim(), normGstin, phone, email, state, state_code, billing_address, custGstReg, companyId);
+      RETURNING id
+    `, [name.trim(), normGstin, phone, email, state, state_code, billing_address, custGstReg, companyId]);
 
-    const customerId = result.lastInsertRowid;
+    const customerId = result.id;
 
     // Emit event for automations
     const eventBusService = require('../services/EventBusService');
@@ -151,18 +150,15 @@ router.post('/', (req, res, next) => {
     });
   } catch (err) {
     next(err);
-  } finally {
-    db.close();
   }
 });
 
 // ─── PUT update customer — scoped to company ─────────────────────────────────
 
-router.put('/:id', (req, res, next) => {
-  const db = getDb();
+router.put('/:id', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
-    const existing = db.prepare('SELECT * FROM customers WHERE id = ? AND company_id = ?').get(req.params.id, companyId);
+    const existing = await dbGet('SELECT * FROM customers WHERE id = ? AND company_id = ?', [req.params.id, companyId]);
     if (!existing) return res.status(404).json({ error: 'Customer not found' });
 
     const {
@@ -200,7 +196,7 @@ router.put('/:id', (req, res, next) => {
       return res.status(400).json({ error: 'State selection is mandatory for all customers.' });
     }
 
-    db.prepare(`
+    await dbGet(`
       UPDATE customers SET
         name              = ?,
         gstin             = ?,
@@ -211,7 +207,7 @@ router.put('/:id', (req, res, next) => {
         billing_address   = ?,
         is_gst_registered = ?
       WHERE id = ? AND company_id = ?
-    `).run(name.trim(), normGstin, phone, email, state, state_code, billing_address, custGstReg, req.params.id, companyId);
+    `, [name.trim(), normGstin, phone, email, state, state_code, billing_address, custGstReg, req.params.id, companyId]);
 
     res.json({
       id: Number(req.params.id),
@@ -226,37 +222,32 @@ router.put('/:id', (req, res, next) => {
     });
   } catch (err) {
     next(err);
-  } finally {
-    db.close();
   }
 });
 
 // ─── DELETE customer — scoped to company ─────────────────────────────────────
 
-router.delete('/:id', (req, res, next) => {
-  const db = getDb();
+router.delete('/:id', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
     const id = req.params.id;
 
-    const customer = db.prepare('SELECT id FROM customers WHERE id = ? AND company_id = ?').get(id, companyId);
+    const customer = await dbGet('SELECT id FROM customers WHERE id = ? AND company_id = ?', [id, companyId]);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
-    const salesExist   = db.prepare('SELECT id FROM sales    WHERE customer_id = ? AND company_id = ? LIMIT 1').get(id, companyId);
-    if (salesExist)    return res.status(400).json({ error: 'Cannot delete customer with existing sales history.' });
+    const salesExist = await dbGet('SELECT id FROM sales WHERE customer_id = ? AND company_id = ? LIMIT 1', [id, companyId]);
+    if (salesExist) return res.status(400).json({ error: 'Cannot delete customer with existing sales history.' });
 
-    const invoicesExist = db.prepare('SELECT id FROM invoices WHERE customer_id = ? AND company_id = ? LIMIT 1').get(id, companyId);
+    const invoicesExist = await dbGet('SELECT id FROM invoices WHERE customer_id = ? AND company_id = ? LIMIT 1', [id, companyId]);
     if (invoicesExist) return res.status(400).json({ error: 'Cannot delete customer with outstanding invoices.' });
 
-    const creditsExist  = db.prepare('SELECT id FROM credits  WHERE customer_id = ? AND company_id = ? LIMIT 1').get(id, companyId);
-    if (creditsExist)  return res.status(400).json({ error: 'Cannot delete customer with outstanding credit logs.' });
+    const creditsExist = await dbGet('SELECT id FROM credits WHERE customer_id = ? AND company_id = ? LIMIT 1', [id, companyId]);
+    if (creditsExist) return res.status(400).json({ error: 'Cannot delete customer with outstanding credit logs.' });
 
-    db.prepare('DELETE FROM customers WHERE id = ? AND company_id = ?').run(id, companyId);
+    await dbGet('DELETE FROM customers WHERE id = ? AND company_id = ?', [id, companyId]);
     res.status(204).end();
   } catch (err) {
     next(err);
-  } finally {
-    db.close();
   }
 });
 
