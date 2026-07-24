@@ -5,20 +5,10 @@ const pdfService = require('../services/pdfService');
 const eventBusService = require('../services/EventBusService');
 const { Events } = require('../constants/events');
 const { withBranchScope } = require('../utils/BranchScopedQuery');
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll, engine, isOn } = require('../config/dbEngine');
 const { withTransaction } = require('../config/pgDb');
 
 const router = express.Router();
-
-// company_gst_settings.is_gst_registered / inclusive_pricing are boolean under
-// Postgres (Phase 1), still 1/0/NULL under SQLite. The original `!== 0` check
-// silently breaks for Postgres's `false` (false !== 0 is true in JS strict
-// comparison), so this treats NULL/1/true as "on" and only explicit 0/false as
-// "off" — matching the original's documented intent ("treat NULL / 1 as true")
-// across both engines.
-function isOn(v) {
-  return !(v === 0 || v === false);
-}
 
 // SQLite's UNIQUE constraint error message vs Postgres's error code (23505 =
 // unique_violation) for the invoice_number collision-retry loop below.
