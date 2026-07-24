@@ -425,3 +425,16 @@ in `localStorage` — be aware of this when a page "shows data" against a fresh/
   the constraint is a no-op.
 - No linter/formatter is configured anywhere in the repo (no `.eslintrc*`) — don't assume a `lint` script
   exists or invent a config unless asked.
+- **`/analytics/top-groups` response shape doesn't match what the frontend reads — affects real data,
+  not just the placeholder-demo system.** `getTopGroups` (`backend/src/services/dataService.js:241-256`)
+  runs `SELECT pg.name, COALESCE(SUM(s.revenue), 0) AS revenue ...`, so each row is `{ name, revenue }`.
+  But both consumers read `g.group_name` and `g.units_sold` — `frontend/src/pages/Home.jsx:263-264` and
+  `frontend/src/pages/Sales.jsx:506,510` (Top Groups card / Sales dashboard) — neither
+  field exists on the real response, so the group name renders blank and "units sold" always shows
+  `undefined units` for every real (non-demo) company. Not a crash — both are plain JSX interpolation —
+  just silently wrong output. Found during the `frontend/src/api/placeholders.js` shape audit on
+  `fix/employee-fk-and-credits` (the placeholder mock happens to use `group_name`/`units_sold` too, which
+  is why it wasn't caught earlier — the demo path "looks right" and the real path doesn't). Fix is either:
+  rename the SQL alias to `group_name` and add a units-sold `SUM(s.quantity)` join in `getTopGroups`, or
+  change both consumers to read `name`/drop the units-sold display — not fixed yet, pick an approach
+  before touching it.
