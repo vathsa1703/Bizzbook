@@ -20,6 +20,24 @@ const { Pool, types } = require('pg');
 types.setTypeParser(20, (val) => (val === null ? null : parseInt(val, 10)));   // int8/bigint
 types.setTypeParser(1700, (val) => (val === null ? null : parseFloat(val)));   // numeric/decimal
 
+// Phase 2 company.js finding: node-postgres's default parser for DATE (OID
+// 1082 -- a pure calendar date, no time-of-day, e.g. expiry_date/issue_date/
+// joining_date/date_of_birth) converts it into a JS Date object at LOCAL
+// midnight. Serializing that via res.json() -> JSON.stringify() ->
+// Date#toJSON() always renders in UTC, so on any host with a positive UTC
+// offset the date silently shifts back a day on the wire (2026-08-04 in
+// Postgres became "2026-08-03T18:30:00.000Z" in the HTTP response on this
+// dev machine). SQLite never had this problem -- dates are plain 'YYYY-MM-DD'
+// TEXT the whole way through, no Date object ever constructed. Passing the
+// raw string straight through (pg already receives 'YYYY-MM-DD' off the
+// wire before its own parser converts it) matches SQLite's representation
+// exactly and needs no per-query fix-up. Deliberately narrow to OID 1082
+// only -- TIMESTAMP/TIMESTAMPTZ columns (created_at, sessions.expires_at,
+// etc.) are genuine points in time and are correctly left as Date objects
+// serialized to full ISO8601 UTC, already verified against JWT exp in the
+// auth module.
+types.setTypeParser(1082, (val) => val);                                      // date
+
 let pool = null;
 
 function getPgPool() {
