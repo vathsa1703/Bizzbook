@@ -9,24 +9,25 @@
 const express = require('express');
 const { getDb } = require('../config/db');
 const { requirePermission } = require('../middleware/auth');
+const { dbGet, engine } = require('../config/dbEngine');
+const { withTransaction } = require('../config/pgDb');
 const { upsertGstSettings, upsertBranding } = require('../services/companyProfileService');
 
 const router = express.Router();
 
 // GET company settings — scoped to authenticated user's company
-router.get('/', (req, res, next) => {
-  const db = getDb();
+router.get('/', async (req, res, next) => {
   try {
     if (!req.user?.companyId) {
       return res.status(400).json({ error: 'companyId missing from token' });
     }
     const companyId = req.user.companyId;
 
-    const company  = db.prepare('SELECT * FROM companies WHERE id = ?').get(companyId) || {};
-    const gst       = db.prepare('SELECT * FROM company_gst_settings WHERE company_id = ?').get(companyId) || {};
-    const branding  = db.prepare('SELECT * FROM company_branding WHERE company_id = ?').get(companyId) || {};
-    const address   = db.prepare("SELECT * FROM company_addresses WHERE company_id = ? AND address_type = 'registered'").get(companyId)
-      || db.prepare('SELECT * FROM company_addresses WHERE company_id = ? ORDER BY is_primary DESC, id ASC').get(companyId)
+    const company  = (await dbGet('SELECT * FROM companies WHERE id = ?', [companyId])) || {};
+    const gst       = (await dbGet('SELECT * FROM company_gst_settings WHERE company_id = ?', [companyId])) || {};
+    const branding  = (await dbGet('SELECT * FROM company_branding WHERE company_id = ?', [companyId])) || {};
+    const address   = (await dbGet("SELECT * FROM company_addresses WHERE company_id = ? AND address_type = 'registered'", [companyId]))
+      || (await dbGet('SELECT * FROM company_addresses WHERE company_id = ? ORDER BY is_primary DESC, id ASC', [companyId]))
       || {};
 
     res.json({
@@ -48,14 +49,11 @@ router.get('/', (req, res, next) => {
     });
   } catch (err) {
     next(err);
-  } finally {
-    db.close();
   }
 });
 
 // PUT update company settings — scoped to authenticated user's company
-router.put('/', requirePermission('settings.manage'), (req, res, next) => {
-  const db = getDb();
+router.put('/', requirePermission('settings.manage'), async (req, res, next) => {
   try {
     if (!req.user?.companyId) {
       return res.status(400).json({ error: 'companyId missing from token' });
@@ -79,21 +77,6 @@ router.put('/', requirePermission('settings.manage'), (req, res, next) => {
       inclusive_pricing = null,
     } = req.body;
 
-    db.exec('BEGIN TRANSACTION');
-
-    db.prepare(`
-      UPDATE companies SET
-        gstin               = COALESCE(?, gstin),
-        name                = COALESCE(?, name),
-        phone               = COALESCE(?, phone),
-        email               = COALESCE(?, email),
-        legal_business_name = COALESCE(?, legal_business_name),
-        trade_name          = COALESCE(?, trade_name),
-        pan                 = COALESCE(?, pan),
-        updated_at          = datetime('now')
-      WHERE id = ?
-    `).run(gstin, company_name, phone, email, legal_name, trade_name, pan, companyId);
-
     // upsertGstSettings/upsertBranding overwrite whatever fields they're given (no COALESCE),
     // so only pass fields the caller actually sent — mirrors the COALESCE-skip-null semantics
     // the old flat company_settings UPDATE had.
@@ -104,42 +87,134 @@ router.put('/', requirePermission('settings.manage'), (req, res, next) => {
       is_gst_registered: is_gst_registered != null ? (is_gst_registered ? 1 : 0) : null,
       inclusive_pricing: inclusive_pricing != null ? (inclusive_pricing ? 1 : 0) : null,
     }).filter(([_, v]) => v != null));
-    if (Object.keys(gstFields).length > 0) {
-      upsertGstSettings(db, companyId, gstFields);
-    }
 
-    if (logo != null) {
-      upsertBranding(db, companyId, { logo_url: logo });
-    }
-
-    if (address != null || pincode != null || state != null) {
-      const existingAddr = db.prepare("SELECT id FROM company_addresses WHERE company_id = ? AND address_type = 'registered'").get(companyId);
-      if (existingAddr) {
-        db.prepare(`
-          UPDATE company_addresses SET
-            address_line1 = COALESCE(?, address_line1),
-            state         = COALESCE(?, state),
-            pincode       = COALESCE(?, pincode)
+    if (engine() === 'postgres') {
+      await withTransaction(async (tx) => {
+        await tx.query(`
+          UPDATE companies SET
+            gstin               = COALESCE(?, gstin),
+            name                = COALESCE(?, name),
+            phone               = COALESCE(?, phone),
+            email               = COALESCE(?, email),
+            legal_business_name = COALESCE(?, legal_business_name),
+            trade_name          = COALESCE(?, trade_name),
+            pan                 = COALESCE(?, pan),
+            updated_at          = now()
           WHERE id = ?
-        `).run(address, state, pincode, existingAddr.id);
-      } else if (address && state && pincode) {
-        // A registered address needs city too; without one yet, skip creating an incomplete row —
-        // Setup Wizard step 2 (routes/company.js) is the primary path for creating this row.
-        const cityFallback = state;
+        `, [gstin, company_name, phone, email, legal_name, trade_name, pan, companyId]);
+
+        // Inlined via tx.query/tx.getOne rather than calling
+        // upsertGstSettingsAsync/upsertBrandingAsync: those twins go
+        // through dbEngine.js's dbGet, which acquires its own connection
+        // from the pool independently of `tx` -- calling them here would
+        // silently execute outside this transaction, breaking atomicity
+        // with the companies UPDATE and address upsert below. The SQLite
+        // branch doesn't have this risk since upsertGstSettings/
+        // upsertBranding take the same `db` handle that's already inside
+        // this function's db.exec('BEGIN TRANSACTION').
+        if (Object.keys(gstFields).length > 0) {
+          const existingGst = await tx.getOne('SELECT id FROM company_gst_settings WHERE company_id = ?', [companyId]);
+          if (existingGst) {
+            const sets = Object.keys(gstFields).map(k => `${k} = ?`).join(', ');
+            await tx.query(`UPDATE company_gst_settings SET ${sets}, updated_at = now() WHERE company_id = ?`, [...Object.values(gstFields), companyId]);
+          } else {
+            const cols = ['company_id', ...Object.keys(gstFields)].join(', ');
+            const placeholders = Array(Object.keys(gstFields).length + 1).fill('?').join(', ');
+            await tx.query(`INSERT INTO company_gst_settings (${cols}) VALUES (${placeholders})`, [companyId, ...Object.values(gstFields)]);
+          }
+        }
+
+        if (logo != null) {
+          const existingBranding = await tx.getOne('SELECT id FROM company_branding WHERE company_id = ?', [companyId]);
+          if (existingBranding) {
+            await tx.query('UPDATE company_branding SET logo_url = ?, updated_at = now() WHERE company_id = ?', [logo, companyId]);
+          } else {
+            await tx.query('INSERT INTO company_branding (company_id, logo_url) VALUES (?, ?)', [companyId, logo]);
+          }
+        }
+
+        if (address != null || pincode != null || state != null) {
+          const existingAddr = await tx.getOne("SELECT id FROM company_addresses WHERE company_id = ? AND address_type = 'registered'", [companyId]);
+          if (existingAddr) {
+            await tx.query(`
+              UPDATE company_addresses SET
+                address_line1 = COALESCE(?, address_line1),
+                state         = COALESCE(?, state),
+                pincode       = COALESCE(?, pincode)
+              WHERE id = ?
+            `, [address, state, pincode, existingAddr.id]);
+          } else if (address && state && pincode) {
+            // A registered address needs city too; without one yet, skip creating an incomplete row —
+            // Setup Wizard step 2 (routes/company.js) is the primary path for creating this row.
+            const cityFallback = state;
+            // is_primary bound as a parameter, not a literal 1 -- Postgres
+            // rejects a literal integer against a BOOLEAN column even
+            // though the identical value works fine as a bound parameter
+            // (same fix already applied in routes/company.js).
+            await tx.query(`
+              INSERT INTO company_addresses (company_id, address_type, address_line1, city, state, pincode, is_primary)
+              VALUES (?, 'registered', ?, ?, ?, ?, ?)
+            `, [companyId, address, cityFallback, state, pincode, 1]);
+          }
+        }
+      });
+    } else {
+      const db = getDb();
+      try {
+        db.exec('BEGIN TRANSACTION');
+
         db.prepare(`
-          INSERT INTO company_addresses (company_id, address_type, address_line1, city, state, pincode, is_primary)
-          VALUES (?, 'registered', ?, ?, ?, ?, 1)
-        `).run(companyId, address, cityFallback, state, pincode);
+          UPDATE companies SET
+            gstin               = COALESCE(?, gstin),
+            name                = COALESCE(?, name),
+            phone               = COALESCE(?, phone),
+            email               = COALESCE(?, email),
+            legal_business_name = COALESCE(?, legal_business_name),
+            trade_name          = COALESCE(?, trade_name),
+            pan                 = COALESCE(?, pan),
+            updated_at          = datetime('now')
+          WHERE id = ?
+        `).run(gstin, company_name, phone, email, legal_name, trade_name, pan, companyId);
+
+        if (Object.keys(gstFields).length > 0) {
+          upsertGstSettings(db, companyId, gstFields);
+        }
+
+        if (logo != null) {
+          upsertBranding(db, companyId, { logo_url: logo });
+        }
+
+        if (address != null || pincode != null || state != null) {
+          const existingAddr = db.prepare("SELECT id FROM company_addresses WHERE company_id = ? AND address_type = 'registered'").get(companyId);
+          if (existingAddr) {
+            db.prepare(`
+              UPDATE company_addresses SET
+                address_line1 = COALESCE(?, address_line1),
+                state         = COALESCE(?, state),
+                pincode       = COALESCE(?, pincode)
+              WHERE id = ?
+            `).run(address, state, pincode, existingAddr.id);
+          } else if (address && state && pincode) {
+            const cityFallback = state;
+            db.prepare(`
+              INSERT INTO company_addresses (company_id, address_type, address_line1, city, state, pincode, is_primary)
+              VALUES (?, 'registered', ?, ?, ?, ?, 1)
+            `).run(companyId, address, cityFallback, state, pincode);
+          }
+        }
+
+        db.exec('COMMIT');
+      } catch (txErr) {
+        try { db.exec('ROLLBACK'); } catch (_) {}
+        throw txErr;
+      } finally {
+        db.close();
       }
     }
 
-    db.exec('COMMIT');
     res.json({ message: 'Company settings saved' });
   } catch (err) {
-    try { db.exec('ROLLBACK'); } catch (_) {}
     next(err);
-  } finally {
-    db.close();
   }
 });
 
