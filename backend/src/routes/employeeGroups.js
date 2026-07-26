@@ -7,22 +7,29 @@
 // ============================================================================
 const express = require('express');
 const { getDb } = require('../config/db');
+const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { withTransaction } = require('../config/pgDb');
 
 const router = express.Router();
 
 const canManage = (req) => ['admin', 'OWNER', 'MANAGER'].includes(req.user.role);
 
-function validEmployeeIds(db, companyId, ids) {
+// Resolve to the subset of ids that are real, non-deleted employees in this
+// company. `all` is a (sql, params) => rows function -- dbAll for a plain
+// connection, or a transaction's tx.getAll -- so this one helper works both
+// inside and outside a transaction without ever opening its own connection.
+async function validEmployeeIds(all, companyId, ids) {
   if (!Array.isArray(ids) || !ids.length) return [];
   const placeholders = ids.map(() => '?').join(',');
-  return db.prepare(
-    `SELECT id FROM employees WHERE company_id = ? AND deleted_at IS NULL AND id IN (${placeholders})`
-  ).all(companyId, ...ids).map(r => r.id);
+  const rows = await all(
+    `SELECT id FROM employees WHERE company_id = ? AND deleted_at IS NULL AND id IN (${placeholders})`,
+    [companyId, ...ids]
+  );
+  return rows.map(r => r.id);
 }
 
 // GET /api/employee-groups?q=  — list, with optional name/description search.
-router.get('/', (req, res, next) => {
-  const db = getDb();
+router.get('/', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
     const q = (req.query.q || '').trim();
@@ -33,119 +40,134 @@ router.get('/', (req, res, next) => {
     const params = [companyId];
     if (q) { sql += ' AND (g.name LIKE ? OR g.description LIKE ?)'; params.push(`%${q}%`, `%${q}%`); }
     sql += ' ORDER BY g.name ASC';
-    res.json({ groups: db.prepare(sql).all(...params) });
-  } catch (err) { next(err); } finally { db.close(); }
+    res.json({ groups: await dbAll(sql, params) });
+  } catch (err) { next(err); }
 });
 
 // GET /api/employee-groups/:id — group detail with members.
-router.get('/:id', (req, res, next) => {
-  const db = getDb();
+router.get('/:id', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
-    const group = db.prepare('SELECT * FROM employee_groups WHERE id = ? AND company_id = ? AND deleted_at IS NULL').get(req.params.id, companyId);
+    const group = await dbGet('SELECT * FROM employee_groups WHERE id = ? AND company_id = ? AND deleted_at IS NULL', [req.params.id, companyId]);
     if (!group) return res.status(404).json({ error: 'Group not found' });
-    const members = db.prepare(`
+    const members = await dbAll(`
       SELECT m.id AS membership_id, m.added_at, e.id, e.name, e.job_title, e.avatar, e.status, e.employee_code
       FROM employee_group_members m
       JOIN employees e ON e.id = m.employee_id
       WHERE m.group_id = ? AND e.deleted_at IS NULL
       ORDER BY e.name ASC
-    `).all(group.id);
+    `, [group.id]);
     res.json({ group, members });
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
 // POST /api/employee-groups — create.
-router.post('/', (req, res, next) => {
-  const db = getDb();
+router.post('/', async (req, res, next) => {
   try {
     if (!canManage(req)) return res.status(403).json({ error: 'Only owners/managers can manage groups' });
     const companyId = req.user.companyId;
     const { name, description, color, avatar, group_type, branch_id, member_ids } = req.body || {};
     if (!name) return res.status(400).json({ error: 'Group name is required' });
 
-    db.exec('BEGIN TRANSACTION');
-    try {
-      const info = db.prepare(`
-        INSERT INTO employee_groups (company_id, branch_id, name, description, color, avatar, group_type, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(companyId, branch_id || null, name, description || null, color || null, avatar || null, group_type || 'custom', req.user.userId);
-      const groupId = info.lastInsertRowid;
-      const ids = validEmployeeIds(db, companyId, member_ids || []);
-      const addMember = db.prepare('INSERT OR IGNORE INTO employee_group_members (group_id, employee_id) VALUES (?, ?)');
-      for (const eid of ids) addMember.run(groupId, eid);
-      db.exec('COMMIT');
-      res.status(201).json({ id: groupId, message: 'Group created successfully' });
-    } catch (e) { db.exec('ROLLBACK'); throw e; }
-  } catch (err) { next(err); } finally { db.close(); }
+    let groupId;
+    if (engine() === 'postgres') {
+      groupId = await withTransaction(async (tx) => {
+        const row = await tx.getOne(`
+          INSERT INTO employee_groups (company_id, branch_id, name, description, color, avatar, group_type, created_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+        `, [companyId, branch_id || null, name, description || null, color || null, avatar || null, group_type || 'custom', req.user.userId]);
+        const ids = await validEmployeeIds(tx.getAll, companyId, member_ids || []);
+        for (const eid of ids) {
+          await tx.query('INSERT INTO employee_group_members (group_id, employee_id) VALUES (?, ?) ON CONFLICT (group_id, employee_id) DO NOTHING', [row.id, eid]);
+        }
+        return row.id;
+      });
+    } else {
+      const db = getDb();
+      try {
+        db.exec('BEGIN TRANSACTION');
+        try {
+          const info = db.prepare(`
+            INSERT INTO employee_groups (company_id, branch_id, name, description, color, avatar, group_type, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(companyId, branch_id || null, name, description || null, color || null, avatar || null, group_type || 'custom', req.user.userId);
+          groupId = info.lastInsertRowid;
+          const ids = await validEmployeeIds(async (sql, params) => db.prepare(sql).all(...params), companyId, member_ids || []);
+          const addMember = db.prepare('INSERT OR IGNORE INTO employee_group_members (group_id, employee_id) VALUES (?, ?)');
+          for (const eid of ids) addMember.run(groupId, eid);
+          db.exec('COMMIT');
+        } catch (e) { db.exec('ROLLBACK'); throw e; }
+      } finally { db.close(); }
+    }
+
+    res.status(201).json({ id: groupId, message: 'Group created successfully' });
+  } catch (err) { next(err); }
 });
 
 // PUT /api/employee-groups/:id — update.
-router.put('/:id', (req, res, next) => {
-  const db = getDb();
+router.put('/:id', async (req, res, next) => {
   try {
     if (!canManage(req)) return res.status(403).json({ error: 'Only owners/managers can manage groups' });
     const companyId = req.user.companyId;
     const { name, description, color, avatar, group_type, status } = req.body || {};
-    const existing = db.prepare('SELECT id FROM employee_groups WHERE id = ? AND company_id = ? AND deleted_at IS NULL').get(req.params.id, companyId);
+    const existing = await dbGet('SELECT id FROM employee_groups WHERE id = ? AND company_id = ? AND deleted_at IS NULL', [req.params.id, companyId]);
     if (!existing) return res.status(404).json({ error: 'Group not found' });
-    db.prepare(`
+    await dbGet(`
       UPDATE employee_groups SET name = COALESCE(?, name), description = COALESCE(?, description),
         color = COALESCE(?, color), avatar = COALESCE(?, avatar),
         group_type = COALESCE(?, group_type), status = COALESCE(?, status)
       WHERE id = ? AND company_id = ?
-    `).run(name ?? null, description ?? null, color ?? null, avatar ?? null, group_type ?? null, status ?? null, req.params.id, companyId);
+    `, [name ?? null, description ?? null, color ?? null, avatar ?? null, group_type ?? null, status ?? null, req.params.id, companyId]);
     res.json({ message: 'Group updated successfully' });
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
 // DELETE /api/employee-groups/:id — soft delete.
-router.delete('/:id', (req, res, next) => {
-  const db = getDb();
+router.delete('/:id', async (req, res, next) => {
   try {
     if (!canManage(req)) return res.status(403).json({ error: 'Only owners/managers can manage groups' });
     const companyId = req.user.companyId;
-    const r = db.prepare("UPDATE employee_groups SET deleted_at = datetime('now'), status = 'Archived' WHERE id = ? AND company_id = ? AND deleted_at IS NULL").run(req.params.id, companyId);
-    if (r.changes === 0) return res.status(404).json({ error: 'Group not found' });
+    const nowExpr = engine() === 'postgres' ? 'now()' : "datetime('now')";
+    const r = await dbGet(`UPDATE employee_groups SET deleted_at = ${nowExpr}, status = 'Archived' WHERE id = ? AND company_id = ? AND deleted_at IS NULL RETURNING id`, [req.params.id, companyId]);
+    if (!r) return res.status(404).json({ error: 'Group not found' });
     res.json({ message: 'Group archived successfully' });
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
 // POST /api/employee-groups/:id/members — add members { employee_ids: [] }.
-router.post('/:id/members', (req, res, next) => {
-  const db = getDb();
+router.post('/:id/members', async (req, res, next) => {
   try {
     if (!canManage(req)) return res.status(403).json({ error: 'Only owners/managers can manage groups' });
     const companyId = req.user.companyId;
-    const group = db.prepare('SELECT id FROM employee_groups WHERE id = ? AND company_id = ? AND deleted_at IS NULL').get(req.params.id, companyId);
+    const group = await dbGet('SELECT id FROM employee_groups WHERE id = ? AND company_id = ? AND deleted_at IS NULL', [req.params.id, companyId]);
     if (!group) return res.status(404).json({ error: 'Group not found' });
-    const ids = validEmployeeIds(db, companyId, req.body?.employee_ids || []);
+    const ids = await validEmployeeIds(dbAll, companyId, req.body?.employee_ids || []);
     if (!ids.length) return res.status(400).json({ error: 'No valid employees to add' });
-    const stmt = db.prepare('INSERT OR IGNORE INTO employee_group_members (group_id, employee_id) VALUES (?, ?)');
     let added = 0;
-    for (const eid of ids) added += stmt.run(group.id, eid).changes;
+    for (const eid of ids) {
+      const r = await dbGet('INSERT INTO employee_group_members (group_id, employee_id) VALUES (?, ?) ON CONFLICT (group_id, employee_id) DO NOTHING RETURNING id', [group.id, eid]);
+      if (r) added++;
+    }
     res.status(201).json({ added, message: `${added} member(s) added` });
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
 // DELETE /api/employee-groups/:id/members/:employeeId — remove a member.
-router.delete('/:id/members/:employeeId', (req, res, next) => {
-  const db = getDb();
+router.delete('/:id/members/:employeeId', async (req, res, next) => {
   try {
     if (!canManage(req)) return res.status(403).json({ error: 'Only owners/managers can manage groups' });
     const companyId = req.user.companyId;
-    const group = db.prepare('SELECT id FROM employee_groups WHERE id = ? AND company_id = ? AND deleted_at IS NULL').get(req.params.id, companyId);
+    const group = await dbGet('SELECT id FROM employee_groups WHERE id = ? AND company_id = ? AND deleted_at IS NULL', [req.params.id, companyId]);
     if (!group) return res.status(404).json({ error: 'Group not found' });
-    const r = db.prepare('DELETE FROM employee_group_members WHERE group_id = ? AND employee_id = ?').run(group.id, req.params.employeeId);
-    if (r.changes === 0) return res.status(404).json({ error: 'Member not found in group' });
+    const r = await dbGet('DELETE FROM employee_group_members WHERE group_id = ? AND employee_id = ? RETURNING id', [group.id, req.params.employeeId]);
+    if (!r) return res.status(404).json({ error: 'Member not found in group' });
     res.json({ message: 'Member removed' });
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
 // POST /api/employee-groups/transfer — move members between groups.
 // { from_group_id, to_group_id, employee_ids: [] }
-router.post('/transfer', (req, res, next) => {
-  const db = getDb();
+router.post('/transfer', async (req, res, next) => {
   try {
     if (!canManage(req)) return res.status(403).json({ error: 'Only owners/managers can manage groups' });
     const companyId = req.user.companyId;
@@ -153,23 +175,42 @@ router.post('/transfer', (req, res, next) => {
     if (!from_group_id || !to_group_id) return res.status(400).json({ error: 'from_group_id and to_group_id are required' });
     if (Number(from_group_id) === Number(to_group_id)) return res.status(400).json({ error: 'Source and destination groups must differ' });
 
-    const own = db.prepare('SELECT id FROM employee_groups WHERE id = ? AND company_id = ? AND deleted_at IS NULL');
-    if (!own.get(from_group_id, companyId) || !own.get(to_group_id, companyId)) {
+    const ownFrom = await dbGet('SELECT id FROM employee_groups WHERE id = ? AND company_id = ? AND deleted_at IS NULL', [from_group_id, companyId]);
+    const ownTo = await dbGet('SELECT id FROM employee_groups WHERE id = ? AND company_id = ? AND deleted_at IS NULL', [to_group_id, companyId]);
+    if (!ownFrom || !ownTo) {
       return res.status(404).json({ error: 'Group not found' });
     }
-    const ids = validEmployeeIds(db, companyId, employee_ids || []);
+    const ids = await validEmployeeIds(dbAll, companyId, employee_ids || []);
     if (!ids.length) return res.status(400).json({ error: 'No valid employees to transfer' });
 
-    db.exec('BEGIN TRANSACTION');
-    try {
-      const add = db.prepare('INSERT OR IGNORE INTO employee_group_members (group_id, employee_id) VALUES (?, ?)');
-      const del = db.prepare('DELETE FROM employee_group_members WHERE group_id = ? AND employee_id = ?');
-      let moved = 0;
-      for (const eid of ids) { add.run(to_group_id, eid); moved += del.run(from_group_id, eid).changes; }
-      db.exec('COMMIT');
-      res.json({ transferred: moved, message: `${moved} member(s) transferred` });
-    } catch (e) { db.exec('ROLLBACK'); throw e; }
-  } catch (err) { next(err); } finally { db.close(); }
+    let moved;
+    if (engine() === 'postgres') {
+      moved = await withTransaction(async (tx) => {
+        let n = 0;
+        for (const eid of ids) {
+          await tx.query('INSERT INTO employee_group_members (group_id, employee_id) VALUES (?, ?) ON CONFLICT (group_id, employee_id) DO NOTHING', [to_group_id, eid]);
+          const delResult = await tx.query('DELETE FROM employee_group_members WHERE group_id = ? AND employee_id = ?', [from_group_id, eid]);
+          n += delResult.rowCount;
+        }
+        return n;
+      });
+    } else {
+      const db = getDb();
+      try {
+        db.exec('BEGIN TRANSACTION');
+        try {
+          const add = db.prepare('INSERT OR IGNORE INTO employee_group_members (group_id, employee_id) VALUES (?, ?)');
+          const del = db.prepare('DELETE FROM employee_group_members WHERE group_id = ? AND employee_id = ?');
+          let n = 0;
+          for (const eid of ids) { add.run(to_group_id, eid); n += del.run(from_group_id, eid).changes; }
+          moved = n;
+          db.exec('COMMIT');
+        } catch (e) { db.exec('ROLLBACK'); throw e; }
+      } finally { db.close(); }
+    }
+
+    res.json({ transferred: moved, message: `${moved} member(s) transferred` });
+  } catch (err) { next(err); }
 });
 
 module.exports = router;
