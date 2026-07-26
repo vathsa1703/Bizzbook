@@ -134,6 +134,12 @@ async function rbacMiddleware(req, res, next) {
   }
 }
 
+// Invitations: /validate/:token and /accept must stay reachable by an invitee
+// who has no account/JWT yet, so that piece is mounted here, ahead of the
+// global authenticate gate below. The rest of the module (list/create/revoke)
+// stays registered further down at its existing protected position.
+registerOptionalRoute('/api/invitations', () => require('./routes/invitations').publicRouter);
+
 const branchAuth = require('./middleware/branchAuth');
 app.use('/api', authenticate, branchAuth, rbacMiddleware);
 
