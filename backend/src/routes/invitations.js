@@ -64,7 +64,7 @@ publicRouter.post('/accept', async (req, res, next) => {
         const empRow = await tx.getOne(`
           INSERT INTO employees (company_id, name, department, salary, joining_date, user_id, phone, email, employee_code, department_id, branch_id, date_of_birth, gender, status)
           VALUES (?, ?, 'General', 0, CURRENT_DATE, ?, ?, ?, ?, ?, ?, ?, ?, 'Active') RETURNING id
-        `, [inv.company_id, name, txUserId, phone, inv.email, empCode, inv.department_id, inv.branch_id, date_of_birth, gender]);
+        `, [inv.company_id, name, txUserId, phone ?? null, inv.email, empCode, inv.department_id, inv.branch_id, date_of_birth ?? null, gender ?? null]);
         const txEmpId = empRow.id;
 
         // Assign role from invitation
@@ -93,10 +93,15 @@ publicRouter.post('/accept', async (req, res, next) => {
           const empCount = db.prepare('SELECT count(*) as cnt FROM employees WHERE company_id = ?').get(inv.company_id);
           const empCode = `EMP${String(empCount.cnt + 1).padStart(5, '0')}`;
 
+          // phone/date_of_birth/gender are optional on the accept form --
+          // node:sqlite rejects a raw JS `undefined` bind value outright
+          // (unlike `null`), so an invitee who leaves these blank crashed
+          // this insert every time. Confirmed live: this is exactly what was
+          // still breaking the invite flow after the auth-exemption fix.
           const empInfo = db.prepare(`
             INSERT INTO employees (company_id, name, department, salary, joining_date, user_id, phone, email, employee_code, department_id, branch_id, date_of_birth, gender, status)
             VALUES (?, ?, 'General', 0, date('now'), ?, ?, ?, ?, ?, ?, ?, ?, 'Active')
-          `).run(inv.company_id, name, userId, phone, inv.email, empCode, inv.department_id, inv.branch_id, date_of_birth, gender);
+          `).run(inv.company_id, name, userId, phone ?? null, inv.email, empCode, inv.department_id, inv.branch_id, date_of_birth ?? null, gender ?? null);
           empId = empInfo.lastInsertRowid;
 
           // Assign role from invitation
