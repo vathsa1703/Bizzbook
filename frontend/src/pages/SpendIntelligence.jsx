@@ -19,9 +19,15 @@ export default function SpendIntelligence() {
   const [weeklyRec, setWeeklyRec] = useState(null);
   const [reportCards, setReportCards] = useState([]);
   const [flags, setFlags] = useState([]);
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Which "Execute" button (if any) is mid-flight -- keyed so each button
+  // shows its own loading state instead of one shared spinner disabling
+  // every button on the page.
+  const [executingKey, setExecutingKey] = useState(null);
+  const [executedMessage, setExecutedMessage] = useState(null);
 
   useEffect(() => {
     loadHealthScore();
@@ -68,6 +74,25 @@ export default function SpendIntelligence() {
       console.error(err);
     } finally {
       setCalculatingBudget(false);
+    }
+  };
+
+  // Turns a recommendation string straight into a real, live campaign --
+  // generate the AI draft, then immediately approve it (same two calls the
+  // AI Copilot tab's Launch -> Review & Approve flow uses), since these
+  // "Execute" buttons promise one-click action, not a draft to review later.
+  const handleExecute = async (intent, key) => {
+    if (executingKey) return;
+    setExecutingKey(key);
+    setExecutedMessage(null);
+    try {
+      const gen = await api.marketing.generateCopilotCampaign({ intent });
+      await api.marketing.approveCopilotCampaign(gen.campaignId);
+      setExecutedMessage(`"${gen.draft.campaignName}" is now live — see it in the Campaigns tab.`);
+    } catch (err) {
+      alert('Execute failed: ' + err.message);
+    } finally {
+      setExecutingKey(null);
     }
   };
 
@@ -128,9 +153,21 @@ export default function SpendIntelligence() {
               <p className="text-xl font-bold">{weeklyRec.recommendation}</p>
             </div>
           </div>
-          <button className="w-full md:w-auto px-8 py-3 bg-panel dark:bg-panel-dark text-indigo-700 dark:text-indigo-400 font-black rounded-xl shadow-lg hover:bg-indigo-50 hover:scale-105 transition-all">
+          <button
+            onClick={() => handleExecute(weeklyRec.recommendation, 'weekly')}
+            disabled={!!executingKey}
+            className="w-full md:w-auto px-8 py-3 bg-panel dark:bg-panel-dark text-indigo-700 dark:text-indigo-400 font-black rounded-xl shadow-lg hover:bg-indigo-50 hover:scale-105 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {executingKey === 'weekly' ? <Loader2 size={16} className="animate-spin" /> : null}
             Execute Now
           </button>
+        </div>
+      )}
+
+      {executedMessage && (
+        <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/25 text-emerald-800 dark:text-emerald-400 text-sm font-bold flex items-center justify-between">
+          <span>✓ {executedMessage}</span>
+          <button onClick={() => setExecutedMessage(null)} className="text-emerald-400 hover:text-emerald-600">×</button>
         </div>
       )}
 
@@ -275,9 +312,16 @@ export default function SpendIntelligence() {
             )}
           </div>
           
-          <button className="w-full mt-6 py-3 rounded-xl bg-gray-900 text-white text-xs font-bold uppercase tracking-widest hover:bg-gray-800 transition-colors">
-            Execute Top Action
-          </button>
+          {recommended_actions && recommended_actions.length > 0 && (
+            <button
+              onClick={() => handleExecute(recommended_actions[0].signal_name, 'top-action')}
+              disabled={!!executingKey}
+              className="w-full mt-6 py-3 rounded-xl bg-gray-900 text-white text-xs font-bold uppercase tracking-widest hover:bg-gray-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {executingKey === 'top-action' ? <Loader2 size={14} className="animate-spin" /> : null}
+              Execute Top Action
+            </button>
+          )}
         </div>
 
       </div>
@@ -296,38 +340,6 @@ export default function SpendIntelligence() {
         </div>
       </div>
 
-      {/* ─── Weekly Recommendation Banner ─── */}
-      {weeklyRec && (
-        <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-              <Zap size={24} className="text-yellow-400" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-blue-200 uppercase tracking-widest mb-1">Weekly Recommendation</p>
-              <p className="text-lg font-black">{weeklyRec.recommendation}</p>
-            </div>
-          </div>
-          <button className="px-6 py-3 bg-panel dark:bg-panel-dark text-indigo-700 dark:text-indigo-400 font-bold rounded-xl shadow hover:bg-panel2 dark:hover:bg-panel2-dark transition-colors">
-            Execute
-          </button>
-        </div>
-      )}
-
-      {/* ─── Do Not Spend Flags ─── */}
-      {flags && flags.length > 0 && (
-        <div className="mb-8 space-y-3">
-          {flags.map((flag, idx) => (
-            <div key={idx} className="p-4 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/25 flex items-start gap-3">
-              <AlertTriangle className="text-red-500 dark:text-red-400 shrink-0 mt-0.5" size={20} />
-              <div>
-                <p className="font-bold text-red-900 capitalize text-sm">Do Not Spend: {flag.target}</p>
-                <p className="text-xs text-red-700 dark:text-red-400 mt-1">{flag.reason}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
           <div className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
