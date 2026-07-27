@@ -43,6 +43,18 @@ router.post('/copilot/generate', async (req, res) => {
   }
 });
 
+// MODULE 2b: Approve a generated draft -> promotes it into the real
+// marketing_campaigns table (Campaigns tab / ROI tracking read from there,
+// not generated_campaigns).
+router.post('/copilot/generate/:id/approve', async (req, res) => {
+  try {
+    const campaign = await copilotService.approveGeneratedCampaign(req.user.companyId, req.params.id);
+    res.json({ success: true, campaign });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // MODULE 3: Customer Insights AI
 router.get('/insights', async (req, res) => {
   try {

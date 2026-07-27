@@ -151,6 +151,7 @@ const rawApi = {
     getCopilotDashboard: () => request('/marketing-copilot/copilot'),
     getCopilotRecommendations: () => request('/marketing-copilot/recommendations'),
     generateCopilotCampaign: (data) => request('/marketing-copilot/copilot/generate', { method: 'POST', body: JSON.stringify(data) }),
+    approveCopilotCampaign: (id) => request(`/marketing-copilot/copilot/generate/${id}/approve`, { method: 'POST' }),
     getInsights: () => request('/marketing-copilot/insights'),
     getCalendar: () => request('/marketing-copilot/calendar'),
     getNewOpportunities: () => request('/marketing-copilot/opportunities'),
