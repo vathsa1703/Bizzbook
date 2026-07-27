@@ -10,9 +10,9 @@ async function draftCampaign(intent, companyId) {
   const client = getClient();
   const CHAT_MODEL = process.env.CHAT_MODEL || 'llama-3.3-70b-versatile';
 
-  const prompt = \`You are an expert Marketing Copilot for a small retail business in India.
+  const prompt = `You are an expert Marketing Copilot for a small retail business in India.
 The business owner has provided this goal/intent for a new campaign:
-"\${intent}"
+"${intent}"
 
 Draft a complete campaign that includes the audience, offer, budget, and multi-channel copy.
 Return ONLY valid JSON in this exact structure:
@@ -32,7 +32,7 @@ Return ONLY valid JSON in this exact structure:
       "body": "Dear customer, we miss you..."
     }
   }
-}\`;
+}`;
 
   if (!client) {
     console.log('[ContentGeneration] No API key, using mock response.');
