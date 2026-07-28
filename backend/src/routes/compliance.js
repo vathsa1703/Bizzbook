@@ -169,10 +169,10 @@ router.get('/reports/:type', async (req, res) => {
 });
 
 // POST /api/compliance/run-reminders — manual trigger (admin/ops & testing).
-router.post('/run-reminders', (req, res) => {
+router.post('/run-reminders', async (req, res) => {
   try {
     if (!isAdmin(req)) return res.status(403).json({ error: 'Admin access required' });
-    res.json(complianceReminders.runComplianceReminders());
+    res.json(await complianceReminders.runComplianceReminders());
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
