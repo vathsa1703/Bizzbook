@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getDb } = require('../config/db');
+const { dbGet, dbAll } = require('../config/dbEngine');
 const { authenticate } = require('../middleware/auth');
 
 // Note: Ensure that your auth middleware allows you to extract companyId from req.user
@@ -10,19 +10,18 @@ router.use(authenticate);
  * GET /api/jobs/monitoring
  * Returns metrics on job processing
  */
-router.get('/monitoring', (req, res) => {
+router.get('/monitoring', async (req, res) => {
   try {
-    const db = getDb();
     const companyId = req.user.companyId;
 
-    const stats = db.prepare(`
-      SELECT 
-        status, 
+    const stats = await dbAll(`
+      SELECT
+        status,
         COUNT(*) as count
       FROM background_jobs
       WHERE company_id = ?
       GROUP BY status
-    `).all(companyId);
+    `, [companyId]);
 
     const metrics = {
       pending: 0,
@@ -50,12 +49,12 @@ router.get('/monitoring', (req, res) => {
     }
 
     // Get total retries
-    const retryStat = db.prepare(`
+    const retryStat = await dbGet(`
       SELECT SUM(attempts) as total_retries
       FROM background_jobs
       WHERE company_id = ?
-    `).get(companyId);
-    
+    `, [companyId]);
+
     metrics.total_retries = retryStat.total_retries || 0;
 
     res.json({ success: true, metrics });
@@ -69,11 +68,10 @@ router.get('/monitoring', (req, res) => {
  * GET /api/jobs
  * Returns recent jobs
  */
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const db = getDb();
     const companyId = req.user.companyId;
-    
+
     const limit = parseInt(req.query.limit) || 50;
     const status = req.query.status;
 
@@ -92,7 +90,7 @@ router.get('/', (req, res) => {
     query += ` ORDER BY created_at DESC LIMIT ?`;
     params.push(limit);
 
-    const jobs = db.prepare(query).all(...params);
+    const jobs = await dbAll(query, params);
     res.json({ success: true, jobs });
   } catch (error) {
     console.error('[JobsAPI] Error fetching jobs:', error);
