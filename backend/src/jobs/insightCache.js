@@ -1,7 +1,7 @@
 const { getDb } = require('../config/db');
 const { getDashboardInsights } = require('../services/insightEngine');
 
-function runInsightCacheJob() {
+async function runInsightCacheJob() {
   const db = getDb();
   try {
     console.log('[InsightCache] Running hourly cache job...');
@@ -25,7 +25,7 @@ function runInsightCacheJob() {
       const usersInCompany = db.prepare('SELECT id FROM users WHERE company_id = ?').all(company.id);
       if (usersInCompany.length === 0) continue;
 
-      const dashboardInsights = getDashboardInsights(company.id);
+      const dashboardInsights = await getDashboardInsights(company.id);
       const payloadStr = JSON.stringify(dashboardInsights);
 
       for (const user of usersInCompany) {

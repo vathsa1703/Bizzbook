@@ -13,9 +13,9 @@ const router = express.Router();
 // ─── 1. Opportunities ────────────────────────────────────────────────────────
 
 // GET /api/marketing/opportunities
-router.get('/opportunities', (req, res) => {
+router.get('/opportunities', async (req, res) => {
   try {
-    const opportunities = getMarketingOpportunities(req.user.companyId);
+    const opportunities = await getMarketingOpportunities(req.user.companyId);
     res.json({ opportunities });
   } catch (err) {
     console.error('[Marketing] opportunities error:', err);
@@ -41,9 +41,9 @@ router.post('/refresh-signals', async (req, res) => {
 // ─── 2. Segments ─────────────────────────────────────────────────────────────
 
 // GET /api/marketing/segments
-router.get('/segments', (req, res) => {
+router.get('/segments', async (req, res) => {
   try {
-    const segments = getAllSegmentSummaries(req.user.companyId);
+    const segments = await getAllSegmentSummaries(req.user.companyId);
     res.json({ segments });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -51,9 +51,9 @@ router.get('/segments', (req, res) => {
 });
 
 // GET /api/marketing/segments/:segmentId/customers
-router.get('/segments/:segmentId/customers', (req, res) => {
+router.get('/segments/:segmentId/customers', async (req, res) => {
   try {
-    const customers = getSegmentCustomers(req.params.segmentId, req.user.companyId);
+    const customers = await getSegmentCustomers(req.params.segmentId, req.user.companyId);
     res.json({ customers });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -118,7 +118,7 @@ router.post('/campaigns/generate', marketingAiRateLimit, async (req, res) => {
     let targetSegment = segmentId || null;
 
     if (opportunityId) {
-      const opp = getOpportunityById(opportunityId, req.user.companyId);
+      const opp = await getOpportunityById(opportunityId, req.user.companyId);
       if (!opp) return res.status(404).json({ error: 'Opportunity not found' });
       
       campaignType = 'opportunity_campaign';
@@ -140,10 +140,10 @@ router.post('/campaigns/generate', marketingAiRateLimit, async (req, res) => {
       aiContent = await generateCampaign(opp, objective);
     } else {
       // Legacy segment flow
-      customers = getSegmentCustomers(segmentId, req.user.companyId);
+      customers = await getSegmentCustomers(segmentId, req.user.companyId);
       if (customers.length === 0) return res.status(400).json({ error: 'Segment has no customers' });
 
-      const segmentSummaries = getAllSegmentSummaries(req.user.companyId);
+      const segmentSummaries = await getAllSegmentSummaries(req.user.companyId);
       const segmentSummary = segmentSummaries.find(s => s.id === segmentId) || { name: segmentId, description: '' };
       expectedImpact = customers.reduce((sum, c) => sum + (c.total_revenue || 0), 0);
       
@@ -260,9 +260,9 @@ router.put('/campaigns/:id', (req, res) => {
 });
 
 // GET /api/marketing/campaigns/:id/performance
-router.get('/campaigns/:id/performance', (req, res) => {
+router.get('/campaigns/:id/performance', async (req, res) => {
   try {
-    const performance = calculateCampaignROI(req.params.id, req.user.companyId);
+    const performance = await calculateCampaignROI(req.params.id, req.user.companyId);
     res.json({ performance });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -307,7 +307,7 @@ router.get('/campaigns/:id/export/csv', (req, res) => {
 // ─── 4. Dashboard ────────────────────────────────────────────────────────────
 
 // GET /api/marketing/dashboard
-router.get('/dashboard', (req, res) => {
+router.get('/dashboard', async (req, res) => {
   const db = getDb();
   try {
     // Basic stats from campaigns
@@ -347,7 +347,7 @@ router.get('/dashboard', (req, res) => {
     `).get(req.user.companyId);
 
     // Re-use engine data
-    const opps = getMarketingOpportunities(req.user.companyId);
+    const opps = await getMarketingOpportunities(req.user.companyId);
     const totalOpportunityValue = opps.reduce((s, o) => s + o.expectedImpact, 0);
     const deadStockOpp = opps.find(o => o.type === 'dead_stock_liquidation');
     const retentionOpp = opps.find(o => o.type === 'customer_retention');
@@ -705,9 +705,9 @@ router.post('/communications/webhook', (req, res) => {
 
 // ─── 11. Spend Intelligence ──────────────────────────────────────────────────
 
-router.get('/health-score', (req, res) => {
+router.get('/health-score', async (req, res) => {
   try {
-    const health = calculateStoreHealthScore(req.user.companyId);
+    const health = await calculateStoreHealthScore(req.user.companyId);
     res.json(health);
   } catch (err) {
     console.error('[Marketing] health-score error:', err);
@@ -715,19 +715,19 @@ router.get('/health-score', (req, res) => {
   }
 });
 
-router.get('/channel-roi', (req, res) => {
+router.get('/channel-roi', async (req, res) => {
   try {
-    const data = getChannelROIRanking(req.user.companyId);
+    const data = await getChannelROIRanking(req.user.companyId);
     res.json(data);
   } catch (err) {
     console.error('[Marketing] channel-roi error:', err);
     res.status(500).json({ error: err.message });
   }
 });
-router.post('/budget-split', (req, res) => {
+router.post('/budget-split', async (req, res) => {
   try {
     const { budget } = req.body;
-    const data = getSuggestedBudgetSplit(req.user.companyId, budget ? Number(budget) : null);
+    const data = await getSuggestedBudgetSplit(req.user.companyId, budget ? Number(budget) : null);
     res.json(data);
   } catch (err) {
     console.error('[Marketing] budget-split error:', err);
@@ -735,10 +735,10 @@ router.post('/budget-split', (req, res) => {
   }
 });
 
-router.get('/segment-priority', (req, res) => {
+router.get('/segment-priority', async (req, res) => {
   try {
     const { timeframe } = req.query;
-    const data = getSegmentSpendPriority(req.user.companyId, timeframe);
+    const data = await getSegmentSpendPriority(req.user.companyId, timeframe);
     res.json(data);
   } catch (err) {
     console.error('[Marketing] segment-priority error:', err);
@@ -746,10 +746,10 @@ router.get('/segment-priority', (req, res) => {
   }
 });
 
-router.get('/break-even', (req, res) => {
+router.get('/break-even', async (req, res) => {
   try {
     const { timeframe } = req.query;
-    const data = getBreakEvenCalculator(req.user.companyId, timeframe);
+    const data = await getBreakEvenCalculator(req.user.companyId, timeframe);
     res.json(data);
   } catch (err) {
     console.error('[Marketing] break-even error:', err);
@@ -757,25 +757,25 @@ router.get('/break-even', (req, res) => {
   }
 });
 
-router.get('/weekly-recommendation', (req, res) => {
+router.get('/weekly-recommendation', async (req, res) => {
   try {
-    res.json(getWeeklyRecommendation(req.user.companyId));
+    res.json(await getWeeklyRecommendation(req.user.companyId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.get('/report-cards', (req, res) => {
+router.get('/report-cards', async (req, res) => {
   try {
-    res.json(getPostSpendReportCards(req.user.companyId));
+    res.json(await getPostSpendReportCards(req.user.companyId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.get('/flags', (req, res) => {
+router.get('/flags', async (req, res) => {
   try {
-    res.json(getDoNotSpendFlags(req.user.companyId));
+    res.json(await getDoNotSpendFlags(req.user.companyId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

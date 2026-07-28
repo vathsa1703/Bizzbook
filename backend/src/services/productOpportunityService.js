@@ -5,25 +5,26 @@
 // last 14 days against the 14 days before that, anchored to the company's
 // most recent sale date (same anchoring convention as metricsService.js/
 // marketingEngine.js, so demo data stays consistent even as real time passes).
-const { getDb } = require('../config/db');
+const { withExecutor, dateSub } = require('../config/dbEngine');
 const { getAnchorDate } = require('./metricsService');
 
 module.exports = {
   getOpportunities: async (companyId) => {
-    const db = getDb();
-    try {
-      const anchorDate = getAnchorDate(db, companyId);
+    return withExecutor(async (x) => {
+      const anchorDate = await getAnchorDate(x, companyId);
+      const minus14 = dateSub(x, 14);
+      const minus28 = dateSub(x, 28);
 
-      const rows = db.prepare(`
+      const rows = await x.all(`
         SELECT
           p.id, p.name,
-          COALESCE(SUM(CASE WHEN s.sale_date >  date(?, '-14 days') THEN s.quantity ELSE 0 END), 0) AS recent_qty,
-          COALESCE(SUM(CASE WHEN s.sale_date <= date(?, '-14 days') AND s.sale_date > date(?, '-28 days') THEN s.quantity ELSE 0 END), 0) AS prior_qty
+          COALESCE(SUM(CASE WHEN s.sale_date >  ${minus14} THEN s.quantity ELSE 0 END), 0) AS recent_qty,
+          COALESCE(SUM(CASE WHEN s.sale_date <= ${minus14} AND s.sale_date > ${minus28} THEN s.quantity ELSE 0 END), 0) AS prior_qty
         FROM products p
-        LEFT JOIN sales s ON s.product_id = p.id AND s.sale_date > date(?, '-28 days')
+        LEFT JOIN sales s ON s.product_id = p.id AND s.sale_date > ${minus28}
         WHERE p.company_id = ?
         GROUP BY p.id
-      `).all(anchorDate, anchorDate, anchorDate, anchorDate, companyId);
+      `, [anchorDate, anchorDate, anchorDate, anchorDate, companyId]);
 
       const withTrend = rows
         .filter(r => r.recent_qty > 0 || r.prior_qty > 0)
@@ -55,8 +56,6 @@ module.exports = {
       ];
 
       return opportunities;
-    } finally {
-      db.close();
-    }
+    });
   }
 };

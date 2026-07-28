@@ -49,7 +49,7 @@ If a field is missing, omit it or set it to null/0. Do not wrap the JSON in mark
   return JSON.parse(raw);
 }
 
-function buildAIContext(metrics, companyId) {
+async function buildAIContext(metrics, companyId) {
   let marketingSummary = '';
   let activeCampaignsSummary = '';
   let segmentsSummary = '';
@@ -64,7 +64,7 @@ function buildAIContext(metrics, companyId) {
     }
 
     const { getAllSegmentSummaries } = require('./segmentationEngine');
-    const segments = getAllSegmentSummaries(companyId);
+    const segments = await getAllSegmentSummaries(companyId);
     if (segments.length > 0) {
       segmentsSummary = '\nTOP CUSTOMER SEGMENTS:\n' + segments.slice(0, 3).map(s => `- ${s.name}: ${s.customerCount} customers, ₹${s.totalRevenue} value`).join('\n');
     }
@@ -123,14 +123,14 @@ async function callLLM(userId, companyId, sessionId, userMessage, businessType =
   const db = getDb();
 
   // 1. Get business context scoped to this company
-  const metrics = getMetricsSnapshot(companyId);
-  const contextBlock = buildAIContext(metrics, companyId);
+  const metrics = await getMetricsSnapshot(companyId);
+  const contextBlock = await buildAIContext(metrics, companyId);
 
   let systemPromptToUse = getSystemPrompt(businessType);
 
   // 1b. Intent Routing: Only query Opportunity Engine for strategic questions
   if (isStrategicQuery(userMessage)) {
-    const opportunities = getMarketingOpportunities(companyId);
+    const opportunities = await getMarketingOpportunities(companyId);
     if (opportunities.length > 0) {
       const opsStr = opportunities.map((o, i) =>
         `${i+1}. ${o.name}\n   Score: ${o.overall_score}\n   Confidence: ${o.confidenceScore}%\n\nDetected Because:\n${o.detectedBecause}\n\nExpected Recovery:\n₹${Math.round(o.expectedImpact).toLocaleString()}`
@@ -169,7 +169,7 @@ async function callLLM(userId, companyId, sessionId, userMessage, businessType =
   try {
     if (!process.env.OPENAI_API_KEY) {
       console.log('No OPENAI_API_KEY found, using mock response for testing.');
-      const opportunities = isStrategicQuery(userMessage) ? getMarketingOpportunities(companyId) : [];
+      const opportunities = isStrategicQuery(userMessage) ? await getMarketingOpportunities(companyId) : [];
       if (opportunities.length > 0) {
         responseText = `You currently have ${opportunities.length} high-impact opportunities.\n1. ${opportunities[0].name}\n   Score: ${opportunities[0].overall_score}\n   Confidence: ${opportunities[0].confidenceScore}%\n\nDetected Because:\n${opportunities[0].detectedBecause}\n\nExpected Recovery:\n₹${Math.round(opportunities[0].expectedImpact).toLocaleString()}\n\nI recommend addressing ${opportunities[0].name} first due to its higher opportunity score and larger impact.\nYou can generate a complete execution strategy from the Marketing tab.`;
       } else {

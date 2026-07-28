@@ -12,8 +12,8 @@ function avg(rows, key) {
 
 module.exports = {
   getInsights: async (companyId) => {
-    const vipCustomers = getSegmentCustomers('vip', companyId);
-    const atRiskCustomers = getSegmentCustomers('at_risk', companyId);
+    const vipCustomers = await getSegmentCustomers('vip', companyId);
+    const atRiskCustomers = await getSegmentCustomers('at_risk', companyId);
 
     const vip = {
       count: vipCustomers.length,

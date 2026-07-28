@@ -11,7 +11,7 @@ async function getDashboardFeed(companyId) {
   // We'll aggregate the 'Intelligent Dashboard' response here
   
   // 1. Get Top Revenue Opportunity
-  const ops = getMarketingOpportunities(companyId) || [];
+  const ops = (await getMarketingOpportunities(companyId)) || [];
   const topOp = ops.length > 0 ? ops[0] : null;
 
   let headlineOpportunity = null;

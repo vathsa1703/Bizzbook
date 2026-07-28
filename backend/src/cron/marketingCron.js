@@ -25,7 +25,7 @@ async function executeMarketingCron(companyIdParam = null) {
 
       // 1. Run the 4 Opportunity Engines
       // forceRefresh = true to bypass cache
-      const opportunities = getMarketingOpportunities(companyId, true) || [];
+      const opportunities = (await getMarketingOpportunities(companyId, true)) || [];
 
       // Insert signals and edges for opportunities
       for (const opp of opportunities) {
@@ -75,7 +75,7 @@ async function executeMarketingCron(companyIdParam = null) {
       }
 
       // 2. Run the 4 Rule-Based Insight Engines
-      const dashboardData = getDashboardInsights(companyId) || { insights: [] };
+      const dashboardData = (await getDashboardInsights(companyId)) || { insights: [] };
       for (const insight of dashboardData.insights) {
         
         // marketing_signals insertion

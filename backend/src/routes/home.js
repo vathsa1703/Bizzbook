@@ -18,14 +18,14 @@ const {
 const automationEngine = require('../services/AutomationEngine');
 
 // GET /api/home/marketing-summary
-router.get('/marketing-summary', (req, res) => {
+router.get('/marketing-summary', async (req, res) => {
   const companyId = req.user.companyId;
 
   // ── 1. Top opportunity + customers-at-risk (marketingEngine) ────────────────
   let opportunity = null;
   let customersAtRisk = 0;
   try {
-    const opps = getMarketingOpportunities(companyId) || [];
+    const opps = (await getMarketingOpportunities(companyId)) || [];
     if (opps.length > 0) {
       const top = opps[0]; // engine returns them pre-ranked by score
       opportunity = {
@@ -49,7 +49,7 @@ router.get('/marketing-summary', (req, res) => {
   // ── 2. Store health (spendIntelligenceEngine) ───────────────────────────────
   let health = null;
   try {
-    const h = calculateStoreHealthScore(companyId);
+    const h = await calculateStoreHealthScore(companyId);
     health = { grade: h.grade, score: h.overall_score, trend: h.score_change || 0 };
   } catch (err) {
     console.error('[Home] health aggregation error:', err.message);
@@ -58,7 +58,7 @@ router.get('/marketing-summary', (req, res) => {
   // ── 3. Weekly recommendation (spendIntelligenceEngine) ──────────────────────
   let weeklyRecommendation = null;
   try {
-    weeklyRecommendation = getWeeklyRecommendation(companyId);
+    weeklyRecommendation = await getWeeklyRecommendation(companyId);
   } catch (err) {
     console.error('[Home] weekly-recommendation aggregation error:', err.message);
   }
@@ -77,7 +77,7 @@ router.get('/marketing-summary', (req, res) => {
       `).get(companyId);
       let overspend = false;
       try {
-        const flags = getDoNotSpendFlags(companyId) || [];
+        const flags = (await getDoNotSpendFlags(companyId)) || [];
         overspend = Array.isArray(flags) && flags.length > 0;
       } catch (flagErr) {
         console.error('[Home] flags aggregation error:', flagErr.message);
