@@ -9,9 +9,9 @@ router.use(authenticate);
 /**
  * GET /api/automations/dashboard
  */
-router.get('/dashboard', (req, res) => {
+router.get('/dashboard', async (req, res) => {
   try {
-    const stats = automationEngine.getStats(req.user.companyId);
+    const stats = await automationEngine.getStats(req.user.companyId);
     res.json({ success: true, stats });
   } catch (error) {
     console.error('[AutomationsAPI] Error fetching dashboard:', error);
@@ -98,7 +98,7 @@ router.post('/', async (req, res) => {
       action_payload ? JSON.stringify(action_payload) : null
     ]);
 
-    automationEngine.reloadAutomations();
+    await automationEngine.reloadAutomations();
 
     res.status(201).json({ success: true, automation_id: row.id });
   } catch (error) {
@@ -134,7 +134,7 @@ router.put('/:id/toggle', async (req, res) => {
       [newValue, req.params.id, companyId]
     );
 
-    automationEngine.reloadAutomations();
+    await automationEngine.reloadAutomations();
 
     res.json({ success: true });
   } catch (error) {
@@ -163,7 +163,7 @@ router.delete('/:id', async (req, res) => {
     // Also delete logs
     await dbGet('DELETE FROM automation_execution_logs WHERE automation_id = ? AND company_id = ?', [req.params.id, companyId]);
 
-    automationEngine.reloadAutomations();
+    await automationEngine.reloadAutomations();
 
     res.json({ success: true });
   } catch (error) {

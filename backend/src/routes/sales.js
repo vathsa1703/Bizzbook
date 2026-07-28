@@ -541,7 +541,7 @@ router.post('/', async (req, res, next) => {
     }
 
     // Emit domain event
-    eventBusService.emit(companyId, Events.INVOICE_CREATED, invoiceId, {
+    await eventBusService.emit(companyId, Events.INVOICE_CREATED, invoiceId, {
       invoiceId,
       invoiceNumber: finalInvoiceNumber,
       companyId,

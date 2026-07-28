@@ -58,8 +58,12 @@ class CommunicationService {
       if (msDiff > 0) delayMinutes = Math.floor(msDiff / 60000);
     }
 
-    batches.forEach((batch, idx) => {
-      jobQueueService.enqueue({
+    // JobQueueService.enqueue() is async (Postgres dual-engine conversion) --
+    // must be awaited in a real loop, not fire-and-forgotten inside forEach,
+    // or a duplicate-idempotency-key error becomes an unhandled rejection
+    // instead of surfacing to this method's caller.
+    for (let idx = 0; idx < batches.length; idx++) {
+      await jobQueueService.enqueue({
         companyId,
         type: JobTypes.COMM_SEND_BATCH,
         payload: JSON.stringify({
@@ -70,11 +74,11 @@ class CommunicationService {
           automationId: campaignData.automation_id || null,
           segmentId: campaignData.segment_id || null,
           batchIndex: idx,
-          recipients: batch
+          recipients: batches[idx]
         }),
         delayMinutes
       });
-    });
+    }
 
     return { campaignId, status, batchesCreated: batches.length };
   }

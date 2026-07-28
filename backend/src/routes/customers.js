@@ -129,7 +129,7 @@ router.post('/', async (req, res, next) => {
     // Emit event for automations
     const eventBusService = require('../services/EventBusService');
     const { Events } = require('../constants/events');
-    eventBusService.emit(companyId, Events.CUSTOMER_CREATED, customerId, {
+    await eventBusService.emit(companyId, Events.CUSTOMER_CREATED, customerId, {
       customerId: customerId,
       name: name.trim(),
       city: state // We map city to state roughly for testing if city field is absent

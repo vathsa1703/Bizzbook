@@ -21,7 +21,7 @@ const PORT = process.env.PORT || 5000;
     process.exit(1);
   }
 
-  app.listen(PORT, () => {
+  app.listen(PORT, async () => {
     console.log(`AI Voice Business Assistant backend running on port ${PORT}`);
     if (isHealthy) {
       insightCache.startJob();
@@ -30,7 +30,7 @@ const PORT = process.env.PORT || 5000;
       marketingCron.initCron();
       startJobWorker();
       initInventoryListener();
-      automationEngine.init();
+      await automationEngine.init();
     } else {
       console.warn('[WARN] Running in degraded mode. Background jobs may be suspended.');
     }

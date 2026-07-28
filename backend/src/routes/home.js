@@ -92,7 +92,7 @@ router.get('/marketing-summary', async (req, res) => {
   // ── 5. Automation health (AutomationEngine) ─────────────────────────────────
   let automations = null;
   try {
-    const s = automationEngine.getStats(companyId);
+    const s = await automationEngine.getStats(companyId);
     automations = { failed: s.failed, successRate: s.successRate, total: s.total };
   } catch (err) {
     console.error('[Home] automation aggregation error:', err.message);

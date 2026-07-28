@@ -1,5 +1,11 @@
-const { getDb } = require('../config/db');
+const { dbGet, dbAll, engine } = require('../config/dbEngine');
 const { JobTypes } = require('../constants/jobs');
+
+// True for a duplicate-primary-key/unique-constraint violation on either
+// engine (see routes/gstMaster.js for the canonical version of this check).
+function isDuplicateKeyError(e) {
+  return e.code === '23505' || (e.message && e.message.includes('UNIQUE constraint failed'));
+}
 
 class JobQueueService {
   constructor() {
@@ -8,7 +14,7 @@ class JobQueueService {
 
   /**
    * Register a handler function for a specific JobType
-   * @param {string} jobType 
+   * @param {string} jobType
    * @param {Function} handler async function(job)
    */
   registerHandler(jobType, handler) {
@@ -19,26 +25,24 @@ class JobQueueService {
    * Enqueue a new background job
    * @param {Object} params - { companyId, type, payload, priority = 5, correlationId = null, idempotencyKey = null, delayMinutes = 0 }
    */
-  enqueue({ companyId, type, payload, priority = 5, correlationId = null, idempotencyKey = null, delayMinutes = 0 }) {
-    const db = getDb();
-    const runAt = delayMinutes > 0 ? `datetime('now', '+${delayMinutes} minutes')` : `datetime('now')`;
-    
+  async enqueue({ companyId, type, payload, priority = 5, correlationId = null, idempotencyKey = null, delayMinutes = 0 }) {
+    const pg = engine() === 'postgres';
+    let runAt;
+    if (delayMinutes > 0) {
+      runAt = pg ? `(now() + interval '${delayMinutes} minutes')` : `datetime('now', '+${delayMinutes} minutes')`;
+    } else {
+      runAt = pg ? 'now()' : `datetime('now')`;
+    }
+
     try {
-      const stmt = db.prepare(`
+      const row = await dbGet(`
         INSERT INTO background_jobs (company_id, correlation_id, idempotency_key, type, payload, priority, status, run_at)
         VALUES (?, ?, ?, ?, ?, ?, 'pending', ${runAt})
-      `);
-      const info = stmt.run(
-        companyId,
-        correlationId,
-        idempotencyKey,
-        type,
-        JSON.stringify(payload),
-        priority
-      );
-      return { success: true, jobId: info.lastInsertRowid };
+        RETURNING id
+      `, [companyId, correlationId, idempotencyKey, type, JSON.stringify(payload), priority]);
+      return { success: true, jobId: row.id };
     } catch (err) {
-      if (err.message.includes('UNIQUE constraint failed') && idempotencyKey) {
+      if (isDuplicateKeyError(err) && idempotencyKey) {
         console.log(`[JobQueueService] Ignored duplicate job due to idempotency key: ${idempotencyKey}`);
         return { success: true, duplicate: true };
       }
@@ -48,28 +52,29 @@ class JobQueueService {
 
   /**
    * Claim pending jobs for processing
-   * @param {number} limit 
+   * @param {number} limit
    */
-  claimJobs(limit = 10) {
-    const db = getDb();
-    
+  async claimJobs(limit = 10) {
+    const pg = engine() === 'postgres';
+    const now = pg ? 'now()' : `datetime('now')`;
+
     // SQLite doesn't have SKIP LOCKED, but we can do a standard claim pattern
     // Find pending jobs that are ready to run, ordered by priority.
-    // SELECT * (not an explicit column list) -- the previous explicit list
+    // SELECT * (not an explicit column list) -- an earlier explicit list
     // omitted company_id entirely, so every handler's `job.company_id` was
     // silently undefined. Confirmed live: this crashed
     // CommunicationService.processBatch's INSERT ("Provided value cannot be
     // bound to SQLite parameter 1" -- company_id is bind param 1 there).
     // Not just a communications bug -- any handler reading job.company_id
-    // (or any other job column beyond this original five) hit the same
-    // silent-undefined failure mode.
-    const jobs = db.prepare(`
+    // (or any other job column beyond the original explicit five) hit the
+    // same silent-undefined failure mode.
+    const jobs = await dbAll(`
       SELECT *
       FROM background_jobs
-      WHERE status = 'pending' AND run_at <= datetime('now')
+      WHERE status = 'pending' AND run_at <= ${now}
       ORDER BY priority ASC, run_at ASC
       LIMIT ?
-    `).all(limit);
+    `, [limit]);
 
     if (jobs.length === 0) return [];
 
@@ -77,49 +82,51 @@ class JobQueueService {
     const placeholders = jobIds.map(() => '?').join(',');
 
     // Lock them
-    db.prepare(`
-      UPDATE background_jobs 
-      SET status = 'processing', locked_at = datetime('now')
+    await dbGet(`
+      UPDATE background_jobs
+      SET status = 'processing', locked_at = ${now}
       WHERE id IN (${placeholders})
-    `).run(...jobIds);
+    `, jobIds);
 
     return jobs;
   }
 
-  completeJob(jobId) {
-    const db = getDb();
-    db.prepare(`UPDATE background_jobs SET status = 'completed', updated_at = datetime('now') WHERE id = ?`).run(jobId);
+  async completeJob(jobId) {
+    const now = engine() === 'postgres' ? 'now()' : `datetime('now')`;
+    await dbGet(`UPDATE background_jobs SET status = 'completed', updated_at = ${now} WHERE id = ?`, [jobId]);
   }
 
-  retryJob(jobId, attempts, maxAttempts, errorLog) {
-    const db = getDb();
+  async retryJob(jobId, attempts, maxAttempts, errorLog) {
     const newAttempts = attempts + 1;
-    
+
     if (newAttempts >= maxAttempts) {
-      this.markDead(jobId, errorLog);
+      await this.markDead(jobId, errorLog);
     } else {
       // Exponential backoff: minutes = attempts^2 * 5
       const delayMins = Math.pow(newAttempts, 2) * 5;
-      db.prepare(`
-        UPDATE background_jobs 
-        SET status = 'pending', 
-            attempts = ?, 
-            error_log = ?, 
-            run_at = datetime('now', '+${delayMins} minutes'),
-            updated_at = datetime('now')
+      const pg = engine() === 'postgres';
+      const now = pg ? 'now()' : `datetime('now')`;
+      const runAt = pg ? `(now() + interval '${delayMins} minutes')` : `datetime('now', '+${delayMins} minutes')`;
+      await dbGet(`
+        UPDATE background_jobs
+        SET status = 'pending',
+            attempts = ?,
+            error_log = ?,
+            run_at = ${runAt},
+            updated_at = ${now}
         WHERE id = ?
-      `).run(newAttempts, errorLog, jobId);
+      `, [newAttempts, errorLog, jobId]);
     }
   }
 
-  failJob(jobId, errorLog) {
-    const db = getDb();
-    db.prepare(`UPDATE background_jobs SET status = 'failed', error_log = ?, updated_at = datetime('now') WHERE id = ?`).run(errorLog, jobId);
+  async failJob(jobId, errorLog) {
+    const now = engine() === 'postgres' ? 'now()' : `datetime('now')`;
+    await dbGet(`UPDATE background_jobs SET status = 'failed', error_log = ?, updated_at = ${now} WHERE id = ?`, [errorLog, jobId]);
   }
 
-  markDead(jobId, errorLog) {
-    const db = getDb();
-    db.prepare(`UPDATE background_jobs SET status = 'dead', error_log = ?, updated_at = datetime('now') WHERE id = ?`).run(errorLog, jobId);
+  async markDead(jobId, errorLog) {
+    const now = engine() === 'postgres' ? 'now()' : `datetime('now')`;
+    await dbGet(`UPDATE background_jobs SET status = 'dead', error_log = ?, updated_at = ${now} WHERE id = ?`, [errorLog, jobId]);
     console.error(`[JobQueueService] Job ${jobId} moved to DEAD LETTER QUEUE.`);
   }
 
@@ -135,11 +142,11 @@ class JobQueueService {
 
       const payload = JSON.parse(job.payload);
       await handler(payload, job);
-      
-      this.completeJob(job.id);
+
+      await this.completeJob(job.id);
     } catch (err) {
       console.error(`[JobQueueService] Job ${job.id} failed:`, err.message);
-      this.retryJob(job.id, job.attempts, job.max_attempts, err.message || err.toString());
+      await this.retryJob(job.id, job.attempts, job.max_attempts, err.message || err.toString());
     }
   }
 
@@ -147,7 +154,7 @@ class JobQueueService {
    * Called by the cron worker to sweep and process
    */
   async sweep() {
-    const jobs = this.claimJobs(10);
+    const jobs = await this.claimJobs(10);
     for (const job of jobs) {
       await this.processJob(job);
     }

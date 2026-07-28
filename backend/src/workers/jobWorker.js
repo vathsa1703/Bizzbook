@@ -102,7 +102,7 @@ function startJobWorker() {
     
     try {
       await jobQueueService.sweep();
-      eventBusService.sweep();
+      await eventBusService.sweep();
     } catch (err) {
       console.error('[JobWorker] Critical sweep failure:', err);
     } finally {
