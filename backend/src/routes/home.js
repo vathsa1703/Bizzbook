@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getDb } = require('../config/db');
+const { dbGet } = require('../config/dbEngine');
 
 // This route is a thin aggregation façade for the Home dashboard. It performs
 // NO business calculations of its own — every number comes from an existing
@@ -68,28 +68,23 @@ router.get('/marketing-summary', async (req, res) => {
   // the overspend signal is the existing do-not-spend engine.
   let rewardCost = null;
   try {
-    const db = getDb();
+    const row = await dbGet(`
+      SELECT COUNT(id) as redemptions, COALESCE(SUM(discount_applied), 0) as totalDiscount
+      FROM coupon_redemptions
+      WHERE company_id = ?
+    `, [companyId]);
+    let overspend = false;
     try {
-      const row = db.prepare(`
-        SELECT COUNT(id) as redemptions, COALESCE(SUM(discount_applied), 0) as totalDiscount
-        FROM coupon_redemptions
-        WHERE company_id = ?
-      `).get(companyId);
-      let overspend = false;
-      try {
-        const flags = (await getDoNotSpendFlags(companyId)) || [];
-        overspend = Array.isArray(flags) && flags.length > 0;
-      } catch (flagErr) {
-        console.error('[Home] flags aggregation error:', flagErr.message);
-      }
-      rewardCost = {
-        total: Math.round(row?.totalDiscount || 0),
-        redemptions: row?.redemptions || 0,
-        overspend
-      };
-    } finally {
-      db.close();
+      const flags = (await getDoNotSpendFlags(companyId)) || [];
+      overspend = Array.isArray(flags) && flags.length > 0;
+    } catch (flagErr) {
+      console.error('[Home] flags aggregation error:', flagErr.message);
     }
+    rewardCost = {
+      total: Math.round(row?.totalDiscount || 0),
+      redemptions: row?.redemptions || 0,
+      overspend
+    };
   } catch (err) {
     console.error('[Home] reward-cost aggregation error:', err.message);
   }
