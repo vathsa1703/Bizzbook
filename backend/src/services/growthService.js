@@ -1,6 +1,9 @@
 // ============================================================================
 // Growth Service — Business Growth Hub
-// Uses BizBook's standard synchronous DatabaseSync pattern (getDb()).
+// Phase 2: dual-engine (SQLite + Postgres) via config/dbEngine.js's executor
+// abstraction. Each exported function opens/uses one connection (or the
+// shared Postgres pool) via withExecutor/withTxExecutor — same lifecycle
+// guarantee the original getDb()/db.close() pattern had.
 // All operations scoped to companyId for multi-tenant isolation.
 // ============================================================================
 'use strict';
@@ -8,6 +11,8 @@
 const path = require('path');
 const fs = require('fs');
 const { getDb } = require('../config/db');
+const { dbGet, dbAll, engine, withExecutor, withTxExecutor } = require('../config/dbEngine');
+const pgDb = require('../config/pgDb');
 const {
   FUNDING_TYPES,
   GOVERNMENT_SCHEMES,
@@ -16,86 +21,94 @@ const {
   DUE_DILIGENCE_TEMPLATE,
 } = require('../data/growthSeedData');
 
-// ── Shared DB helper: run inside a try/finally getDb()/db.close() block ──────
-// Each exported function opens+closes its own db connection (same pattern as
-// complianceService, marketingService, etc.)
+// ── Shared DB helper: each function runs via withExecutor (plain connection)
+// or withTxExecutor (atomic transaction), on whichever engine DB_ENGINE
+// selects. See config/dbEngine.js for the executor shape ({engine, get, all,
+// run, insert}).
+
+// INSERT OR IGNORE has no direct Postgres equivalent (ON CONFLICT DO NOTHING
+// instead) — this is the one upsert pattern this file needs twice
+// (getOrCreateProfileWithDb / updateProfile), both against growth_profiles's
+// UNIQUE(company_id).
+function insertIgnoreProfileSql(x) {
+  return x.engine === 'postgres'
+    ? 'INSERT INTO growth_profiles (company_id) VALUES (?) ON CONFLICT (company_id) DO NOTHING'
+    : 'INSERT OR IGNORE INTO growth_profiles (company_id) VALUES (?)';
+}
 
 // ── 1. Reference Data Seeding ─────────────────────────────────────────────────
 
-function seedReferenceData() {
-  const db = getDb();
-  try {
+async function seedReferenceData() {
+  return withExecutor(async (x) => {
     // Seed funding_types if empty
-    const ftCount = db.prepare('SELECT COUNT(*) as cnt FROM funding_types').get();
+    const ftCount = await x.get('SELECT COUNT(*) as cnt FROM funding_types');
     if (!ftCount || ftCount.cnt === 0) {
-      const stmt = db.prepare(
-        `INSERT INTO funding_types
-          (country_code, name, category, description, eligibility, advantages, disadvantages,
-           typical_amount_min, typical_amount_max, typical_amount_unit, dilution_level,
-           risk_level, timeline_days_min, timeline_days_max, required_documents,
-           how_to_apply, official_resources, sort_order)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
-      );
       for (const ft of FUNDING_TYPES) {
-        stmt.run(
-          ft.country_code ?? null, ft.name, ft.category, ft.description,
-          ft.eligibility, ft.advantages, ft.disadvantages,
-          ft.typical_amount_min ?? null, ft.typical_amount_max ?? null, ft.typical_amount_unit,
-          ft.dilution_level, ft.risk_level, ft.timeline_days_min ?? null, ft.timeline_days_max ?? null,
-          ft.required_documents, ft.how_to_apply, ft.official_resources, ft.sort_order
+        await x.run(
+          `INSERT INTO funding_types
+            (country_code, name, category, description, eligibility, advantages, disadvantages,
+             typical_amount_min, typical_amount_max, typical_amount_unit, dilution_level,
+             risk_level, timeline_days_min, timeline_days_max, required_documents,
+             how_to_apply, official_resources, sort_order)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [
+            ft.country_code ?? null, ft.name, ft.category, ft.description,
+            ft.eligibility, ft.advantages, ft.disadvantages,
+            ft.typical_amount_min ?? null, ft.typical_amount_max ?? null, ft.typical_amount_unit,
+            ft.dilution_level, ft.risk_level, ft.timeline_days_min ?? null, ft.timeline_days_max ?? null,
+            ft.required_documents, ft.how_to_apply, ft.official_resources, ft.sort_order,
+          ]
         );
       }
       console.log('[GrowthService] Seeded funding_types:', FUNDING_TYPES.length);
     }
 
     // Seed government_schemes if empty
-    const gsCount = db.prepare('SELECT COUNT(*) as cnt FROM government_schemes').get();
+    const gsCount = await x.get('SELECT COUNT(*) as cnt FROM government_schemes');
     if (!gsCount || gsCount.cnt === 0) {
-      const stmt = db.prepare(
-        `INSERT INTO government_schemes
-          (country_code, region, name, short_name, category, administering_body, description,
-           eligibility, benefits, documents_required, application_process, official_links,
-           deadline_type, deadline_notes, max_benefit_amount, benefit_unit, benefit_type, tags, sort_order)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
-      );
       for (const gs of GOVERNMENT_SCHEMES) {
-        stmt.run(
-          gs.country_code, gs.region ?? null, gs.name, gs.short_name ?? null, gs.category,
-          gs.administering_body, gs.description, gs.eligibility, gs.benefits,
-          gs.documents_required, gs.application_process, gs.official_links,
-          gs.deadline_type, gs.deadline_notes ?? null, gs.max_benefit_amount ?? null,
-          gs.benefit_unit ?? 'INR', gs.benefit_type, gs.tags, gs.sort_order
+        await x.run(
+          `INSERT INTO government_schemes
+            (country_code, region, name, short_name, category, administering_body, description,
+             eligibility, benefits, documents_required, application_process, official_links,
+             deadline_type, deadline_notes, max_benefit_amount, benefit_unit, benefit_type, tags, sort_order)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [
+            gs.country_code, gs.region ?? null, gs.name, gs.short_name ?? null, gs.category,
+            gs.administering_body, gs.description, gs.eligibility, gs.benefits,
+            gs.documents_required, gs.application_process, gs.official_links,
+            gs.deadline_type, gs.deadline_notes ?? null, gs.max_benefit_amount ?? null,
+            gs.benefit_unit ?? 'INR', gs.benefit_type, gs.tags, gs.sort_order,
+          ]
         );
       }
       console.log('[GrowthService] Seeded government_schemes:', GOVERNMENT_SCHEMES.length);
     }
-  } finally { db.close(); }
+  });
 }
 
 // ── 2. Growth Profile ─────────────────────────────────────────────────────────
 
-// Same logic as getOrCreateProfile, but operates on an already-open connection
+// Same logic as getOrCreateProfile, but operates on an already-open executor
 // so callers composing multiple reads (e.g. the dashboard) don't each pay for
-// their own getDb() (which re-execs the full schema on every open).
-function getOrCreateProfileWithDb(db, companyId) {
-  let profile = db.prepare('SELECT * FROM growth_profiles WHERE company_id = ?').get(companyId);
+// their own withExecutor (a fresh SQLite handle re-execs the full schema on
+// every open; a fresh Postgres call re-borrows from the pool).
+async function getOrCreateProfileWithDb(x, companyId) {
+  let profile = await x.get('SELECT * FROM growth_profiles WHERE company_id = ?', [companyId]);
   if (!profile) {
-    db.prepare('INSERT OR IGNORE INTO growth_profiles (company_id) VALUES (?)').run(companyId);
-    profile = db.prepare('SELECT * FROM growth_profiles WHERE company_id = ?').get(companyId);
+    await x.run(insertIgnoreProfileSql(x), [companyId]);
+    profile = await x.get('SELECT * FROM growth_profiles WHERE company_id = ?', [companyId]);
   }
   return profile;
 }
 
-function getOrCreateProfile(companyId) {
-  const db = getDb();
-  try { return getOrCreateProfileWithDb(db, companyId); }
-  finally { db.close(); }
+async function getOrCreateProfile(companyId) {
+  return withExecutor((x) => getOrCreateProfileWithDb(x, companyId));
 }
 
-function updateProfile(companyId, data) {
-  const db = getDb();
-  try {
-    db.prepare('INSERT OR IGNORE INTO growth_profiles (company_id) VALUES (?)').run(companyId);
+async function updateProfile(companyId, data) {
+  return withExecutor(async (x) => {
+    await x.run(insertIgnoreProfileSql(x), [companyId]);
     const fields = [
       'stage', 'country_code', 'currency_code', 'currency_symbol',
       'annual_revenue', 'ebitda', 'total_assets', 'growth_rate_pct',
@@ -108,125 +121,123 @@ function updateProfile(companyId, data) {
     }
     if (Object.keys(allowed).length > 0) {
       const setClause = Object.keys(allowed).map(k => `${k} = ?`).join(', ');
-      db.prepare(
-        `UPDATE growth_profiles SET ${setClause}, updated_at = datetime('now') WHERE company_id = ?`
-      ).run(...Object.values(allowed), companyId);
+      const nowExpr = x.engine === 'postgres' ? 'now()' : "datetime('now')";
+      await x.run(
+        `UPDATE growth_profiles SET ${setClause}, updated_at = ${nowExpr} WHERE company_id = ?`,
+        [...Object.values(allowed), companyId]
+      );
     }
-    return db.prepare('SELECT * FROM growth_profiles WHERE company_id = ?').get(companyId);
-  } finally { db.close(); }
+    return x.get('SELECT * FROM growth_profiles WHERE company_id = ?', [companyId]);
+  });
 }
 
 // ── 3. Readiness Scores ───────────────────────────────────────────────────────
 
-// Same logic as computeReadiness, but operates on an already-open connection
+// Same logic as computeReadiness, but operates on an already-open executor
 // (see getOrCreateProfileWithDb for why).
-function computeReadinessWithDb(db, companyId) {
-    const profile = db.prepare('SELECT * FROM growth_profiles WHERE company_id = ?').get(companyId) || {};
+async function computeReadinessWithDb(x, companyId) {
+  const profile = (await x.get('SELECT * FROM growth_profiles WHERE company_id = ?', [companyId])) || {};
 
-    // Funding Readiness
-    let fundingScore = 0;
-    const fundingItems = [];
+  // Funding Readiness
+  let fundingScore = 0;
+  const fundingItems = [];
 
-    if (profile.annual_revenue > 0) { fundingScore += 20; fundingItems.push({ label: 'Revenue declared', done: true }); }
-    else fundingItems.push({ label: 'Add annual revenue in Growth Profile', done: false });
+  if (profile.annual_revenue > 0) { fundingScore += 20; fundingItems.push({ label: 'Revenue declared', done: true }); }
+  else fundingItems.push({ label: 'Add annual revenue in Growth Profile', done: false });
 
-    const investorCnt = db.prepare('SELECT COUNT(*) as cnt FROM investors WHERE company_id = ? AND deleted_at IS NULL').get(companyId);
-    if (investorCnt?.cnt > 0) { fundingScore += 15; fundingItems.push({ label: 'Investor pipeline started', done: true }); }
-    else fundingItems.push({ label: 'Add potential investors', done: false });
+  const investorCnt = await x.get('SELECT COUNT(*) as cnt FROM investors WHERE company_id = ? AND deleted_at IS NULL', [companyId]);
+  if (investorCnt?.cnt > 0) { fundingScore += 15; fundingItems.push({ label: 'Investor pipeline started', done: true }); }
+  else fundingItems.push({ label: 'Add potential investors', done: false });
 
-    const deckCnt = db.prepare('SELECT COUNT(*) as cnt FROM pitch_decks WHERE company_id = ?').get(companyId);
-    if (deckCnt?.cnt > 0) { fundingScore += 20; fundingItems.push({ label: 'Pitch deck uploaded', done: true }); }
-    else fundingItems.push({ label: 'Upload a pitch deck', done: false });
+  const deckCnt = await x.get('SELECT COUNT(*) as cnt FROM pitch_decks WHERE company_id = ?', [companyId]);
+  if (deckCnt?.cnt > 0) { fundingScore += 20; fundingItems.push({ label: 'Pitch deck uploaded', done: true }); }
+  else fundingItems.push({ label: 'Upload a pitch deck', done: false });
 
-    const shCnt = db.prepare('SELECT COUNT(*) as cnt FROM shareholders WHERE company_id = ? AND deleted_at IS NULL').get(companyId);
-    if (shCnt?.cnt > 0) { fundingScore += 15; fundingItems.push({ label: 'Cap table structured', done: true }); }
-    else fundingItems.push({ label: 'Set up cap table', done: false });
+  const shCnt = await x.get('SELECT COUNT(*) as cnt FROM shareholders WHERE company_id = ? AND deleted_at IS NULL', [companyId]);
+  if (shCnt?.cnt > 0) { fundingScore += 15; fundingItems.push({ label: 'Cap table structured', done: true }); }
+  else fundingItems.push({ label: 'Set up cap table', done: false });
 
-    const valCnt = db.prepare('SELECT COUNT(*) as cnt FROM valuations WHERE company_id = ?').get(companyId);
-    if (valCnt?.cnt > 0) { fundingScore += 15; fundingItems.push({ label: 'Valuation calculated', done: true }); }
-    else fundingItems.push({ label: 'Run a valuation estimate', done: false });
+  const valCnt = await x.get('SELECT COUNT(*) as cnt FROM valuations WHERE company_id = ?', [companyId]);
+  if (valCnt?.cnt > 0) { fundingScore += 15; fundingItems.push({ label: 'Valuation calculated', done: true }); }
+  else fundingItems.push({ label: 'Run a valuation estimate', done: false });
 
-    if (profile.target_raise_amount > 0) { fundingScore += 15; fundingItems.push({ label: 'Fundraising target set', done: true }); }
-    else fundingItems.push({ label: 'Set your fundraising target', done: false });
+  if (profile.target_raise_amount > 0) { fundingScore += 15; fundingItems.push({ label: 'Fundraising target set', done: true }); }
+  else fundingItems.push({ label: 'Set your fundraising target', done: false });
 
-    // IPO Readiness
-    const ipoItems = db.prepare('SELECT status, is_mandatory FROM ipo_checklist_items WHERE company_id = ?').all(companyId);
-    let ipoScore = 0;
-    if (ipoItems.length > 0) {
-      const mandatory = ipoItems.filter(i => i.is_mandatory).length;
-      const mandatoryDone = ipoItems.filter(i => i.is_mandatory && i.status === 'Complete').length;
-      ipoScore = mandatory > 0 ? Math.round((mandatoryDone / mandatory) * 100) : 0;
-    }
+  // IPO Readiness
+  const ipoItems = await x.all('SELECT status, is_mandatory FROM ipo_checklist_items WHERE company_id = ?', [companyId]);
+  let ipoScore = 0;
+  if (ipoItems.length > 0) {
+    const mandatory = ipoItems.filter(i => i.is_mandatory).length;
+    const mandatoryDone = ipoItems.filter(i => i.is_mandatory && i.status === 'Complete').length;
+    ipoScore = mandatory > 0 ? Math.round((mandatoryDone / mandatory) * 100) : 0;
+  }
 
-    // Document / Due Diligence Readiness
-    const ddItems = db.prepare('SELECT status, is_required FROM due_diligence_documents WHERE company_id = ?').all(companyId);
-    let ddScore = 0;
-    if (ddItems.length > 0) {
-      const req = ddItems.filter(i => i.is_required);
-      const uploaded = req.filter(i => ['Uploaded', 'Verified'].includes(i.status));
-      ddScore = req.length > 0 ? Math.round((uploaded.length / req.length) * 100) : 0;
-    }
+  // Document / Due Diligence Readiness
+  const ddItems = await x.all('SELECT status, is_required FROM due_diligence_documents WHERE company_id = ?', [companyId]);
+  let ddScore = 0;
+  if (ddItems.length > 0) {
+    const req = ddItems.filter(i => i.is_required);
+    const uploaded = req.filter(i => ['Uploaded', 'Verified'].includes(i.status));
+    ddScore = req.length > 0 ? Math.round((uploaded.length / req.length) * 100) : 0;
+  }
 
-    // Roadmap Score
-    const roadmapItems = db.prepare('SELECT status FROM growth_tasks WHERE company_id = ? AND is_template = 0').all(companyId);
-    let roadmapScore = 0;
-    if (roadmapItems.length > 0) {
-      const done = roadmapItems.filter(i => i.status === 'Complete').length;
-      roadmapScore = Math.round((done / roadmapItems.length) * 100);
-    }
+  // Roadmap Score (is_template bound as a param, not a literal, so the
+  // comparison works against Postgres's real BOOLEAN column too)
+  const roadmapItems = await x.all('SELECT status FROM growth_tasks WHERE company_id = ? AND is_template = ?', [companyId, 0]);
+  let roadmapScore = 0;
+  if (roadmapItems.length > 0) {
+    const done = roadmapItems.filter(i => i.status === 'Complete').length;
+    roadmapScore = Math.round((done / roadmapItems.length) * 100);
+  }
 
-    return {
-      funding: Math.min(fundingScore, 100),
-      ipo: ipoScore,
-      dueDiligence: ddScore,
-      roadmap: roadmapScore,
-      overall: Math.round((Math.min(fundingScore, 100) + ipoScore + ddScore + roadmapScore) / 4),
-      fundingItems,
-    };
+  return {
+    funding: Math.min(fundingScore, 100),
+    ipo: ipoScore,
+    dueDiligence: ddScore,
+    roadmap: roadmapScore,
+    overall: Math.round((Math.min(fundingScore, 100) + ipoScore + ddScore + roadmapScore) / 4),
+    fundingItems,
+  };
 }
 
-function computeReadiness(companyId) {
-  const db = getDb();
-  try { return computeReadinessWithDb(db, companyId); }
-  finally { db.close(); }
+async function computeReadiness(companyId) {
+  return withExecutor((x) => computeReadinessWithDb(x, companyId));
 }
 
 // Dashboard composes profile + readiness + several counts + latest valuation.
-// Each of those used to be a separate exported call (each opening its own
-// getDb() connection — 8 opens for one page load, and getDb() re-execs the
-// full schema on every open). Batching them onto one connection here removes
-// that overhead without touching any of the underlying queries or arithmetic;
-// output shape is identical to the previous route-level composition.
-function getDashboardData(companyId) {
-  const db = getDb();
-  try {
-    const profile = getOrCreateProfileWithDb(db, companyId);
-    const readiness = computeReadinessWithDb(db, companyId);
+// Batched onto one executor so a single page load doesn't pay for 8 separate
+// connections; output shape is identical to the previous route-level
+// composition.
+async function getDashboardData(companyId) {
+  return withExecutor(async (x) => {
+    const profile = await getOrCreateProfileWithDb(x, companyId);
+    const readiness = await computeReadinessWithDb(x, companyId);
     const counts = {
-      investors: (db.prepare('SELECT COUNT(*) as cnt FROM investors WHERE company_id = ? AND deleted_at IS NULL').get(companyId)?.cnt || 0),
-      rounds: (db.prepare('SELECT COUNT(*) as cnt FROM investment_rounds WHERE company_id = ?').get(companyId)?.cnt || 0),
-      shareholders: (db.prepare('SELECT COUNT(*) as cnt FROM shareholders WHERE company_id = ? AND deleted_at IS NULL').get(companyId)?.cnt || 0),
-      pitchDecks: (db.prepare('SELECT COUNT(*) as cnt FROM pitch_decks WHERE company_id = ?').get(companyId)?.cnt || 0),
-      partnerships: (db.prepare('SELECT COUNT(*) as cnt FROM partnerships WHERE company_id = ? AND deleted_at IS NULL').get(companyId)?.cnt || 0),
+      investors: (await x.get('SELECT COUNT(*) as cnt FROM investors WHERE company_id = ? AND deleted_at IS NULL', [companyId]))?.cnt || 0,
+      rounds: (await x.get('SELECT COUNT(*) as cnt FROM investment_rounds WHERE company_id = ?', [companyId]))?.cnt || 0,
+      shareholders: (await x.get('SELECT COUNT(*) as cnt FROM shareholders WHERE company_id = ? AND deleted_at IS NULL', [companyId]))?.cnt || 0,
+      pitchDecks: (await x.get('SELECT COUNT(*) as cnt FROM pitch_decks WHERE company_id = ?', [companyId]))?.cnt || 0,
+      partnerships: (await x.get('SELECT COUNT(*) as cnt FROM partnerships WHERE company_id = ? AND deleted_at IS NULL', [companyId]))?.cnt || 0,
     };
-    const latestValuation = db.prepare('SELECT * FROM valuations WHERE company_id = ? ORDER BY created_at DESC LIMIT 1').get(companyId) || null;
+    const latestValuation = (await x.get('SELECT * FROM valuations WHERE company_id = ? ORDER BY created_at DESC LIMIT 1', [companyId])) || null;
     return { profile, readiness, counts, latestValuation };
-  } finally { db.close(); }
+  });
 }
 
 // ── 4. Cap Table ──────────────────────────────────────────────────────────────
 
-function getCapTable(companyId) {
-  const db = getDb();
-  try {
-    const shareholders = db.prepare(
+async function getCapTable(companyId) {
+  return withExecutor(async (x) => {
+    const shareholders = await x.all(
       `SELECT s.*, i.name as investor_name, i.type as investor_type, r.round_name
        FROM shareholders s
        LEFT JOIN investors i ON s.investor_id = i.id
        LEFT JOIN investment_rounds r ON s.round_id = r.id
        WHERE s.company_id = ? AND s.deleted_at IS NULL
-       ORDER BY s.ownership_pct DESC`
-    ).all(companyId);
+       ORDER BY s.ownership_pct DESC`,
+      [companyId]
+    );
 
     const totalShares = shareholders.reduce((sum, s) => sum + (s.shares || 0), 0);
     const totalInvestment = shareholders.reduce((sum, s) => sum + (s.investment_amount || 0), 0);
@@ -238,7 +249,7 @@ function getCapTable(companyId) {
     }));
 
     return { shareholders: table, totalShares, totalInvestment };
-  } finally { db.close(); }
+  });
 }
 
 // ── 5. Equity Dilution Simulation (pure math — no DB writes) ─────────────────
@@ -268,20 +279,27 @@ function simulateDilution(currentShareholders, newRaiseAmount, newInvestorPct, r
 
 // ── 6. Valuation Engine ───────────────────────────────────────────────────────
 
-function getRevenueFromSales(companyId) {
-  const db = getDb();
+async function getRevenueFromSales(companyId) {
   try {
-    const result = db.prepare(
-      `SELECT COALESCE(SUM(revenue), 0) as total_revenue
-       FROM sales WHERE company_id = ? AND strftime('%Y', sale_date) = strftime('%Y', 'now')`
-    ).get(companyId);
-    return result?.total_revenue || 0;
-  } catch { return 0; } finally { db.close(); }
+    return await withExecutor(async (x) => {
+      // strftime('%Y', ...) is SQLite-only; Postgres equivalent is
+      // TO_CHAR(date_col, 'YYYY') over the real DATE column (see
+      // metricsService.js's getRevenueTrends for the same pattern).
+      const yearMatch = x.engine === 'postgres'
+        ? "TO_CHAR(sale_date, 'YYYY') = TO_CHAR(now(), 'YYYY')"
+        : "strftime('%Y', sale_date) = strftime('%Y', 'now')";
+      const result = await x.get(
+        `SELECT COALESCE(SUM(revenue), 0) as total_revenue FROM sales WHERE company_id = ? AND ${yearMatch}`,
+        [companyId]
+      );
+      return result?.total_revenue || 0;
+    });
+  } catch { return 0; }
 }
 
-function computeValuationRange(companyId, method, inputs = {}) {
-  const profile = getOrCreateProfile(companyId);
-  const liveRevenue = getRevenueFromSales(companyId);
+async function computeValuationRange(companyId, method, inputs = {}) {
+  const profile = await getOrCreateProfile(companyId);
+  const liveRevenue = await getRevenueFromSales(companyId);
   const revenue = inputs.annual_revenue ?? profile.annual_revenue ?? liveRevenue;
   const ebitda = inputs.ebitda ?? profile.ebitda ?? 0;
   const totalAssets = inputs.total_assets ?? profile.total_assets ?? 0;
@@ -342,69 +360,68 @@ function computeValuationRange(companyId, method, inputs = {}) {
 
 // ── 7. IPO Checklist Initialization ──────────────────────────────────────────
 
-function initIpoChecklist(companyId) {
-  const db = getDb();
-  try {
-    const existing = db.prepare('SELECT COUNT(*) as cnt FROM ipo_checklist_items WHERE company_id = ?').get(companyId);
+async function initIpoChecklist(companyId) {
+  return withExecutor(async (x) => {
+    const existing = await x.get('SELECT COUNT(*) as cnt FROM ipo_checklist_items WHERE company_id = ?', [companyId]);
     if (existing?.cnt > 0) return { message: 'Already initialized', count: existing.cnt };
-    const stmt = db.prepare(
-      `INSERT INTO ipo_checklist_items (company_id, category, title, description, is_mandatory, sort_order)
-       VALUES (?,?,?,?,?,?)`
-    );
     for (const item of IPO_CHECKLIST_TEMPLATE) {
-      stmt.run(companyId, item.category, item.title, item.description ?? null, item.is_mandatory, item.sort_order);
+      await x.run(
+        `INSERT INTO ipo_checklist_items (company_id, category, title, description, is_mandatory, sort_order)
+         VALUES (?,?,?,?,?,?)`,
+        [companyId, item.category, item.title, item.description ?? null, item.is_mandatory, item.sort_order]
+      );
     }
     return { message: 'IPO checklist initialized', count: IPO_CHECKLIST_TEMPLATE.length };
-  } finally { db.close(); }
+  });
 }
 
 // ── 8. Roadmap Initialization ─────────────────────────────────────────────────
 
-function initRoadmap(companyId) {
-  const db = getDb();
-  try {
-    const existing = db.prepare('SELECT COUNT(*) as cnt FROM growth_tasks WHERE company_id = ? AND is_template = 0').get(companyId);
+async function initRoadmap(companyId) {
+  return withExecutor(async (x) => {
+    const existing = await x.get('SELECT COUNT(*) as cnt FROM growth_tasks WHERE company_id = ? AND is_template = ?', [companyId, 0]);
     if (existing?.cnt > 0) return { message: 'Roadmap has tasks', count: existing.cnt };
-    const stmt = db.prepare(
-      `INSERT INTO growth_tasks (company_id, stage, title, description, category, priority, sort_order, is_template)
-       VALUES (?,?,?,?,?,?,?,0)`
-    );
     for (const task of ROADMAP_TEMPLATE) {
-      stmt.run(companyId, task.stage, task.title, task.description, task.category, task.priority, task.sort_order);
+      await x.run(
+        `INSERT INTO growth_tasks (company_id, stage, title, description, category, priority, sort_order, is_template)
+         VALUES (?,?,?,?,?,?,?,?)`,
+        [companyId, task.stage, task.title, task.description, task.category, task.priority, task.sort_order, 0]
+      );
     }
     return { message: 'Roadmap initialized', count: ROADMAP_TEMPLATE.length };
-  } finally { db.close(); }
+  });
 }
 
 // ── 9. Due Diligence Initialization ──────────────────────────────────────────
 
-function initDueDiligence(companyId) {
-  const db = getDb();
-  try {
-    const existing = db.prepare('SELECT COUNT(*) as cnt FROM due_diligence_documents WHERE company_id = ?').get(companyId);
+async function initDueDiligence(companyId) {
+  return withExecutor(async (x) => {
+    const existing = await x.get('SELECT COUNT(*) as cnt FROM due_diligence_documents WHERE company_id = ?', [companyId]);
     if (existing?.cnt > 0) return { message: 'Already initialized', count: existing.cnt };
-    const stmt = db.prepare(
-      `INSERT INTO due_diligence_documents (company_id, category, title, description, is_required, sort_order)
-       VALUES (?,?,?,?,?,?)`
-    );
     for (const item of DUE_DILIGENCE_TEMPLATE) {
-      stmt.run(companyId, item.category, item.title, item.description ?? null, item.is_required, item.sort_order);
+      await x.run(
+        `INSERT INTO due_diligence_documents (company_id, category, title, description, is_required, sort_order)
+         VALUES (?,?,?,?,?,?)`,
+        [companyId, item.category, item.title, item.description ?? null, item.is_required, item.sort_order]
+      );
     }
     return { message: 'Due diligence initialized', count: DUE_DILIGENCE_TEMPLATE.length };
-  } finally { db.close(); }
+  });
 }
 
 // ── 10. AI Advisor Context Builder ────────────────────────────────────────────
 
-function buildAdvisorContext(companyId) {
-  const db = getDb();
-  try {
-    const profile = db.prepare('SELECT * FROM growth_profiles WHERE company_id = ?').get(companyId) || {};
-    const readiness = computeReadiness(companyId);
-    const capTable = getCapTable(companyId);
-    const investorCnt = db.prepare('SELECT COUNT(*) as cnt FROM investors WHERE company_id = ? AND deleted_at IS NULL').get(companyId);
-    const activeRound = db.prepare("SELECT * FROM investment_rounds WHERE company_id = ? AND status = 'Open' LIMIT 1").get(companyId);
-    const latestVal = db.prepare('SELECT * FROM valuations WHERE company_id = ? ORDER BY created_at DESC LIMIT 1').get(companyId);
+async function buildAdvisorContext(companyId) {
+  return withExecutor(async (x) => {
+    const profile = (await x.get('SELECT * FROM growth_profiles WHERE company_id = ?', [companyId])) || {};
+    // These two call back into computeReadiness/getCapTable, which each open
+    // their own executor — matches the original's connection usage exactly
+    // (buildAdvisorContext never routed those two through its own `db`).
+    const readiness = await computeReadiness(companyId);
+    const capTable = await getCapTable(companyId);
+    const investorCnt = await x.get('SELECT COUNT(*) as cnt FROM investors WHERE company_id = ? AND deleted_at IS NULL', [companyId]);
+    const activeRound = await x.get("SELECT * FROM investment_rounds WHERE company_id = ? AND status = 'Open' LIMIT 1", [companyId]);
+    const latestVal = await x.get('SELECT * FROM valuations WHERE company_id = ? ORDER BY created_at DESC LIMIT 1', [companyId]);
 
     const sym = profile.currency_symbol || '₹';
     const fmt = (n) => (n || 0).toLocaleString();
@@ -433,7 +450,7 @@ Active Round: ${activeRound ? `${activeRound.round_name} — ${sym}${fmt(activeR
 Latest Valuation: ${latestVal ? `${sym}${fmt(latestVal.value_mid)} mid-point (${latestVal.method})` : 'Not estimated yet'}
 
 Answer concisely and practically. Reference specific actions in BizBook's Growth Hub. Tailor advice to the company's stage, country (${profile.country_code || 'IN'}), and context above.`;
-  } finally { db.close(); }
+  });
 }
 
 // ── 11. File Upload Directory ─────────────────────────────────────────────────
@@ -444,24 +461,26 @@ function getUploadDir(companyId, subfolder) {
   return dir;
 }
 
-// ── 12. Direct DB helpers for routes (synchronous) ───────────────────────────
-// Routes call these for simple one-off queries without needing a full service fn.
-
-function dbRun(sql, params = []) {
+// ── 12. Direct DB helpers for routes (async) ─────────────────────────────────
+// Routes call these for simple one-off queries without needing a full service
+// fn. get/all delegate straight to dbEngine.js's dbGet/dbAll (identical
+// engine dispatch). run() is a local addition: dbEngine.js only exposes
+// get/all at the top level (run/insert live inside the executor abstraction),
+// and routes/growth.js reads `.lastInsertRowid` off ~20 svc.run() call sites,
+// so this keeps that field name stable across both engines instead of
+// touching every call site. For Postgres INSERTs it auto-appends `RETURNING
+// id` (unless the caller already added one) and maps the returned row's `id`
+// back onto `.lastInsertRowid`, mirroring dbEngine.js's own sqliteExecutor/
+// pgExecutor.run() field mapping.
+async function dbRun(sql, params = []) {
+  if (engine() === 'postgres') {
+    const isInsert = /^\s*insert\b/i.test(sql);
+    const text = isInsert && !/returning/i.test(sql) ? `${sql} RETURNING id` : sql;
+    const result = await pgDb.query(text, params);
+    return { lastInsertRowid: result.rows[0]?.id ?? null, changes: result.rowCount };
+  }
   const db = getDb();
   try { return db.prepare(sql).run(...params); }
-  finally { db.close(); }
-}
-
-function dbGet(sql, params = []) {
-  const db = getDb();
-  try { return db.prepare(sql).get(...params) || null; }
-  finally { db.close(); }
-}
-
-function dbAll(sql, params = []) {
-  const db = getDb();
-  try { return db.prepare(sql).all(...params) || []; }
   finally { db.close(); }
 }
 
