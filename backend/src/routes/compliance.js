@@ -2,6 +2,11 @@
 // Compliance Intelligence API
 // Mounted at /api/compliance (auth + branchAuth + rbac applied globally in app.js).
 // Thin controllers — all logic lives in complianceService.
+//
+// Phase 2 dual-engine: complianceService/complianceDocumentService/
+// complianceReportService/complianceMeetingService are all async now, so every
+// handler below is async with await added at each service call site. Response
+// shapes/status codes/catch style are unchanged.
 // ============================================================================
 const express = require('express');
 const multer = require('multer');
@@ -35,31 +40,31 @@ const upload = multer({
 
 // ── Reference data ──────────────────────────────────────────────────────────
 // GET /api/compliance/categories
-router.get('/categories', (req, res) => {
-  try { res.json({ categories: svc.getCategories() }); }
+router.get('/categories', async (req, res) => {
+  try { res.json({ categories: await svc.getCategories() }); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Business profile (onboarding answers) ───────────────────────────────────
 // GET /api/compliance/profile
-router.get('/profile', (req, res) => {
-  try { res.json({ profile: svc.getProfile(req.user.companyId) }); }
+router.get('/profile', async (req, res) => {
+  try { res.json({ profile: await svc.getProfile(req.user.companyId) }); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // PUT /api/compliance/profile  — save answers and immediately recompute items.
-router.put('/profile', (req, res) => {
+router.put('/profile', async (req, res) => {
   try {
-    const profile = svc.saveProfile(req.user.companyId, req.body || {});
-    const result = svc.recompute(req.user.companyId);
+    const profile = await svc.saveProfile(req.user.companyId, req.body || {});
+    const result = await svc.recompute(req.user.companyId);
     res.json({ profile, recompute: result });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // POST /api/compliance/recompute — re-run the rule engine.
-router.post('/recompute', (req, res) => {
+router.post('/recompute', async (req, res) => {
   try {
-    const result = svc.recompute(req.user.companyId);
+    const result = await svc.recompute(req.user.companyId);
     if (result.error) return res.status(400).json({ error: result.error });
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -67,32 +72,32 @@ router.post('/recompute', (req, res) => {
 
 // ── Dashboard & items ───────────────────────────────────────────────────────
 // GET /api/compliance/overview — score, breakdown, deadlines, counts.
-router.get('/overview', (req, res) => {
-  try { res.json(svc.getOverview(req.user.companyId)); }
+router.get('/overview', async (req, res) => {
+  try { res.json(await svc.getOverview(req.user.companyId)); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // GET /api/compliance/items?category=&status=
-router.get('/items', (req, res) => {
+router.get('/items', async (req, res) => {
   try {
     const { category, status } = req.query;
-    res.json({ items: svc.getItems(req.user.companyId, { category, status }) });
+    res.json({ items: await svc.getItems(req.user.companyId, { category, status }) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // GET /api/compliance/items/:id — full detail (rule resources + document slots).
-router.get('/items/:id', (req, res) => {
+router.get('/items/:id', async (req, res) => {
   try {
-    const result = svc.getItemDetail(req.user.companyId, Number(req.params.id));
+    const result = await svc.getItemDetail(req.user.companyId, Number(req.params.id));
     if (result.error === 'not_found') return res.status(404).json({ error: 'Compliance item not found' });
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // PATCH /api/compliance/items/:id — update status/notes/dates.
-router.patch('/items/:id', (req, res) => {
+router.patch('/items/:id', async (req, res) => {
   try {
-    const result = svc.updateItem(req.user.companyId, Number(req.params.id), req.body || {});
+    const result = await svc.updateItem(req.user.companyId, Number(req.params.id), req.body || {});
     if (result.error === 'not_found') return res.status(404).json({ error: 'Compliance item not found' });
     res.json({ item: result });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -100,14 +105,14 @@ router.patch('/items/:id', (req, res) => {
 
 // ── Document Vault ──────────────────────────────────────────────────────────
 // POST /api/compliance/items/:id/documents  (multipart: files[] + doc_name?, expiry_date?, document_type?)
-router.post('/items/:id/documents', upload.array('files', 10), (req, res) => {
+router.post('/items/:id/documents', upload.array('files', 10), async (req, res) => {
   try {
     if (!req.files || !req.files.length) return res.status(400).json({ error: 'No file uploaded' });
     const itemId = Number(req.params.id);
     const results = [];
     for (const file of req.files) {
       const docName = (req.files.length === 1 && req.body.doc_name) ? req.body.doc_name : file.originalname;
-      const r = docService.recordUpload(req.user.companyId, itemId, {
+      const r = await docService.recordUpload(req.user.companyId, itemId, {
         file, docName, documentType: req.body.document_type, expiryDate: req.body.expiry_date, uploadedBy: req.user.userId,
       });
       if (r.error === 'not_found') return res.status(404).json({ error: 'Compliance item not found' });
@@ -118,34 +123,34 @@ router.post('/items/:id/documents', upload.array('files', 10), (req, res) => {
 });
 
 // GET /api/compliance/items/:id/documents?history=1
-router.get('/items/:id/documents', (req, res) => {
+router.get('/items/:id/documents', async (req, res) => {
   try {
-    res.json({ documents: docService.listDocuments(req.user.companyId, Number(req.params.id), { includeHistory: req.query.history === '1' }) });
+    res.json({ documents: await docService.listDocuments(req.user.companyId, Number(req.params.id), { includeHistory: req.query.history === '1' }) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // GET /api/compliance/documents/:docId/download
-router.get('/documents/:docId/download', (req, res) => {
+router.get('/documents/:docId/download', async (req, res) => {
   try {
-    const doc = docService.getForDownload(req.user.companyId, Number(req.params.docId));
+    const doc = await docService.getForDownload(req.user.companyId, Number(req.params.docId));
     if (!doc || !doc.file_path) return res.status(404).json({ error: 'Document not found' });
     res.download(doc.file_path, doc.original_name || doc.doc_name);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // PATCH /api/compliance/documents/:docId — verify / notes / expiry / type
-router.patch('/documents/:docId', (req, res) => {
+router.patch('/documents/:docId', async (req, res) => {
   try {
-    const r = docService.updateDocument(req.user.companyId, Number(req.params.docId), req.body || {});
+    const r = await docService.updateDocument(req.user.companyId, Number(req.params.docId), req.body || {});
     if (r.error === 'not_found') return res.status(404).json({ error: 'Document not found' });
     res.json({ document: r });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // DELETE /api/compliance/documents/:docId
-router.delete('/documents/:docId', (req, res) => {
+router.delete('/documents/:docId', async (req, res) => {
   try {
-    const r = docService.deleteDocument(req.user.companyId, Number(req.params.docId));
+    const r = await docService.deleteDocument(req.user.companyId, Number(req.params.docId));
     if (r.error === 'not_found') return res.status(404).json({ error: 'Document not found' });
     res.json(r);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -173,45 +178,45 @@ router.post('/run-reminders', (req, res) => {
 
 // ── AI Compliance Copilot ───────────────────────────────────────────────────
 // POST /api/compliance/copilot  { question }
-router.post('/copilot', (req, res) => {
+router.post('/copilot', async (req, res) => {
   try {
     if (!req.body || !req.body.question) return res.status(400).json({ error: 'question is required' });
-    res.json(svc.copilot(req.user.companyId, req.body.question));
+    res.json(await svc.copilot(req.user.companyId, req.body.question));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Admin: rule management (data-driven, no code changes) ────────────────────
 // GET /api/compliance/rules?country=IN
-router.get('/rules', (req, res) => {
+router.get('/rules', async (req, res) => {
   try {
     if (!isAdmin(req)) return res.status(403).json({ error: 'Admin access required' });
-    res.json({ rules: svc.listRules({ country: req.query.country }) });
+    res.json({ rules: await svc.listRules({ country: req.query.country }) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // POST /api/compliance/rules
-router.post('/rules', (req, res) => {
+router.post('/rules', async (req, res) => {
   try {
     if (!isAdmin(req)) return res.status(403).json({ error: 'Admin access required' });
-    const result = svc.createRule(req.body || {});
+    const result = await svc.createRule(req.body || {});
     if (result.error) return res.status(400).json({ error: result.error });
     res.status(201).json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // PUT /api/compliance/rules/:id
-router.put('/rules/:id', (req, res) => {
+router.put('/rules/:id', async (req, res) => {
   try {
     if (!isAdmin(req)) return res.status(403).json({ error: 'Admin access required' });
-    res.json({ rule: svc.updateRule(Number(req.params.id), req.body || {}) });
+    res.json({ rule: await svc.updateRule(Number(req.params.id), req.body || {}) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // DELETE /api/compliance/rules/:id
-router.delete('/rules/:id', (req, res) => {
+router.delete('/rules/:id', async (req, res) => {
   try {
     if (!isAdmin(req)) return res.status(403).json({ error: 'Admin access required' });
-    res.json(svc.deleteRule(Number(req.params.id)));
+    res.json(await svc.deleteRule(Number(req.params.id)));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -225,60 +230,60 @@ router.get('/meeting-templates', (req, res) => {
 });
 
 // GET /api/compliance/meetings
-router.get('/meetings', (req, res) => {
-  try { res.json({ meetings: meetingService.listMeetings(req.user.companyId) }); }
+router.get('/meetings', async (req, res) => {
+  try { res.json({ meetings: await meetingService.listMeetings(req.user.companyId) }); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // POST /api/compliance/meetings
-router.post('/meetings', (req, res) => {
+router.post('/meetings', async (req, res) => {
   try {
-    const r = meetingService.createMeeting(req.user.companyId, req.body || {});
+    const r = await meetingService.createMeeting(req.user.companyId, req.body || {});
     if (r.error) return res.status(400).json({ error: r.error });
     res.status(201).json(r);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // GET /api/compliance/meetings/:id
-router.get('/meetings/:id', (req, res) => {
+router.get('/meetings/:id', async (req, res) => {
   try {
-    const r = meetingService.getMeeting(req.user.companyId, Number(req.params.id));
+    const r = await meetingService.getMeeting(req.user.companyId, Number(req.params.id));
     if (r.error === 'not_found') return res.status(404).json({ error: 'Meeting not found' });
     res.json(r);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // PUT /api/compliance/meetings/:id
-router.put('/meetings/:id', (req, res) => {
+router.put('/meetings/:id', async (req, res) => {
   try {
-    const r = meetingService.updateMeeting(req.user.companyId, Number(req.params.id), req.body || {});
+    const r = await meetingService.updateMeeting(req.user.companyId, Number(req.params.id), req.body || {});
     if (r.error === 'not_found') return res.status(404).json({ error: 'Meeting not found' });
     res.json(r);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // DELETE /api/compliance/meetings/:id
-router.delete('/meetings/:id', (req, res) => {
+router.delete('/meetings/:id', async (req, res) => {
   try {
-    const r = meetingService.deleteMeeting(req.user.companyId, Number(req.params.id));
+    const r = await meetingService.deleteMeeting(req.user.companyId, Number(req.params.id));
     if (r.error === 'not_found') return res.status(404).json({ error: 'Meeting not found' });
     res.json(r);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // POST /api/compliance/meetings/:id/minutes — auto-generate minutes.
-router.post('/meetings/:id/minutes', (req, res) => {
+router.post('/meetings/:id/minutes', async (req, res) => {
   try {
-    const r = meetingService.generateMinutes(req.user.companyId, Number(req.params.id));
+    const r = await meetingService.generateMinutes(req.user.companyId, Number(req.params.id));
     if (r.error === 'not_found') return res.status(404).json({ error: 'Meeting not found' });
     res.json(r);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // POST /api/compliance/meetings/:id/hold — mark held (completes linked obligation).
-router.post('/meetings/:id/hold', (req, res) => {
+router.post('/meetings/:id/hold', async (req, res) => {
   try {
-    const r = meetingService.markHeld(req.user.companyId, Number(req.params.id), req.body || {});
+    const r = await meetingService.markHeld(req.user.companyId, Number(req.params.id), req.body || {});
     if (r.error === 'not_found') return res.status(404).json({ error: 'Meeting not found' });
     res.json(r);
   } catch (err) { res.status(500).json({ error: err.message }); }

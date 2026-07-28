@@ -2,8 +2,12 @@
 // Compliance Reports — downloadable CSV / JSON.
 // Reuses complianceService (no duplicated calculations). PDF export is a Phase-2b
 // add-on via the existing pdfService; CSV/JSON cover the current export needs.
+//
+// Phase 2 dual-engine: buildRows() and generate() are async; the two branches
+// that used to read the DB directly (documents/audit) now go through
+// config/dbEngine.js's dbAll instead of a raw getDb() handle.
 // ============================================================================
-const { getDb } = require('../config/db');
+const { dbAll } = require('../config/dbEngine');
 const svc = require('./complianceService');
 
 const REPORT_TYPES = ['summary', 'licenses', 'documents', 'renewals', 'deadlines', 'audit'];
@@ -18,21 +22,23 @@ function toCsv(rows) {
   return [headers.join(','), ...rows.map(r => headers.map(h => esc(r[h])).join(','))].join('\n');
 }
 
-function buildRows(companyId, type) {
+async function buildRows(companyId, type) {
   if (type === 'summary') {
-    const ov = svc.getOverview(companyId);
+    const ov = await svc.getOverview(companyId);
     const rows = ov.breakdown.map(b => ({ category: b.name, score_pct: b.score, items: b.total, overdue: b.overdue }));
     rows.unshift({ category: 'OVERALL', score_pct: ov.overallScore, items: ov.counts.total, overdue: ov.counts.overdue });
     return rows;
   }
   if (type === 'deadlines') {
-    return svc.getOverview(companyId).deadlines.map(d => ({
+    const ov = await svc.getOverview(companyId);
+    return ov.deadlines.map(d => ({
       title: d.title, category: d.category_key, priority: d.priority,
       due_date: d.next_due_date, days_remaining: d.daysRemaining, status: d.status,
     }));
   }
   if (type === 'licenses' || type === 'renewals') {
-    const items = svc.getItems(companyId, {}).filter(it =>
+    const allItems = await svc.getItems(companyId, {});
+    const items = allItems.filter(it =>
       type === 'renewals' ? it.frequency === 'renewal' : (it.category_key === 'licenses' || it.category_key === 'renewals'));
     return items.map(it => ({
       title: it.title, department: it.department, status: it.status,
@@ -42,28 +48,22 @@ function buildRows(companyId, type) {
     }));
   }
   if (type === 'documents') {
-    const db = getDb();
-    try {
-      return db.prepare(`
-        SELECT r.title AS compliance_item, d.doc_name, d.original_name, d.status,
-               d.expiry_date, d.verified, d.version, d.uploaded_at
-        FROM compliance_item_documents d
-        JOIN business_compliance_items i ON i.id = d.item_id
-        JOIN compliance_rules r ON r.id = i.rule_id
-        WHERE d.company_id = ? AND d.is_current = 1
-        ORDER BY r.title, d.doc_name
-      `).all(companyId);
-    } finally { db.close(); }
+    return dbAll(`
+      SELECT r.title AS compliance_item, d.doc_name, d.original_name, d.status,
+             d.expiry_date, d.verified, d.version, d.uploaded_at
+      FROM compliance_item_documents d
+      JOIN business_compliance_items i ON i.id = d.item_id
+      JOIN compliance_rules r ON r.id = i.rule_id
+      WHERE d.company_id = ? AND d.is_current = TRUE
+      ORDER BY r.title, d.doc_name
+    `, [companyId]);
   }
   if (type === 'audit') {
-    const db = getDb();
-    try {
-      return db.prepare(`
-        SELECT e.created_at, e.event_type, e.detail, r.title AS related_item
-        FROM compliance_events e LEFT JOIN compliance_rules r ON r.id = e.rule_id
-        WHERE e.company_id = ? ORDER BY e.created_at DESC LIMIT 500
-      `).all(companyId);
-    } finally { db.close(); }
+    return dbAll(`
+      SELECT e.created_at, e.event_type, e.detail, r.title AS related_item
+      FROM compliance_events e LEFT JOIN compliance_rules r ON r.id = e.rule_id
+      WHERE e.company_id = ? ORDER BY e.created_at DESC LIMIT 500
+    `, [companyId]);
   }
   return [];
 }
@@ -95,7 +95,7 @@ function toHtml(type, rows) {
 
 async function generate(companyId, type, format = 'csv') {
   if (!REPORT_TYPES.includes(type)) return { error: `Unknown report type. Use one of: ${REPORT_TYPES.join(', ')}` };
-  const rows = buildRows(companyId, type);
+  const rows = await buildRows(companyId, type);
   const stamp = new Date().toISOString().slice(0, 10);
   if (format === 'json') {
     return { filename: `compliance_${type}_${stamp}.json`, contentType: 'application/json', content: JSON.stringify({ type, generated_at: new Date().toISOString(), rows }, null, 2) };
