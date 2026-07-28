@@ -19,12 +19,8 @@ router.post('/generate-letter', async (req, res, next) => {
     const { type, employee_id, context } = req.body;
     if (!type) return res.status(400).json({ error: 'type required (warning|appreciation|termination)' });
 
-    const { getDb } = require('../config/db');
-    const db = getDb();
-    let employeeData = null;
-    try {
-      employeeData = db.prepare('SELECT name, job_title, department, employee_code FROM employees WHERE id = ? AND company_id = ?').get(employee_id, req.user.companyId);
-    } finally { db.close(); }
+    const { dbGet } = require('../config/dbEngine');
+    const employeeData = await dbGet('SELECT name, job_title, department, employee_code FROM employees WHERE id = ? AND company_id = ?', [employee_id, req.user.companyId]);
 
     const letter = await generateLetter(type, employeeData, context);
     res.json({ letter });

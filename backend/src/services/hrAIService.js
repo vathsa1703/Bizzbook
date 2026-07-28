@@ -1,4 +1,4 @@
-const { getDb } = require('../config/db');
+const { dbGet, dbAll, engine } = require('../config/dbEngine');
 
 // HR AI is intentionally rule-based/deterministic in this build — there is no
 // LLM call in this file. It previously attempted a Google Gemini call, but
@@ -23,14 +23,13 @@ async function analyzeLeaveRequest({ employee, start_date, end_date, total_days,
 }
 
 async function hrChat(messages, companyId) {
-  const db = getDb();
   let context = '';
   try {
     const today = new Date().toISOString().split('T')[0];
-    const totalEmps = db.prepare("SELECT count(*) as cnt FROM employees WHERE company_id = ? AND status = 'Active' AND deleted_at IS NULL").get(companyId);
-    const todayPresent = db.prepare("SELECT count(*) as cnt FROM attendance_records WHERE company_id = ? AND date = ? AND status IN ('present','remote','wfh','on_site','late')").get(companyId, today);
-    const pendingLeaves = db.prepare("SELECT count(*) as cnt FROM leave_requests WHERE company_id = ? AND status = 'pending'").get(companyId);
-    const topDepts = db.prepare("SELECT department, count(*) as cnt FROM employees WHERE company_id = ? AND status='Active' GROUP BY department ORDER BY cnt DESC LIMIT 5").all(companyId);
+    const totalEmps = await dbGet("SELECT count(*) as cnt FROM employees WHERE company_id = ? AND status = 'Active' AND deleted_at IS NULL", [companyId]);
+    const todayPresent = await dbGet("SELECT count(*) as cnt FROM attendance_records WHERE company_id = ? AND date = ? AND status IN ('present','remote','wfh','on_site','late')", [companyId, today]);
+    const pendingLeaves = await dbGet("SELECT count(*) as cnt FROM leave_requests WHERE company_id = ? AND status = 'pending'", [companyId]);
+    const topDepts = await dbAll("SELECT department, count(*) as cnt FROM employees WHERE company_id = ? AND status='Active' GROUP BY department ORDER BY cnt DESC LIMIT 5", [companyId]);
 
     context = `
 Company HR Context (Today: ${today}):
@@ -39,7 +38,7 @@ Company HR Context (Today: ${today}):
 - Pending Leave Requests: ${pendingLeaves?.cnt || 0}
 - Top Departments: ${topDepts.map(d => `${d.department}(${d.cnt})`).join(', ')}
 `;
-  } catch (e) { /* non-fatal */ } finally { db.close(); }
+  } catch (e) { /* non-fatal */ }
 
   // No LLM call here (see file header) — this is a live-data context echo,
   // not an attempt at a generated answer.
@@ -54,21 +53,24 @@ async function generateLetter(type, employeeData, context) {
 }
 
 async function generateInsights(companyId) {
-  const db = getDb();
   let data = {};
   try {
     const today = new Date().toISOString().split('T')[0];
     const thisMonth = today.substring(0, 7);
 
+    // strftime('%Y','now') is SQLite-only; Postgres equivalent uses
+    // EXTRACT(YEAR FROM ...) against the native INTEGER year column.
+    const yearExpr = engine() === 'postgres' ? 'EXTRACT(YEAR FROM CURRENT_DATE)::int' : "strftime('%Y','now')";
+
     // Late employees today
-    data.lateToday = db.prepare("SELECT e.name, e.job_title FROM attendance_records ar JOIN employees e ON ar.employee_id = e.id WHERE ar.company_id = ? AND ar.date = ? AND ar.status = 'late'").all(companyId, today);
+    data.lateToday = await dbAll("SELECT e.name, e.job_title FROM attendance_records ar JOIN employees e ON ar.employee_id = e.id WHERE ar.company_id = ? AND ar.date = ? AND ar.status = 'late'", [companyId, today]);
     // Absent today
-    data.absentToday = db.prepare("SELECT e.name FROM attendance_records ar JOIN employees e ON ar.employee_id = e.id WHERE ar.company_id = ? AND ar.date = ? AND ar.status = 'absent'").all(companyId, today);
+    data.absentToday = await dbAll("SELECT e.name FROM attendance_records ar JOIN employees e ON ar.employee_id = e.id WHERE ar.company_id = ? AND ar.date = ? AND ar.status = 'absent'", [companyId, today]);
     // Pending leaves
-    data.pendingLeaves = db.prepare("SELECT count(*) as cnt FROM leave_requests WHERE company_id = ? AND status = 'pending'").get(companyId)?.cnt;
+    data.pendingLeaves = (await dbGet("SELECT count(*) as cnt FROM leave_requests WHERE company_id = ? AND status = 'pending'", [companyId]))?.cnt;
     // High leave usage employees (>80% used)
-    data.highLeaveUsage = db.prepare("SELECT e.name, lb.used_days, lb.total_days FROM leave_balances lb JOIN employees e ON lb.employee_id = e.id WHERE lb.company_id = ? AND lb.year = strftime('%Y','now') AND lb.total_days > 0 AND CAST(lb.used_days AS REAL)/lb.total_days > 0.8").all(companyId);
-  } catch (e) { /* non-fatal */ } finally { db.close(); }
+    data.highLeaveUsage = await dbAll(`SELECT e.name, lb.used_days, lb.total_days FROM leave_balances lb JOIN employees e ON lb.employee_id = e.id WHERE lb.company_id = ? AND lb.year = ${yearExpr} AND lb.total_days > 0 AND CAST(lb.used_days AS REAL)/lb.total_days > 0.8`, [companyId]);
+  } catch (e) { /* non-fatal */ }
 
   const insights = [];
   if (data.lateToday?.length > 0) {

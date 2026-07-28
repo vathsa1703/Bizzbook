@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { extractTextFromImage } = require('../services/ocrService');
 const { parseOCR } = require('../services/aiService');
-const { getDb } = require('../config/db');
+const { dbAll } = require('../config/dbEngine');
 const { ocrRateLimit } = require('../middleware/aiRateLimit');
 
 const upload = multer({ dest: path.join(__dirname, '../../uploads/') });
@@ -18,39 +18,34 @@ if (!fs.existsSync(path.join(__dirname, '../../uploads/'))) {
 /**
  * Match parsed products to database products.
  */
-function matchProducts(parsedItems, companyId) {
-  const db = getDb();
-  try {
-    const products = db.prepare('SELECT id, name, selling_price, cost_price, group_id FROM products WHERE company_id = ?').all(companyId);
+async function matchProducts(parsedItems, companyId) {
+  const products = await dbAll('SELECT id, name, selling_price, cost_price, group_id FROM products WHERE company_id = ?', [companyId]);
 
-    return parsedItems.map(item => {
-      if (!item.product_name) return { ...item, is_matched: false };
+  return parsedItems.map(item => {
+    if (!item.product_name) return { ...item, is_matched: false };
 
-      const searchName = item.product_name.toLowerCase();
+    const searchName = item.product_name.toLowerCase();
 
-      // Exact or substring match
-      const match = products.find(p => p.name.toLowerCase() === searchName || p.name.toLowerCase().includes(searchName) || searchName.includes(p.name.toLowerCase()));
+    // Exact or substring match
+    const match = products.find(p => p.name.toLowerCase() === searchName || p.name.toLowerCase().includes(searchName) || searchName.includes(p.name.toLowerCase()));
 
-      if (match) {
-        return {
-          ...item,
-          product_id: match.id,
-          matched_name: match.name,
-          group_id: match.group_id,
-          is_matched: true,
-          // Override price if zero or use detected
-          price: item.price || match.selling_price
-        };
-      } else {
-        return {
-          ...item,
-          is_matched: false
-        };
-      }
-    });
-  } finally {
-    db.close();
-  }
+    if (match) {
+      return {
+        ...item,
+        product_id: match.id,
+        matched_name: match.name,
+        group_id: match.group_id,
+        is_matched: true,
+        // Override price if zero or use detected
+        price: item.price || match.selling_price
+      };
+    } else {
+      return {
+        ...item,
+        is_matched: false
+      };
+    }
+  });
 }
 
 router.post('/:type', ocrRateLimit, upload.single('image'), async (req, res, next) => {
@@ -75,7 +70,7 @@ router.post('/:type', ocrRateLimit, upload.single('image'), async (req, res, nex
 
     // 3. Product Matching
     if (parsedData.items && Array.isArray(parsedData.items)) {
-      parsedData.items = matchProducts(parsedData.items, req.user.companyId);
+      parsedData.items = await matchProducts(parsedData.items, req.user.companyId);
     } else {
       parsedData.items = [];
     }

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getDb } = require('../config/db');
+const { dbGet, dbAll } = require('../config/dbEngine');
 const communicationService = require('../services/communication/CommunicationService');
 
 // Require authentication for all communication routes
@@ -8,12 +8,11 @@ const { authenticate } = require('../middleware/auth');
 router.use(authenticate);
 
 // 1. Dashboard Stats
-router.get('/dashboard', (req, res) => {
-  const db = getDb();
+router.get('/dashboard', async (req, res) => {
   try {
     const companyId = req.user.companyId;
 
-    const stats = db.prepare(`
+    const stats = await dbGet(`
       SELECT
         COUNT(*) as total_campaigns,
         SUM(total_recipients) as total_messages,
@@ -21,13 +20,13 @@ router.get('/dashboard', (req, res) => {
         SUM(failed_deliveries) as failed
       FROM communication_campaigns
       WHERE company_id = ?
-    `).get(companyId);
+    `, [companyId]);
 
-    const recentCampaigns = db.prepare(`
+    const recentCampaigns = await dbAll(`
       SELECT * FROM communication_campaigns
       WHERE company_id = ?
       ORDER BY created_at DESC LIMIT 5
-    `).all(companyId);
+    `, [companyId]);
 
     res.json({
       stats: {
@@ -40,49 +39,39 @@ router.get('/dashboard', (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
-  } finally {
-    db.close();
   }
 });
 
 // 2. Templates CRUD
-router.get('/templates', (req, res) => {
-  const db = getDb();
+router.get('/templates', async (req, res) => {
   try {
-    const templates = db.prepare(`SELECT * FROM communication_templates WHERE company_id = ? ORDER BY created_at DESC`).all(req.user.companyId);
+    const templates = await dbAll(`SELECT * FROM communication_templates WHERE company_id = ? ORDER BY created_at DESC`, [req.user.companyId]);
     res.json(templates);
   } catch (err) {
     res.status(500).json({ error: err.message });
-  } finally {
-    db.close();
   }
 });
 
-router.post('/templates', (req, res) => {
-  const db = getDb();
+router.post('/templates', async (req, res) => {
   try {
     const { name, channel, category, content, variables } = req.body;
     if (!name || !channel || !content) {
       return res.status(400).json({ error: 'name, channel, and content are required' });
     }
 
-    const stmt = db.prepare(`
+    const info = await dbGet(`
       INSERT INTO communication_templates (company_id, name, channel, category, content, variables)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    const info = stmt.run(req.user.companyId, name, channel, category, JSON.stringify(content), JSON.stringify(variables || []));
+      VALUES (?, ?, ?, ?, ?, ?) RETURNING id
+    `, [req.user.companyId, name, channel, category, JSON.stringify(content), JSON.stringify(variables || [])]);
 
-    res.json({ id: info.lastInsertRowid, success: true });
+    res.json({ id: info.id, success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
-  } finally {
-    db.close();
   }
 });
 
 // 3. Dispatch Campaign
 router.post('/dispatch', async (req, res) => {
-  const db = getDb();
   try {
     const { name, channel, audience_type, segment_id, template_id, schedule_time } = req.body;
     const companyId = req.user.companyId;
@@ -98,7 +87,7 @@ router.post('/dispatch', async (req, res) => {
     // actual effect on what got sent.
     let templateContent = null;
     if (template_id) {
-      const template = db.prepare('SELECT content FROM communication_templates WHERE id = ? AND company_id = ?').get(template_id, companyId);
+      const template = await dbGet('SELECT content FROM communication_templates WHERE id = ? AND company_id = ?', [template_id, companyId]);
       if (template) {
         try { templateContent = JSON.parse(template.content); } catch (_) { templateContent = template.content; }
       }
@@ -114,10 +103,11 @@ router.post('/dispatch', async (req, res) => {
     // this codebase) and the frontend's New Broadcast form has no segment
     // picker either, so this path is currently unreachable through the UI --
     // falls back to all customers rather than silently sending to nobody.
-    const recipients = db.prepare(`
+    const customerRows = await dbAll(`
       SELECT id as customer_id, phone, email, name
       FROM customers WHERE company_id = ?
-    `).all(companyId)
+    `, [companyId]);
+    const recipients = customerRows
       .map(c => ({
         customer_id: c.customer_id,
         identifier: channel === 'email' ? c.email : c.phone,
@@ -144,30 +134,24 @@ router.post('/dispatch', async (req, res) => {
   } catch (err) {
     console.error('Dispatch error:', err);
     res.status(500).json({ error: err.message });
-  } finally {
-    db.close();
   }
 });
 
 // 4. Get Campaigns
-router.get('/campaigns', (req, res) => {
-  const db = getDb();
+router.get('/campaigns', async (req, res) => {
   try {
-    const campaigns = db.prepare(`SELECT * FROM communication_campaigns WHERE company_id = ? ORDER BY created_at DESC`).all(req.user.companyId);
+    const campaigns = await dbAll(`SELECT * FROM communication_campaigns WHERE company_id = ? ORDER BY created_at DESC`, [req.user.companyId]);
     res.json(campaigns);
   } catch (err) {
     res.status(500).json({ error: err.message });
-  } finally {
-    db.close();
   }
 });
 
 // 5. Get History Logs
-router.get('/history', (req, res) => {
-  const db = getDb();
+router.get('/history', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 100;
-    const logs = db.prepare(`
+    const logs = await dbAll(`
       SELECT cl.*, c.name as customer_name, cc.name as campaign_name
       FROM communication_logs cl
       LEFT JOIN customers c ON cl.customer_id = c.id
@@ -175,12 +159,10 @@ router.get('/history', (req, res) => {
       WHERE cl.company_id = ?
       ORDER BY cl.created_at DESC
       LIMIT ?
-    `).all(req.user.companyId, limit);
+    `, [req.user.companyId, limit]);
     res.json(logs);
   } catch (err) {
     res.status(500).json({ error: err.message });
-  } finally {
-    db.close();
   }
 });
 

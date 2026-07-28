@@ -1,5 +1,5 @@
 const express = require('express');
-const { getDb } = require('../config/db');
+const { dbGet } = require('../config/dbEngine');
 const { callLLM } = require('../services/aiService');
 const { aiRateLimit } = require('../middleware/aiRateLimit');
 
@@ -7,16 +7,16 @@ const router = express.Router();
 
 // GET /api/ai/insights/dashboard
 // Fetch pre-computed insights scoped to the user's company.
-router.get('/insights/dashboard', (req, res) => {
-  const db = getDb();
+router.get('/insights/dashboard', async (req, res) => {
   try {
     const companyId = req.user.companyId;
     const userId = req.user.id;
     // Cache key is scoped to company + user so two companies never share insights
     const cacheKey = `dashboard_insights_company_${companyId}_user_${userId}`;
-    const row = db.prepare(
-      'SELECT payload FROM ai_insights_cache WHERE cache_key = ? AND company_id = ?'
-    ).get(cacheKey, companyId);
+    const row = await dbGet(
+      'SELECT payload FROM ai_insights_cache WHERE cache_key = ? AND company_id = ?',
+      [cacheKey, companyId]
+    );
 
     if (row) {
       res.json(JSON.parse(row.payload));
@@ -25,8 +25,6 @@ router.get('/insights/dashboard', (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
-  } finally {
-    db.close();
   }
 });
 

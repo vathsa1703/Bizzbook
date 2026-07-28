@@ -1,11 +1,10 @@
 const express = require('express');
-const { getDb } = require('../config/db');
+const { dbGet, dbAll } = require('../config/dbEngine');
 
 const router = express.Router();
 
 // GET all suppliers — scoped to company
-router.get('/', (req, res, next) => {
-  const db = getDb();
+router.get('/', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
     const search = req.query.search || '';
@@ -24,44 +23,38 @@ router.get('/', (req, res, next) => {
 
     query += ` GROUP BY s.id ORDER BY s.name ASC`;
 
-    const suppliers = db.prepare(query).all(...params);
+    const suppliers = await dbAll(query, params);
     res.json(suppliers);
   } catch (err) {
     next(err);
-  } finally {
-    db.close();
   }
 });
 
 // GET single supplier — scoped to company
-router.get('/:id', (req, res, next) => {
-  const db = getDb();
+router.get('/:id', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
-    const supplier = db.prepare('SELECT * FROM suppliers WHERE id = ? AND company_id = ?').get(req.params.id, companyId);
+    const supplier = await dbGet('SELECT * FROM suppliers WHERE id = ? AND company_id = ?', [req.params.id, companyId]);
     if (!supplier) {
       return res.status(404).json({ error: 'Supplier not found' });
     }
 
-    const products = db.prepare(`
+    const products = await dbAll(`
       SELECT p.*, i.stock_quantity
       FROM products p
       LEFT JOIN inventory i ON p.id = i.product_id AND i.company_id = ?
       WHERE p.supplier_id = ? AND p.company_id = ?
       ORDER BY p.name ASC
-    `).all(companyId, req.params.id, companyId);
+    `, [companyId, req.params.id, companyId]);
 
     res.json({ ...supplier, products });
   } catch (err) {
     next(err);
-  } finally {
-    db.close();
   }
 });
 
 // POST create supplier — stamped with company_id
-router.post('/', (req, res, next) => {
-  const db = getDb();
+router.post('/', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
     const { name, contact_person, phone, email, address } = req.body;
@@ -69,33 +62,30 @@ router.post('/', (req, res, next) => {
       return res.status(400).json({ error: 'Supplier name is required' });
     }
 
-    const resInsert = db.prepare(`
+    const resInsert = await dbGet(`
       INSERT INTO suppliers (name, contact_person, phone, email, address, company_id)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(name, contact_person || null, phone || null, email || null, address || null, companyId);
+      VALUES (?, ?, ?, ?, ?, ?) RETURNING id
+    `, [name, contact_person || null, phone || null, email || null, address || null, companyId]);
 
-    res.status(201).json({ id: resInsert.lastInsertRowid, name, contact_person, phone, email, address });
+    res.status(201).json({ id: resInsert.id, name, contact_person, phone, email, address });
   } catch (err) {
     next(err);
-  } finally {
-    db.close();
   }
 });
 
 // PUT update supplier — scoped to company
-router.put('/:id', (req, res, next) => {
-  const db = getDb();
+router.put('/:id', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
     const { name, contact_person, phone, email, address } = req.body;
     const supId = req.params.id;
 
-    const existing = db.prepare('SELECT id FROM suppliers WHERE id = ? AND company_id = ?').get(supId, companyId);
+    const existing = await dbGet('SELECT id FROM suppliers WHERE id = ? AND company_id = ?', [supId, companyId]);
     if (!existing) {
       return res.status(404).json({ error: 'Supplier not found' });
     }
 
-    db.prepare(`
+    await dbGet(`
       UPDATE suppliers
       SET name = COALESCE(?, name),
           contact_person = COALESCE(?, contact_person),
@@ -103,7 +93,7 @@ router.put('/:id', (req, res, next) => {
           email = COALESCE(?, email),
           address = COALESCE(?, address)
       WHERE id = ? AND company_id = ?
-    `).run(
+    `, [
       name ?? null,
       contact_person ?? null,
       phone ?? null,
@@ -111,37 +101,32 @@ router.put('/:id', (req, res, next) => {
       address ?? null,
       supId,
       companyId,
-    );
+    ]);
 
     res.json({ message: 'Supplier updated successfully' });
   } catch (err) {
     next(err);
-  } finally {
-    db.close();
   }
 });
 
 // DELETE supplier — scoped to company
-router.delete('/:id', (req, res, next) => {
-  const db = getDb();
+router.delete('/:id', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
     const supId = req.params.id;
 
-    const existing = db.prepare('SELECT id FROM suppliers WHERE id = ? AND company_id = ?').get(supId, companyId);
+    const existing = await dbGet('SELECT id FROM suppliers WHERE id = ? AND company_id = ?', [supId, companyId]);
     if (!existing) return res.status(404).json({ error: 'Supplier not found' });
 
-    const productsExist = db.prepare('SELECT id FROM products WHERE supplier_id = ? AND company_id = ? LIMIT 1').get(supId, companyId);
+    const productsExist = await dbGet('SELECT id FROM products WHERE supplier_id = ? AND company_id = ? LIMIT 1', [supId, companyId]);
     if (productsExist) {
       return res.status(400).json({ error: 'Cannot delete supplier with linked products.' });
     }
 
-    db.prepare('DELETE FROM suppliers WHERE id = ? AND company_id = ?').run(supId, companyId);
+    await dbGet('DELETE FROM suppliers WHERE id = ? AND company_id = ?', [supId, companyId]);
     res.status(204).end();
   } catch (err) {
     next(err);
-  } finally {
-    db.close();
   }
 });
 
