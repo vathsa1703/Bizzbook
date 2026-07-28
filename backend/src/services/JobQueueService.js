@@ -54,10 +54,18 @@ class JobQueueService {
     const db = getDb();
     
     // SQLite doesn't have SKIP LOCKED, but we can do a standard claim pattern
-    // Find pending jobs that are ready to run, ordered by priority
+    // Find pending jobs that are ready to run, ordered by priority.
+    // SELECT * (not an explicit column list) -- the previous explicit list
+    // omitted company_id entirely, so every handler's `job.company_id` was
+    // silently undefined. Confirmed live: this crashed
+    // CommunicationService.processBatch's INSERT ("Provided value cannot be
+    // bound to SQLite parameter 1" -- company_id is bind param 1 there).
+    // Not just a communications bug -- any handler reading job.company_id
+    // (or any other job column beyond this original five) hit the same
+    // silent-undefined failure mode.
     const jobs = db.prepare(`
-      SELECT id, type, payload, attempts, max_attempts 
-      FROM background_jobs 
+      SELECT *
+      FROM background_jobs
       WHERE status = 'pending' AND run_at <= datetime('now')
       ORDER BY priority ASC, run_at ASC
       LIMIT ?

@@ -497,6 +497,20 @@ const rawApi = {
   generateHRLetter: (type, employee_id, context) => request('/hr-ai/generate-letter', { method: 'POST', body: JSON.stringify({ type, employee_id, context }) }),
   getHRInsights: () => request('/hr-ai/insights'),
 
+  // ─── Communication Center ───────────────────────────────────────────────────
+  // CommunicationCenterView.jsx previously called raw fetch() directly for all
+  // of these -- the only file allowed to touch fetch is this one (see
+  // architecture_guidelines.md), since request() is what makes the global
+  // 401-logout and 500-alert interception actually apply everywhere.
+  communication: {
+    getDashboard: () => request('/communication/dashboard'),
+    getTemplates: () => request('/communication/templates'),
+    createTemplate: (data) => request('/communication/templates', { method: 'POST', body: JSON.stringify(data) }),
+    getCampaigns: () => request('/communication/campaigns'),
+    dispatch: (data) => request('/communication/dispatch', { method: 'POST', body: JSON.stringify(data) }),
+    getHistory: (limit = 50) => request(`/communication/history?limit=${limit}`),
+  },
+
   // ─── Phase 3: Automations ────────────────────────────────────────────────────
   automations: {
     getAll: () => request('/automations'),
