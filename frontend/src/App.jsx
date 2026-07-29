@@ -75,14 +75,18 @@ export default function App() {
     );
   } else if (!user) {
     const hasBusinessType = localStorage.getItem('businessType');
+    // Login/Register need a way back to the landing page -- resets both the
+    // tab (so the `tab !== 'login'/'register'` guard below stops excluding
+    // it) and showLanding (in case a prior "Get Started" click had cleared it).
+    const backToLanding = () => { setShowLanding(true); setTab('home'); };
     if (showLanding && tab !== 'login' && tab !== 'register') {
       content = <LandingPage onGetStarted={() => setShowLanding(false)} />;
     } else if (!hasBusinessType && tab !== 'login' && tab !== 'register') {
       content = <BusinessSelection onNavigate={setTab} />;
     } else if (tab === 'register') {
-      content = <Register onNavigate={setTab} />;
+      content = <Register onNavigate={setTab} onBack={backToLanding} />;
     } else {
-      content = <Login onNavigate={setTab} />;
+      content = <Login onNavigate={setTab} onBack={backToLanding} />;
     }
   } else if (tab === 'setup-wizard') {
     // Post-signup setup wizard — shown outside of normal app shell (no BottomNav)

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastContext';
-import { Sparkles, AlertCircle, ShieldCheck, ChevronRight, Building2 } from 'lucide-react';
+import { Sparkles, AlertCircle, ShieldCheck, ChevronRight, Building2, ArrowLeft } from 'lucide-react';
 
 // Business entity types as selectable cards (not a dropdown)
 const ENTITY_TYPES = [
@@ -33,7 +33,7 @@ function InputField({ label, type = 'text', value, onChange, placeholder, requir
   );
 }
 
-export default function Register({ onNavigate }) {
+export default function Register({ onNavigate, onBack }) {
   const { register } = useAuth();
   const { showToast } = useToast();
 
@@ -90,6 +90,15 @@ export default function Register({ onNavigate }) {
       <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-violet-600/15 blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md mx-auto z-10 space-y-6">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-inkB dark:text-inkB-dark hover:text-inkA dark:hover:text-inkA-dark transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to home
+          </button>
+        )}
         {/* Brand */}
         <div className="text-center space-y-3">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-violet-600 shadow-lg shadow-blue-500/20 ring-1 ring-white/10">
