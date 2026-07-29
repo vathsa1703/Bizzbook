@@ -324,6 +324,31 @@ const rawApi = {
   updateEmployee: (id, data) => request(`/employees/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteEmployee: (id) => request(`/employees/${id}`, { method: 'DELETE' }),
   createEmployeeLogin: (id, data) => request(`/employees/${id}/login`, { method: 'POST', body: JSON.stringify(data) }),
+  // Employee photo — multipart upload, so bypass the JSON-only request() wrapper
+  // the same way uploadEmployeeDocument does (don't set Content-Type manually,
+  // let the browser fill in the multipart boundary).
+  uploadEmployeePhoto: (id, formData) => {
+    const token = localStorage.getItem('token');
+    return fetch(`/api/employees/${id}/photo`, {
+      method: 'POST', body: formData, headers: { Authorization: `Bearer ${token}` }
+    }).then(async r => {
+      const data = await r.json().catch(() => ({ error: 'Upload failed' }));
+      if (!r.ok) throw new Error(data.error || 'Upload failed');
+      return data;
+    });
+  },
+  deleteEmployeePhoto: (id) => request(`/employees/${id}/photo`, { method: 'DELETE' }),
+  // GET /photo/file requires the bearer token like every other endpoint, so a
+  // plain <img src="..."> can't load it directly (no way to attach the auth
+  // header to an <img> request) -- callers fetch the blob and build an
+  // object URL instead, same pattern as compliance/trade downloadDocument.
+  getEmployeePhoto: async (id) => {
+    const res = await fetch(`${BASE}/employees/${id}/photo/file`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token') || jwtToken}` },
+    });
+    if (!res.ok) return null;
+    return res.blob();
+  },
 
   // Departments CRUD
   getDepartments: () => request('/departments'),
@@ -692,6 +717,11 @@ const rawApi = {
     getSchemes:   (params = {}) => request(`/growth/schemes?${new URLSearchParams(params)}`),
     getScheme:    (id)           => request(`/growth/schemes/${id}`),
     createScheme: (data)         => request('/growth/schemes', { method: 'POST', body: JSON.stringify(data) }),
+    updateScheme: (id, data)     => request(`/growth/schemes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+    // Investor Directory (curated reference list of real investor firms — not the Investors CRM below)
+    getInvestorDirectory: (params = {}) => request(`/growth/investor-directory?${new URLSearchParams(params)}`),
+    getInvestorDirectoryEntry: (id)     => request(`/growth/investor-directory/${id}`),
 
     // Investors
     getInvestors:   (params = {}) => request(`/growth/investors?${new URLSearchParams(params)}`),

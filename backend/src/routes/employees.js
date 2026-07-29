@@ -246,31 +246,57 @@ router.post('/', (req, res, next) => {
     const { 
       name, department, department_id, employment_type = 'Full Time', manager_id,
       salary, joining_date, performance_rating = 3.0, attendance = 95,
-      avatar = null, phone = null, email = null, emergency_contact = null, job_title = null, status = 'Active'
+      avatar = null, phone = null, email = null, emergency_contact = null, job_title = null, status = 'Active',
+      qualification = null,
+      emergency_contact_name = null, emergency_contact_relation = null, emergency_contact_phone = null,
+      employee_code: requestedEmployeeCode = null
     } = req.body;
 
     if (!name || (!department && !department_id) || salary === undefined || !joining_date) {
       return res.status(400).json({ error: 'Missing required employee fields' });
     }
 
-    // Auto-generate employee code based on max ID
-    const maxEmp = db.prepare('SELECT MAX(id) as maxId FROM employees').get();
-    const nextId = (maxEmp.maxId || 0) + 1;
-    const employee_code = `EMP${String(nextId).padStart(5, '0')}`;
+    if (!emergency_contact_name || !String(emergency_contact_name).trim() ||
+        !emergency_contact_phone || !String(emergency_contact_phone).trim()) {
+      return res.status(400).json({ error: 'Emergency contact name and phone are required' });
+    }
+
+    // Custom Employee ID: optional. If provided, it must be unique within the
+    // company (case-sensitive match — a LOWER() comparison would be a stricter
+    // uniqueness rule, e.g. rejecting "EMP001" alongside "emp001", but the
+    // simple exact-match check below is what was requested). Falls back to the
+    // existing auto-generation (MAX(id)+1) when omitted, unchanged from before.
+    let employee_code;
+    if (requestedEmployeeCode && String(requestedEmployeeCode).trim()) {
+      employee_code = String(requestedEmployeeCode).trim();
+      const codeTaken = db.prepare(
+        'SELECT id FROM employees WHERE company_id = ? AND employee_code = ?'
+      ).get(companyId, employee_code);
+      if (codeTaken) {
+        return res.status(409).json({ error: 'Employee ID already in use' });
+      }
+    } else {
+      // Auto-generate employee code based on max ID
+      const maxEmp = db.prepare('SELECT MAX(id) as maxId FROM employees').get();
+      const nextId = (maxEmp.maxId || 0) + 1;
+      employee_code = `EMP${String(nextId).padStart(5, '0')}`;
+    }
 
     const resInsert = db.prepare(`
       INSERT INTO employees (
         name, department, department_id, employment_type, manager_id,
         salary, revenue_generated, joining_date, 
         performance_rating, attendance, status, company_id,
-        employee_code, avatar, phone, email, emergency_contact, job_title
+        employee_code, avatar, phone, email, emergency_contact, job_title,
+        qualification, emergency_contact_name, emergency_contact_relation, emergency_contact_phone
       )
-      VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       name, department || '', toNullableId(department_id), employment_type, toNullableId(manager_id),
-      salary, joining_date, 
+      salary, joining_date,
       performance_rating, attendance, status, companyId,
-      employee_code, avatar, phone, email, emergency_contact, job_title
+      employee_code, avatar, phone, email, emergency_contact, job_title,
+      qualification, emergency_contact_name, emergency_contact_relation, emergency_contact_phone
     );
 
     res.status(201).json({ id: resInsert.lastInsertRowid, employee_code, name, department, salary, joining_date });
@@ -289,7 +315,8 @@ router.put('/:id', (req, res, next) => {
     const { 
       name, department, department_id, employment_type, manager_id,
       salary, joining_date, performance_rating, attendance, status,
-      avatar, phone, email, emergency_contact, job_title
+      avatar, phone, email, emergency_contact, job_title,
+      qualification, emergency_contact_name, emergency_contact_relation, emergency_contact_phone
     } = req.body;
     const empId = req.params.id;
 
@@ -331,7 +358,11 @@ router.put('/:id', (req, res, next) => {
           phone = COALESCE(?, phone),
           email = COALESCE(?, email),
           emergency_contact = COALESCE(?, emergency_contact),
-          job_title = COALESCE(?, job_title)
+          job_title = COALESCE(?, job_title),
+          qualification = COALESCE(?, qualification),
+          emergency_contact_name = COALESCE(?, emergency_contact_name),
+          emergency_contact_relation = COALESCE(?, emergency_contact_relation),
+          emergency_contact_phone = COALESCE(?, emergency_contact_phone)
       WHERE id = ? AND company_id = ?
     `).run(
       name ?? null,
@@ -349,6 +380,10 @@ router.put('/:id', (req, res, next) => {
       email ?? null,
       emergency_contact ?? null,
       job_title ?? null,
+      qualification ?? null,
+      emergency_contact_name ?? null,
+      emergency_contact_relation ?? null,
+      emergency_contact_phone ?? null,
       empId,
       companyId,
     );

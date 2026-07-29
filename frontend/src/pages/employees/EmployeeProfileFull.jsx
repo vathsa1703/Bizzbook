@@ -43,6 +43,27 @@ export default function EmployeeProfileFull({ employee, onBack, onRefresh }) {
     if (activeTab === 'salary') loadPayrollInfo();
   }, [activeTab]);
 
+  const [photoUrl, setPhotoUrl] = useState(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoVersion, setPhotoVersion] = useState(0); // bumped after upload/delete to force a re-fetch
+
+  useEffect(() => {
+    let objectUrl = null;
+    let cancelled = false;
+    (async () => {
+      if (!employee.avatar) { setPhotoUrl(null); return; }
+      const blob = await api.getEmployeePhoto(employee.id);
+      if (cancelled) return;
+      if (blob) {
+        objectUrl = URL.createObjectURL(blob);
+        setPhotoUrl(objectUrl);
+      } else {
+        setPhotoUrl(null);
+      }
+    })();
+    return () => { cancelled = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [employee.id, employee.avatar, photoVersion]);
+
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -57,6 +78,43 @@ export default function EmployeeProfileFull({ employee, onBack, onRefresh }) {
       loadDocs();
     } catch (err) { showToast(err.message, 'error'); }
     finally { setLoading(false); e.target.value = ''; }
+  };
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      showToast('Only JPEG, PNG, or WEBP images are allowed', 'error');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Photo must be under 5MB', 'error');
+      e.target.value = '';
+      return;
+    }
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    setUploadingPhoto(true);
+    try {
+      await api.uploadEmployeePhoto(employee.id, formData);
+      showToast('Photo updated', 'success');
+      setPhotoVersion(v => v + 1);
+      onRefresh();
+    } catch (err) { showToast(err.message, 'error'); }
+    finally { setUploadingPhoto(false); e.target.value = ''; }
+  };
+
+  const handlePhotoDelete = async () => {
+    if (!confirm('Remove this employee\'s photo?')) return;
+    try {
+      await api.deleteEmployeePhoto(employee.id);
+      showToast('Photo removed', 'success');
+      setPhotoVersion(v => v + 1);
+      onRefresh();
+    } catch (err) { showToast(err.message, 'error'); }
   };
 
   const handleDeleteDoc = async (id) => {
@@ -93,8 +151,23 @@ export default function EmployeeProfileFull({ employee, onBack, onRefresh }) {
         </button>
 
         <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
-          <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-4xl font-bold text-white shadow-xl shadow-blue-900/20">
-            {employee.name[0]}
+          <div className="relative group shrink-0">
+            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-4xl font-bold text-white shadow-xl shadow-blue-900/20 overflow-hidden">
+              {photoUrl ? (
+                <img src={photoUrl} alt={employee.name} className="w-full h-full object-cover" />
+              ) : (
+                employee.name[0]
+              )}
+            </div>
+            <label className="absolute -bottom-2 -right-2 p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg cursor-pointer transition-colors" title="Upload photo">
+              <Upload className="w-3.5 h-3.5" />
+              <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} disabled={uploadingPhoto} />
+            </label>
+            {photoUrl && (
+              <button onClick={handlePhotoDelete} className="absolute -bottom-2 left-1/2 -translate-x-1/2 translate-x-8 p-2 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg transition-colors opacity-0 group-hover:opacity-100" title="Remove photo">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-inkA dark:text-inkA-dark">{employee.name}</h1>
@@ -139,7 +212,15 @@ export default function EmployeeProfileFull({ employee, onBack, onRefresh }) {
               <div className="space-y-4">
                 <div><div className="text-xs text-inkB dark:text-inkB-dark mb-1">Date of Birth</div><div className="text-sm font-medium text-inkA dark:text-inkA-dark">{employee.dob || 'Not provided'}</div></div>
                 <div><div className="text-xs text-inkB dark:text-inkB-dark mb-1">Blood Group</div><div className="text-sm font-medium text-inkA dark:text-inkA-dark">{employee.blood_group || 'Not provided'}</div></div>
-                <div><div className="text-xs text-inkB dark:text-inkB-dark mb-1">Emergency Contact</div><div className="text-sm font-medium text-inkA dark:text-inkA-dark">{employee.emergency_contact || 'Not provided'}</div></div>
+                <div><div className="text-xs text-inkB dark:text-inkB-dark mb-1">Qualification</div><div className="text-sm font-medium text-inkA dark:text-inkA-dark">{employee.qualification || 'Not provided'}</div></div>
+                <div>
+                  <div className="text-xs text-inkB dark:text-inkB-dark mb-1">Emergency Contact</div>
+                  <div className="text-sm font-medium text-inkA dark:text-inkA-dark">
+                    {employee.emergency_contact_name
+                      ? `${employee.emergency_contact_name}${employee.emergency_contact_relation ? ` (${employee.emergency_contact_relation})` : ''} — ${employee.emergency_contact_phone || ''}`
+                      : (employee.emergency_contact || 'Not provided')}
+                  </div>
+                </div>
                 <div><div className="text-xs text-inkB dark:text-inkB-dark mb-1">Address</div><div className="text-sm font-medium text-inkA dark:text-inkA-dark">{employee.address || 'Not provided'}</div></div>
               </div>
             </div>
