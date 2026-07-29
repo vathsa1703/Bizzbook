@@ -14,6 +14,8 @@ import { useAuth } from '../../context/AuthContext';
 import { StatCard, SectionCard, Badge, EmptyState } from './shared';
 import RequirementDrawer from '../../components/trade/RequirementDrawer';
 import AdminGuidelines from '../../components/trade/AdminGuidelines';
+import VoiceButton from '../../components/VoiceButton';
+import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
 
 const ADMIN_ROLES = ['admin', 'OWNER', 'MANAGER'];
 const ENTITY_TYPES = ['Sole Proprietorship', 'Partnership', 'LLP', 'Private Limited', 'OPC', 'Public Limited', 'NGO / Trust', 'Cooperative'];
@@ -30,6 +32,15 @@ function TradeProfileForm({ initial, onSaved }) {
   const [form, setForm] = useState({ entity_type: 'Private Limited', industry: 'Retail', state: '', annual_turnover: 0, employee_count: 0, import_enabled: 0, export_enabled: 0, is_manufacturer: 0, is_trader: 0, is_service_provider: 0, iec_number: '', ...(initial || {}) });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  // Voice Notes — local-only free-text scratchpad for this form. The trade
+  // profile schema (PROFILE_FIELDS in complianceService.js) has no free-text
+  // column, so this isn't persisted to the backend; it's just a convenient
+  // way to dictate context (e.g. "we mainly import textiles from Vietnam")
+  // before filling the structured fields above by hand.
+  const [voiceNotes, setVoiceNotes] = useState('');
+  const handleTranscript = (text) => setVoiceNotes(text);
+  const { recording, transcribing, error: voiceError, start, stop, cancel } = useVoiceRecorder(handleTranscript);
   const submit = async () => {
     setSaving(true);
     try { await api.trade.saveProfile(form); onSaved(); }
@@ -58,7 +69,33 @@ function TradeProfileForm({ initial, onSaved }) {
         })}
       </div>
       <label className="block text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-1">IEC Number (if already registered)</label>
-      <input value={form.iec_number || ''} onChange={e => set('iec_number', e.target.value)} placeholder="10-digit Import Export Code" className="w-full border rounded-xl px-3 py-2.5 text-sm mb-5 bg-panel2 dark:bg-panel2-dark" />
+      <input value={form.iec_number || ''} onChange={e => set('iec_number', e.target.value)} placeholder="10-digit Import Export Code" className="w-full border rounded-xl px-3 py-2.5 text-sm mb-3 bg-panel2 dark:bg-panel2-dark" />
+
+      <label className="block text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-1">Voice Notes (optional, not saved)</label>
+      <div className="flex items-start gap-2 mb-1">
+        <textarea
+          value={voiceNotes}
+          onChange={e => setVoiceNotes(e.target.value)}
+          placeholder={transcribing ? 'Transcribing…' : recording ? 'Recording…' : 'Tap the mic and describe your trade business…'}
+          disabled={recording || transcribing}
+          rows={3}
+          className="flex-1 border rounded-xl px-3 py-2.5 text-sm bg-panel2 dark:bg-panel2-dark resize-none"
+        />
+        <VoiceButton
+          recording={recording}
+          transcribing={transcribing}
+          onStart={start}
+          onStop={stop}
+          onCancel={cancel}
+        />
+      </div>
+      {voiceError && (
+        <p className="text-xs text-amber-600 dark:text-amber-400 mb-3">
+          {voiceError === 'mic_denied' ? 'Microphone access was denied.' : 'Transcription failed. Please try again or type instead.'}
+        </p>
+      )}
+      <p className="text-[11px] text-gray-400 dark:text-slate-500 mb-5">Jot down context by voice or text — this is just a scratchpad for you and isn't saved with the profile.</p>
+
       <button onClick={submit} disabled={saving} className="w-full py-3.5 rounded-xl bg-gray-900 text-white font-bold text-sm flex justify-center items-center gap-2 disabled:opacity-60 active:scale-[0.98] transition-transform">
         {saving ? <><Loader2 size={18} className="animate-spin" /> Analysing…</> : <><Ship size={18} /> Generate My Trade Plan</>}
       </button>
