@@ -68,6 +68,9 @@ const uploadPartner = createUpload('partnerships');
 svc.seedReferenceData().catch((e) => {
   console.error('[GrowthRoute] Seed error (non-fatal):', e.message);
 });
+svc.seedInvestorDirectory().catch((e) => {
+  console.error('[GrowthRoute] Investor directory seed error (non-fatal):', e.message);
+});
 
 // ── Response helpers ──────────────────────────────────────────────────────────
 function ok(res, data) { res.json({ success: true, ...data }); }
@@ -212,6 +215,108 @@ router.post('/schemes', async (req, res) => {
        d.deadline_type,d.deadline_notes??null,d.max_benefit_amount??null,d.benefit_unit??'INR',d.benefit_type,d.tags]
     );
     ok(res, { id: r.lastInsertRowid });
+  } catch (e) { fail(res, e); }
+});
+
+// PUT /schemes/:id — admin correction/update. This is the practical way this
+// app keeps government_schemes "current": there is no live government data
+// feed to poll, so freshness comes from a human admin editing a scheme and
+// this bumping last_verified_at to now() as a record of that manual check.
+router.put('/schemes/:id', async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const d = req.body;
+    const fields = ['country_code','region','name','short_name','category','administering_body','description',
+      'eligibility','benefits','documents_required','application_process','official_links',
+      'deadline_type','deadline_notes','max_benefit_amount','benefit_unit','benefit_type','tags','sort_order','is_active'];
+    const updates = {};
+    for (const f of fields) if (d[f] !== undefined) updates[f] = d[f];
+    const set = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+    const setClause = set ? `${set}, ` : '';
+    await svc.run(
+      `UPDATE government_schemes SET ${setClause}last_verified_at = ${nowExpr()}, updated_at = ${nowExpr()} WHERE id = ?`,
+      [...Object.values(updates), req.params.id]
+    );
+    const scheme = await svc.get('SELECT * FROM government_schemes WHERE id = ?', [req.params.id]);
+    if (!scheme) return res.status(404).json({ error: 'Not found' });
+    ok(res, { scheme });
+  } catch (e) { fail(res, e); }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// INVESTOR DIRECTORY (curated reference list of real investor firms/funds —
+// NOT the per-company Investors CRM below. Read-only, admin-curated data,
+// mirrors GOVERNMENT_SCHEMES's shape/conventions.)
+// ════════════════════════════════════════════════════════════════════════════
+
+router.get('/investor-directory', async (req, res) => {
+  try {
+    const { sector, stage, org_type, region, search } = req.query;
+    // is_active bound as a param — see /funding-types above for why.
+    let sql = 'SELECT * FROM investor_directory WHERE is_active = ?';
+    const params = [1];
+    if (org_type) { sql += ' AND org_type = ?'; params.push(org_type); }
+    if (stage)    { sql += ' AND investment_stage = ?'; params.push(stage); }
+    if (region)   { sql += ' AND (region IS NULL OR region = ?)'; params.push(region); }
+    if (sector)   { sql += ' AND focus_sectors LIKE ?'; params.push(`%${sector}%`); }
+    if (search)   {
+      sql += ' AND (name LIKE ? OR description LIKE ? OR focus_sectors LIKE ?)';
+      const s = `%${search}%`; params.push(s, s, s);
+    }
+    sql += ' ORDER BY sort_order, name';
+    ok(res, { investorDirectory: await svc.all(sql, params) });
+  } catch (e) { fail(res, e); }
+});
+
+router.get('/investor-directory/:id', async (req, res) => {
+  try {
+    const inv = await svc.get('SELECT * FROM investor_directory WHERE id = ?', [req.params.id]);
+    if (!inv) return res.status(404).json({ error: 'Not found' });
+    ok(res, { investor: inv });
+  } catch (e) { fail(res, e); }
+});
+
+// POST /investor-directory — admin-only correction/addition, mirrors POST /schemes.
+router.post('/investor-directory', async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const d = req.body;
+    if (!d.name) return res.status(400).json({ error: 'name is required' });
+    const r = await svc.run(
+      `INSERT INTO investor_directory
+        (name,org_type,focus_sectors,investment_stage,ticket_size_min,ticket_size_max,
+         region,country_code,website_url,contact_info,description,notable_portfolio,sort_order)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [d.name,d.org_type??null,d.focus_sectors?JSON.stringify(d.focus_sectors):null,d.investment_stage??null,
+       d.ticket_size_min??null,d.ticket_size_max??null,d.region??null,d.country_code??'IN',
+       d.website_url??null,d.contact_info??null,d.description??null,
+       d.notable_portfolio?JSON.stringify(d.notable_portfolio):null,d.sort_order??0]
+    );
+    ok(res, { id: r.lastInsertRowid });
+  } catch (e) { fail(res, e); }
+});
+
+// PUT /investor-directory/:id — admin correction, same pattern as PUT /schemes/:id
+// but investor_directory has no last_verified_at column (no freshness-tracking
+// requirement was specified for it), so only updated_at is bumped.
+router.put('/investor-directory/:id', async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const d = req.body;
+    const fields = ['name','org_type','investment_stage','ticket_size_min','ticket_size_max',
+      'region','country_code','website_url','contact_info','description','sort_order','is_active'];
+    const updates = {};
+    for (const f of fields) if (d[f] !== undefined) updates[f] = d[f];
+    if (d.focus_sectors !== undefined) updates.focus_sectors = JSON.stringify(d.focus_sectors);
+    if (d.notable_portfolio !== undefined) updates.notable_portfolio = JSON.stringify(d.notable_portfolio);
+    if (Object.keys(updates).length > 0) {
+      const set = Object.keys(updates).map(k => `${k} = ?`).join(', ');
+      await svc.run(`UPDATE investor_directory SET ${set}, updated_at = ${nowExpr()} WHERE id = ?`,
+        [...Object.values(updates), req.params.id]);
+    }
+    const investor = await svc.get('SELECT * FROM investor_directory WHERE id = ?', [req.params.id]);
+    if (!investor) return res.status(404).json({ error: 'Not found' });
+    ok(res, { investor });
   } catch (e) { fail(res, e); }
 });
 

@@ -16,6 +16,7 @@ const pgDb = require('../config/pgDb');
 const {
   FUNDING_TYPES,
   GOVERNMENT_SCHEMES,
+  INVESTOR_DIRECTORY,
   IPO_CHECKLIST_TEMPLATE,
   ROADMAP_TEMPLATE,
   DUE_DILIGENCE_TEMPLATE,
@@ -38,8 +39,14 @@ function insertIgnoreProfileSql(x) {
 
 // ── 1. Reference Data Seeding ─────────────────────────────────────────────────
 
+// withTxExecutor (not withExecutor): each seed loop runs many sequential
+// INSERTs against a single connection with no wrapping transaction, so a
+// process interrupted mid-loop (e.g. server restart during nodemon dev)
+// commits a partial set on SQLite. The idempotent COUNT-check above treats
+// "some rows exist" as "already seeded" and never retries, so a partial seed
+// gets stuck forever. Wrapping in a transaction makes it all-or-nothing.
 async function seedReferenceData() {
-  return withExecutor(async (x) => {
+  return withTxExecutor(async (x) => {
     // Seed funding_types if empty
     const ftCount = await x.get('SELECT COUNT(*) as cnt FROM funding_types');
     if (!ftCount || ftCount.cnt === 0) {
@@ -83,6 +90,35 @@ async function seedReferenceData() {
         );
       }
       console.log('[GrowthService] Seeded government_schemes:', GOVERNMENT_SCHEMES.length);
+    }
+  });
+}
+
+// Curated, browsable reference list of real investor firms/funds (Task 1) —
+// same idempotent COUNT-check-then-insert shape as seedReferenceData above,
+// kept as its own function/export since it targets a different table
+// (investor_directory, migration 30) and is called separately from
+// routes/growth.js's module-load block.
+// withTxExecutor for the same all-or-nothing reason as seedReferenceData above.
+async function seedInvestorDirectory() {
+  return withTxExecutor(async (x) => {
+    const idCount = await x.get('SELECT COUNT(*) as cnt FROM investor_directory');
+    if (!idCount || idCount.cnt === 0) {
+      for (const inv of INVESTOR_DIRECTORY) {
+        await x.run(
+          `INSERT INTO investor_directory
+            (name, org_type, focus_sectors, investment_stage, ticket_size_min, ticket_size_max,
+             region, country_code, website_url, contact_info, description, notable_portfolio, sort_order)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [
+            inv.name, inv.org_type ?? null, inv.focus_sectors ?? null, inv.investment_stage ?? null,
+            inv.ticket_size_min ?? null, inv.ticket_size_max ?? null, inv.region ?? null,
+            inv.country_code ?? 'IN', inv.website_url ?? null, inv.contact_info ?? null,
+            inv.description ?? null, inv.notable_portfolio ?? null, inv.sort_order ?? 0,
+          ]
+        );
+      }
+      console.log('[GrowthService] Seeded investor_directory:', INVESTOR_DIRECTORY.length);
     }
   });
 }
@@ -449,7 +485,23 @@ Investor Pipeline: ${investorCnt?.cnt || 0} investors tracked
 Active Round: ${activeRound ? `${activeRound.round_name} — ${sym}${fmt(activeRound.raised_amount)} of ${sym}${fmt(activeRound.target_amount)} raised` : 'None open'}
 Latest Valuation: ${latestVal ? `${sym}${fmt(latestVal.value_mid)} mid-point (${latestVal.method})` : 'Not estimated yet'}
 
-Answer concisely and practically. Reference specific actions in BizBook's Growth Hub. Tailor advice to the company's stage, country (${profile.country_code || 'IN'}), and context above.`;
+Answer concisely and practically. Reference specific actions in BizBook's Growth Hub. Tailor advice to the company's stage, country (${profile.country_code || 'IN'}), and context above.
+
+When asked about attracting investors or fundraising strategy: ground your advice in the specific
+readiness-score components above rather than generic fundraising tips. Walk through each unmet item
+in Funding Readiness (revenue declared, investor pipeline started, pitch deck uploaded, cap table
+structured, valuation calculated, fundraising target set) and recommend the single most impactful
+missing one as the concrete next step — e.g. if "Pitch deck uploaded" is not done, say that's the next
+step to do first, before anything else. Don't give generic "network more, tell a good story" advice
+when there's a concrete gap you can see directly in this company's own data above.
+
+If asked where to find investors, or which investors to approach: BizBook has an Investor Directory
+(Growth Hub → Investor Directory) listing real, well-known India-focused VC firms, angel networks,
+accelerators, and government funds with their typical stage, ticket size, and focus sectors. Point the
+user to it by name ("check the Investor Directory in the Growth Hub") for "where do I find investors"
+style questions — you do not have live access to that list yourself (no direct database access here),
+so don't invent or recommend specific investor names/firms yourself; only mention that the Directory is
+the place to browse them.`;
   });
 }
 
@@ -486,6 +538,7 @@ async function dbRun(sql, params = []) {
 
 module.exports = {
   seedReferenceData,
+  seedInvestorDirectory,
   getOrCreateProfile,
   updateProfile,
   computeReadiness,

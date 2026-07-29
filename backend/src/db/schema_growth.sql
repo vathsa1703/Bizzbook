@@ -78,6 +78,33 @@ CREATE TABLE IF NOT EXISTS government_schemes (
   tags                TEXT,        -- JSON array for search
   is_active           INTEGER DEFAULT 1,
   sort_order          INTEGER DEFAULT 0,
+  -- Nullable — no live government-data feed exists; NULL means "never
+  -- manually verified by an admin". Bumped to now() by PUT /schemes/:id.
+  last_verified_at    TEXT,
+  created_at          TEXT DEFAULT (datetime('now')),
+  updated_at          TEXT DEFAULT (datetime('now'))
+);
+
+-- ── 3b. Investor Directory ───────────────────────────────────────────────────
+-- Curated, browsable reference list of real investor firms/funds (analogous to
+-- government_schemes above) — NOT the per-company investor CRM (see `investors`
+-- table below). Global reference data, not scoped by company_id.
+CREATE TABLE IF NOT EXISTS investor_directory (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  name                TEXT NOT NULL,
+  org_type            TEXT,        -- VC Firm | Angel Network | Accelerator | Government Fund
+  focus_sectors       TEXT,        -- JSON array
+  investment_stage    TEXT,        -- Seed | Series A | Growth | ...
+  ticket_size_min     REAL,
+  ticket_size_max     REAL,
+  region              TEXT,
+  country_code        TEXT DEFAULT 'IN',
+  website_url         TEXT,
+  contact_info        TEXT,
+  description         TEXT,
+  notable_portfolio   TEXT,        -- JSON array of company names, optional
+  is_active           INTEGER DEFAULT 1,
+  sort_order          INTEGER DEFAULT 0,
   created_at          TEXT DEFAULT (datetime('now')),
   updated_at          TEXT DEFAULT (datetime('now'))
 );
@@ -370,6 +397,7 @@ CREATE TABLE IF NOT EXISTS growth_advisor_sessions (
 CREATE INDEX IF NOT EXISTS idx_growth_profiles_company   ON growth_profiles(company_id);
 CREATE INDEX IF NOT EXISTS idx_funding_types_country     ON funding_types(country_code);
 CREATE INDEX IF NOT EXISTS idx_gov_schemes_country       ON government_schemes(country_code, category);
+CREATE INDEX IF NOT EXISTS idx_investor_directory_type   ON investor_directory(org_type, investment_stage);
 CREATE INDEX IF NOT EXISTS idx_investors_company         ON investors(company_id, status);
 CREATE INDEX IF NOT EXISTS idx_rounds_company            ON investment_rounds(company_id);
 CREATE INDEX IF NOT EXISTS idx_shareholders_company      ON shareholders(company_id);

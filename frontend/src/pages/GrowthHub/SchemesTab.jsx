@@ -48,6 +48,11 @@ export default function SchemesTab() {
           </div>
           <p className="text-xs text-inkB dark:text-inkB-dark font-medium">{s.administering_body}</p>
           <p className="text-sm text-inkB dark:text-inkB-dark leading-relaxed mt-2">{s.description}</p>
+          <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-3">
+            {s.last_verified_at
+              ? `Last verified: ${new Date(s.last_verified_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}`
+              : 'Not yet verified by an admin'}
+          </p>
         </SectionCard>
 
         {s.max_benefit_amount && (
