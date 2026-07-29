@@ -166,7 +166,12 @@ CREATE TABLE IF NOT EXISTS employees (
   permanent_address TEXT,
   current_address TEXT,
   pan TEXT,
-  aadhaar TEXT
+  aadhaar TEXT,
+  -- Employee profile Phase: qualification/education + structured emergency contact
+  qualification TEXT,
+  emergency_contact_name TEXT,
+  emergency_contact_relation TEXT,
+  emergency_contact_phone TEXT
 );
 
 CREATE TABLE IF NOT EXISTS sales (
@@ -1798,6 +1803,32 @@ CREATE TABLE IF NOT EXISTS government_schemes (
   tags                TEXT, -- JSON array for search, stored as TEXT
   is_active           BOOLEAN DEFAULT true,  -- was INTEGER 0/1
   sort_order          INTEGER DEFAULT 0,
+  -- Nullable — no live government-data feed exists; NULL means "never
+  -- manually verified by an admin". Bumped to now() by PUT /schemes/:id.
+  last_verified_at    TIMESTAMPTZ,
+  created_at          TIMESTAMPTZ DEFAULT now(),
+  updated_at          TIMESTAMPTZ DEFAULT now()
+);
+
+-- Curated, browsable reference list of real investor firms/funds (analogous to
+-- government_schemes above) — NOT the per-company investor CRM (see `investors`
+-- table below). Global reference data, not scoped by company_id.
+CREATE TABLE IF NOT EXISTS investor_directory (
+  id                  INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name                TEXT NOT NULL,
+  org_type            TEXT, -- VC Firm | Angel Network | Accelerator | Government Fund
+  focus_sectors       TEXT, -- JSON array, stored as TEXT
+  investment_stage    TEXT, -- Seed | Series A | Growth | ...
+  ticket_size_min     DOUBLE PRECISION,
+  ticket_size_max     DOUBLE PRECISION,
+  region              TEXT,
+  country_code        TEXT DEFAULT 'IN',
+  website_url         TEXT,
+  contact_info        TEXT,
+  description         TEXT,
+  notable_portfolio   TEXT, -- JSON array of company names, optional, stored as TEXT
+  is_active           BOOLEAN DEFAULT true,
+  sort_order          INTEGER DEFAULT 0,
   created_at          TIMESTAMPTZ DEFAULT now(),
   updated_at          TIMESTAMPTZ DEFAULT now()
 );
@@ -2151,6 +2182,7 @@ CREATE INDEX IF NOT EXISTS idx_trade_events_company ON trade_events(company_id);
 CREATE INDEX IF NOT EXISTS idx_growth_profiles_company   ON growth_profiles(company_id);
 CREATE INDEX IF NOT EXISTS idx_funding_types_country     ON funding_types(country_code);
 CREATE INDEX IF NOT EXISTS idx_gov_schemes_country       ON government_schemes(country_code, category);
+CREATE INDEX IF NOT EXISTS idx_investor_directory_type   ON investor_directory(org_type, investment_stage);
 CREATE INDEX IF NOT EXISTS idx_investors_company         ON investors(company_id, status);
 CREATE INDEX IF NOT EXISTS idx_rounds_company            ON investment_rounds(company_id);
 CREATE INDEX IF NOT EXISTS idx_shareholders_company      ON shareholders(company_id);
