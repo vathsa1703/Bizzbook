@@ -1,11 +1,17 @@
 const { verifyToken } = require('../services/authService');
-const { getDb } = require('../config/db');
 const crypto = require('crypto');
+const { dbGet, dbAll, engine } = require('../config/dbEngine');
 
-// Simple in-memory cache for permissions (5 min TTL)
+// Simple in-memory cache for permissions (5 min TTL). Cache key includes
+// companyId, not just userId -- see queryUserPermissions below: this matters
+// because the same user_id can theoretically hold role assignments scoped to
+// different companies (user_roles carries its own company_id column), so a
+// userId-only key would risk serving one company's permission set to a
+// request scoped at another. Not a Phase 2 change -- this was already
+// correct before conversion; verified explicitly rather than assumed.
 const permissionCache = new Map();
 
-function authenticate(req, res, next) {
+async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Authentication token required' });
@@ -24,23 +30,30 @@ function authenticate(req, res, next) {
   };
 
   // Phase 2: Check if session is still active in database
-  const db = getDb();
   try {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const session = db.prepare('SELECT id, is_active FROM sessions WHERE token_hash = ?').get(tokenHash);
-    if (session && session.is_active === 0) {
+    const session = await dbGet('SELECT id, is_active FROM sessions WHERE token_hash = ?', [tokenHash]);
+    // is_active is boolean under Postgres (Phase 1), 0/1 under SQLite. This is
+    // a check FOR revocation, not "is on" -- session.is_active === 0 only
+    // ever matched SQLite's literal 0; Postgres's real `false` needs the same
+    // treatment as dbEngine.js's isOn() but inverted (isOff), since the code
+    // wants to act specifically when the flag is off, not when it's on.
+    const isRevoked = session && (session.is_active === 0 || session.is_active === false);
+    if (isRevoked) {
       return res.status(401).json({ error: 'Session has been revoked' });
     }
-    
+
     // Update last activity periodically (e.g. 10% chance to avoid heavy writes on every request)
     if (session && Math.random() < 0.1) {
-      db.prepare("UPDATE sessions SET last_activity = datetime('now') WHERE id = ?").run(session.id);
+      if (engine() === 'postgres') {
+        await dbGet('UPDATE sessions SET last_activity = now() WHERE id = ?', [session.id]);
+      } else {
+        await dbGet("UPDATE sessions SET last_activity = datetime('now') WHERE id = ?", [session.id]);
+      }
     }
   } catch (err) {
     console.error('Session check error:', err);
     // Proceed if DB fails here, fallback to JWT validity
-  } finally {
-    db.close();
   }
 
   next();
@@ -72,7 +85,7 @@ function authorize(roles = []) {
 // consulted before falling back to legacy role-string checks.
 // Throws on unexpected DB failure so callers can decide how to fail (see hasPermission
 // below for the fail-closed-to-legacy-fallback wrapper used by rbacMiddleware).
-function queryUserPermissions(userId, companyId) {
+async function queryUserPermissions(userId, companyId) {
   const cacheKey = `${userId}_${companyId}`;
   const now = Date.now();
 
@@ -83,32 +96,28 @@ function queryUserPermissions(userId, companyId) {
     }
   }
 
-  const db = getDb();
-  try {
-    const rows = db.prepare(`
-      SELECT p.action
-      FROM user_roles ur
-      JOIN role_permissions rp ON ur.role_id = rp.role_id
-      JOIN permissions p ON rp.permission_id = p.id
-      WHERE ur.user_id = ? AND ur.company_id = ?
-    `).all(userId, companyId);
+  const rows = await dbAll(`
+    SELECT p.action
+    FROM user_roles ur
+    JOIN role_permissions rp ON ur.role_id = rp.role_id
+    JOIN permissions p ON rp.permission_id = p.id
+    WHERE ur.user_id = ? AND ur.company_id = ?
+  `, [userId, companyId]);
 
-    const perms = rows.map(r => r.action);
-    permissionCache.set(cacheKey, { timestamp: now, perms });
-    return perms;
-  } finally {
-    db.close();
-  }
+  const perms = rows.map(r => r.action);
+  permissionCache.set(cacheKey, { timestamp: now, perms });
+  return perms;
 }
 
 // True if the user is a legacy super-admin, or actually holds the given granular
 // permission via a custom role. Fails closed (returns false) on lookup error so a
 // transient DB issue can never grant access — callers combine this with their own
 // legacy-role fallback for the "not found" case, same as before this existed.
-function hasPermission(userId, companyId, role, action) {
+async function hasPermission(userId, companyId, role, action) {
   if (role === 'admin') return true;
   try {
-    return queryUserPermissions(userId, companyId).includes(action);
+    const perms = await queryUserPermissions(userId, companyId);
+    return perms.includes(action);
   } catch (err) {
     console.error('RBAC Error:', err);
     return false;
@@ -117,7 +126,7 @@ function hasPermission(userId, companyId, role, action) {
 
 // Phase 2: Granular RBAC Check
 function requirePermission(action) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Unauthenticated' });
     }
@@ -131,7 +140,7 @@ function requirePermission(action) {
 
     let userPermissions;
     try {
-      userPermissions = queryUserPermissions(userId, companyId);
+      userPermissions = await queryUserPermissions(userId, companyId);
     } catch (err) {
       console.error('RBAC Error:', err);
       return res.status(500).json({ error: 'Internal Server Error (RBAC)' });

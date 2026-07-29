@@ -43,12 +43,12 @@ function parsePeriod(query) {
 //  - summary counts per section (b2b, b2cl, b2cs, hsn lines)
 //  - can_export flag
 
-router.get('/preview', (req, res, next) => {
+router.get('/preview', async (req, res, next) => {
   try {
     const period = parsePeriod(req.query);
     if (period.error) return res.status(400).json({ error: period.error });
 
-    const data = buildGstrData({ ...period, companyId: req.user.companyId });
+    const data = await buildGstrData({ ...period, companyId: req.user.companyId });
 
     // Company GST readiness check
     const c = data.company;
@@ -92,7 +92,7 @@ router.get('/excel', async (req, res, next) => {
     const period = parsePeriod(req.query);
     if (period.error) return res.status(400).json({ error: period.error });
 
-    const data = buildGstrData({ ...period, companyId: req.user.companyId });
+    const data = await buildGstrData({ ...period, companyId: req.user.companyId });
 
     if (!data.health.can_export) {
       return res.status(422).json({
@@ -120,12 +120,12 @@ router.get('/excel', async (req, res, next) => {
 
 // ─── GET /api/gst-filing/csv ─────────────────────────────────────────────────
 
-router.get('/csv', (req, res, next) => {
+router.get('/csv', async (req, res, next) => {
   try {
     const period = parsePeriod(req.query);
     if (period.error) return res.status(400).json({ error: period.error });
 
-    const data = buildGstrData({ ...period, companyId: req.user.companyId });
+    const data = await buildGstrData({ ...period, companyId: req.user.companyId });
 
     if (!data.health.can_export) {
       return res.status(422).json({
@@ -149,12 +149,12 @@ router.get('/csv', (req, res, next) => {
 
 // ─── GET /api/gst-filing/json ────────────────────────────────────────────────
 
-router.get('/json', (req, res, next) => {
+router.get('/json', async (req, res, next) => {
   try {
     const period = parsePeriod(req.query);
     if (period.error) return res.status(400).json({ error: period.error });
 
-    const data = buildGstrData({ ...period, companyId: req.user.companyId });
+    const data = await buildGstrData({ ...period, companyId: req.user.companyId });
 
     if (!data.health.can_export) {
       return res.status(422).json({

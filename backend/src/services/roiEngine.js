@@ -1,9 +1,8 @@
-const { getDb } = require('../config/db');
+const { withExecutor } = require('../config/dbEngine');
 
-function calculateCampaignROI(campaignId, companyId) {
-  const db = getDb();
-  try {
-    const campaign = db.prepare('SELECT * FROM marketing_campaigns WHERE id = ? AND company_id = ?').get(campaignId, companyId);
+async function calculateCampaignROI(campaignId, companyId) {
+  return withExecutor(async (x) => {
+    const campaign = await x.get('SELECT * FROM marketing_campaigns WHERE id = ? AND company_id = ?', [campaignId, companyId]);
     if (!campaign) throw new Error('Campaign not found.');
 
     // Only active or completed/paused campaigns should have ROI calculated
@@ -20,7 +19,7 @@ function calculateCampaignROI(campaignId, companyId) {
     }
 
     // Get target customers from the targets table
-    const targets = db.prepare('SELECT customer_id FROM marketing_campaign_targets WHERE campaign_id = ?').all(campaignId);
+    const targets = await x.all('SELECT customer_id FROM marketing_campaign_targets WHERE campaign_id = ?', [campaignId]);
     const targetIds = targets.map(t => t.customer_id);
 
     if (targetIds.length === 0) {
@@ -37,22 +36,22 @@ function calculateCampaignROI(campaignId, companyId) {
 
     // Find sales post-launch for these customers
     const placeholders = targetIds.map(() => '?').join(',');
-    
+
     // We bind the launched_at and optionally completed_at (or just current time)
     const endDate = campaign.completed_at || new Date().toISOString();
 
-    const sales = db.prepare(`
-      SELECT customer_id, SUM(revenue) as rev 
-      FROM sales 
-      WHERE customer_id IN (${placeholders}) 
+    const sales = await x.all(`
+      SELECT customer_id, SUM(revenue) as rev
+      FROM sales
+      WHERE customer_id IN (${placeholders})
         AND sale_date >= ? AND sale_date <= ?
       GROUP BY customer_id
-    `).all(...targetIds, campaign.launched_at, endDate);
+    `, [...targetIds, campaign.launched_at, endDate]);
 
     const customers_converted = sales.length;
     const actual_revenue = sales.reduce((sum, row) => sum + row.rev, 0);
     const conversion_rate = targetIds.length > 0 ? (customers_converted / targetIds.length) : 0;
-    
+
     let roi = null;
     let roi_status = 'calculated';
 
@@ -69,14 +68,14 @@ function calculateCampaignROI(campaignId, companyId) {
     }
 
     // Persist performance metrics
-    db.prepare(`
-      UPDATE marketing_campaigns 
-      SET customers_converted = ?, 
-          actual_revenue = ?, 
-          conversion_rate = ?, 
-          roi = ? 
+    await x.run(`
+      UPDATE marketing_campaigns
+      SET customers_converted = ?,
+          actual_revenue = ?,
+          conversion_rate = ?,
+          roi = ?
       WHERE id = ?
-    `).run(customers_converted, actual_revenue, conversion_rate, roi, campaignId);
+    `, [customers_converted, actual_revenue, conversion_rate, roi, campaignId]);
 
     return {
       campaign_id: campaignId,
@@ -87,10 +86,7 @@ function calculateCampaignROI(campaignId, companyId) {
       roi,
       roi_status
     };
-
-  } finally {
-    db.close();
-  }
+  });
 }
 
 module.exports = {

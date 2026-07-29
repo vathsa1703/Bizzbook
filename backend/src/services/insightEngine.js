@@ -1,7 +1,7 @@
 const { getMetricsSnapshot } = require('./metricsService');
 const { getMarketingOpportunities } = require('./marketingEngine');
 
-function generateInsights(metrics, companyId) {
+async function generateInsights(metrics, companyId) {
   const insights = [];
   
   // Helper to generate a unique ID
@@ -21,7 +21,7 @@ function generateInsights(metrics, companyId) {
     });
   });
 
-  const marketingOpportunities = getMarketingOpportunities(companyId) || [];
+  const marketingOpportunities = (await getMarketingOpportunities(companyId)) || [];
 
   // Map marketing opportunities to dashboard insights
   marketingOpportunities.forEach(opp => {
@@ -115,8 +115,8 @@ function generateInsights(metrics, companyId) {
   };
 }
 
-function getDashboardInsights(companyId) {
-  const metrics = getMetricsSnapshot(companyId);
+async function getDashboardInsights(companyId) {
+  const metrics = await getMetricsSnapshot(companyId);
   return generateInsights(metrics, companyId);
 }
 

@@ -4,7 +4,7 @@
  * Each segment function returns a consistent shape:
  *   { segment_name, customer_id, name, phone, email, last_purchase_date, total_orders, total_revenue }
  */
-const { getDb } = require('../config/db');
+const { withExecutor, dateSub } = require('../config/dbEngine');
 const { getAnchorDate } = require('./metricsService');
 
 // ─── Segment Definitions ───────────────────────────────────────────────────────
@@ -56,8 +56,8 @@ const SEGMENTS = [
 
 // ─── Segment Queries ───────────────────────────────────────────────────────────
 
-function getVipCustomers(db, anchorDate, companyId) {
-  return db.prepare(`
+async function getVipCustomers(x, anchorDate, companyId) {
+  return x.all(`
     WITH ranked AS (
       SELECT
         c.id AS customer_id, c.name, c.phone, c.email,
@@ -69,15 +69,25 @@ function getVipCustomers(db, anchorDate, companyId) {
       LEFT JOIN sales s ON s.customer_id = c.id
       WHERE c.company_id = ?
       GROUP BY c.id
-      HAVING total_orders > 0
+      HAVING COUNT(s.id) > 0
     )
     SELECT *, 'vip' AS segment_name FROM ranked WHERE revenue_quintile = 1
     ORDER BY total_revenue DESC
-  `).all(companyId);
+  `, [companyId]);
 }
 
-function getAtRiskCustomers(db, anchorDate, companyId) {
-  return db.prepare(`
+// julianday() is SQLite-only; Postgres has real DATE columns, so a plain
+// date subtraction (`?::date - MAX(sale_date)`) gives the day-count integer
+// directly without needing EXTRACT/EPOCH gymnastics.
+function daysSinceExpr(x) {
+  return x.engine === 'postgres'
+    ? `(?::date - MAX(s.sale_date))`
+    : `(julianday(?) - julianday(MAX(s.sale_date)))`;
+}
+
+async function getAtRiskCustomers(x, anchorDate, companyId) {
+  const diff = daysSinceExpr(x);
+  return x.all(`
     SELECT
       c.id AS customer_id, c.name, c.phone, c.email,
       MAX(s.sale_date) AS last_purchase_date,
@@ -88,15 +98,15 @@ function getAtRiskCustomers(db, anchorDate, companyId) {
     JOIN sales s ON s.customer_id = c.id
     WHERE c.company_id = ?
     GROUP BY c.id
-    HAVING total_orders >= 2
-      AND julianday(?) - julianday(MAX(s.sale_date)) > 30
-      AND julianday(?) - julianday(MAX(s.sale_date)) <= 60
+    HAVING COUNT(s.id) >= 2
+      AND ${diff} > 30
+      AND ${diff} <= 60
     ORDER BY total_revenue DESC
-  `).all(companyId, anchorDate, anchorDate);
+  `, [companyId, anchorDate, anchorDate]);
 }
 
-function getHighSpendLowFreqCustomers(db, anchorDate, companyId) {
-  return db.prepare(`
+async function getHighSpendLowFreqCustomers(x, anchorDate, companyId) {
+  return x.all(`
     SELECT
       c.id AS customer_id, c.name, c.phone, c.email,
       MAX(s.sale_date) AS last_purchase_date,
@@ -108,15 +118,15 @@ function getHighSpendLowFreqCustomers(db, anchorDate, companyId) {
     JOIN sales s ON s.customer_id = c.id
     WHERE c.company_id = ?
     GROUP BY c.id
-    HAVING total_orders < 3 AND avg_order_value > (
+    HAVING COUNT(s.id) < 3 AND COALESCE(SUM(s.revenue), 0) / COUNT(s.id) > (
       SELECT AVG(revenue) FROM sales WHERE company_id = ?
     )
     ORDER BY avg_order_value DESC
-  `).all(companyId, companyId);
+  `, [companyId, companyId]);
 }
 
-function getFrequentLowValueCustomers(db, anchorDate, companyId) {
-  return db.prepare(`
+async function getFrequentLowValueCustomers(x, anchorDate, companyId) {
+  return x.all(`
     SELECT
       c.id AS customer_id, c.name, c.phone, c.email,
       MAX(s.sale_date) AS last_purchase_date,
@@ -128,15 +138,15 @@ function getFrequentLowValueCustomers(db, anchorDate, companyId) {
     JOIN sales s ON s.customer_id = c.id
     WHERE c.company_id = ?
     GROUP BY c.id
-    HAVING total_orders >= 3 AND avg_order_value < (
+    HAVING COUNT(s.id) >= 3 AND COALESCE(SUM(s.revenue), 0) / COUNT(s.id) < (
       SELECT AVG(revenue) FROM sales WHERE company_id = ?
     )
     ORDER BY total_orders DESC
-  `).all(companyId, companyId);
+  `, [companyId, companyId]);
 }
 
-function getNewCustomers(db, anchorDate, companyId) {
-  return db.prepare(`
+async function getNewCustomers(x, anchorDate, companyId) {
+  return x.all(`
     SELECT
       c.id AS customer_id, c.name, c.phone, c.email,
       MIN(s.sale_date) AS first_purchase_date,
@@ -148,27 +158,29 @@ function getNewCustomers(db, anchorDate, companyId) {
     JOIN sales s ON s.customer_id = c.id
     WHERE c.company_id = ?
     GROUP BY c.id
-    HAVING MIN(s.sale_date) >= date(?, '-30 days')
+    HAVING MIN(s.sale_date) >= ${dateSub(x, 30)}
     ORDER BY first_purchase_date DESC
-  `).all(companyId, anchorDate);
+  `, [companyId, anchorDate]);
 }
 
-function getInactiveCustomers(db, anchorDate, companyId) {
-  return db.prepare(`
+async function getInactiveCustomers(x, anchorDate, companyId) {
+  const diff = daysSinceExpr(x);
+  const daysInactiveExpr = x.engine === 'postgres' ? `(?::date - MAX(s.sale_date))` : `CAST(julianday(?) - julianday(MAX(s.sale_date)) AS INTEGER)`;
+  return x.all(`
     SELECT
       c.id AS customer_id, c.name, c.phone, c.email,
       MAX(s.sale_date) AS last_purchase_date,
       COUNT(s.id) AS total_orders,
       COALESCE(SUM(s.revenue), 0) AS total_revenue,
-      CAST(julianday(?) - julianday(MAX(s.sale_date)) AS INTEGER) AS days_inactive,
+      ${daysInactiveExpr} AS days_inactive,
       'inactive' AS segment_name
     FROM customers c
     JOIN sales s ON s.customer_id = c.id
     WHERE c.company_id = ?
     GROUP BY c.id
-    HAVING julianday(?) - julianday(MAX(s.sale_date)) > 60
+    HAVING ${diff} > 60
     ORDER BY total_revenue DESC
-  `).all(anchorDate, companyId, anchorDate);
+  `, [anchorDate, companyId, anchorDate]);
 }
 
 // ─── Segment Resolver ──────────────────────────────────────────────────────────
@@ -182,42 +194,38 @@ const SEGMENT_QUERIES = {
   inactive:           getInactiveCustomers,
 };
 
-function getSegmentCustomers(segmentId, companyId) {
+async function getSegmentCustomers(segmentId, companyId) {
   if (!companyId) throw new Error('companyId is required for segment lookups');
   const queryFn = SEGMENT_QUERIES[segmentId];
   if (!queryFn) throw new Error(`Unknown segment: ${segmentId}`);
 
-  const db = getDb();
-  try {
-    const anchorDate = getAnchorDate(db, companyId);
-    return queryFn(db, anchorDate, companyId);
-  } finally {
-    db.close();
-  }
+  return withExecutor(async (x) => {
+    const anchorDate = await getAnchorDate(x, companyId);
+    return queryFn(x, anchorDate, companyId);
+  });
 }
 
-function getAllSegmentSummaries(companyId) {
+async function getAllSegmentSummaries(companyId) {
   if (!companyId) throw new Error('companyId is required for segment summaries');
-  const db = getDb();
-  try {
-    const anchorDate = getAnchorDate(db, companyId);
-    return SEGMENTS.map(seg => {
+  return withExecutor(async (x) => {
+    const anchorDate = await getAnchorDate(x, companyId);
+    const out = [];
+    for (const seg of SEGMENTS) {
       try {
-        const customers = SEGMENT_QUERIES[seg.id](db, anchorDate, companyId);
+        const customers = await SEGMENT_QUERIES[seg.id](x, anchorDate, companyId);
         const totalRevenue = customers.reduce((s, c) => s + (c.total_revenue || 0), 0);
-        return {
+        out.push({
           ...seg,
           customerCount: customers.length,
           totalRevenue: Math.round(totalRevenue),
           avgRevenue: customers.length > 0 ? Math.round(totalRevenue / customers.length) : 0,
-        };
+        });
       } catch (e) {
-        return { ...seg, customerCount: 0, totalRevenue: 0, avgRevenue: 0, error: e.message };
+        out.push({ ...seg, customerCount: 0, totalRevenue: 0, avgRevenue: 0, error: e.message });
       }
-    });
-  } finally {
-    db.close();
-  }
+    }
+    return out;
+  });
 }
 
 module.exports = {

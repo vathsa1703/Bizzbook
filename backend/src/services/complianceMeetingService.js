@@ -6,9 +6,12 @@
 // later behind the same entry point. Marking a meeting "held" completes the linked
 // compliance obligation via complianceService (single source of truth for due-date
 // advancement), so meetings and the compliance score stay in sync.
+//
+// Phase 2 dual-engine: exported functions are async and go through
+// config/dbEngine.js's dbAll/withExecutor/withTxExecutor.
 // ============================================================================
 
-const { getDb } = require('../config/db');
+const { dbAll, withExecutor, withTxExecutor } = require('../config/dbEngine');
 const complianceSvc = require('./complianceService');
 
 // Static resolution templates (data, not logic — extend freely).
@@ -22,101 +25,115 @@ const RESOLUTION_TEMPLATES = [
 
 function meetingTypeLabel(t) { return t === 'agm' ? 'Annual General Meeting' : t === 'egm' ? 'Extraordinary General Meeting' : 'Board Meeting'; }
 
-function _children(db, meetingId) {
+// datetime('now') is SQLite-only; Postgres equivalent is now() (same pattern as
+// credits.js's inline `today` local var).
+function sqlNow(x) { return x.engine === 'postgres' ? 'now()' : "datetime('now')"; }
+
+async function _children(x, meetingId) {
   return {
-    agenda: db.prepare('SELECT id, sort_order, item_text FROM compliance_meeting_agenda WHERE meeting_id = ? ORDER BY sort_order, id').all(meetingId),
-    attendees: db.prepare('SELECT id, name, role, present FROM compliance_meeting_attendees WHERE meeting_id = ?').all(meetingId),
-    resolutions: db.prepare('SELECT id, sort_order, resolution_text, resolution_type, passed FROM compliance_meeting_resolutions WHERE meeting_id = ? ORDER BY sort_order, id').all(meetingId),
-    minutes: db.prepare('SELECT id, content, ai_generated, finalized_at, created_at FROM compliance_meeting_minutes WHERE meeting_id = ? ORDER BY id DESC LIMIT 1').get(meetingId) || null,
+    agenda: await x.all('SELECT id, sort_order, item_text FROM compliance_meeting_agenda WHERE meeting_id = ? ORDER BY sort_order, id', [meetingId]),
+    attendees: await x.all('SELECT id, name, role, present FROM compliance_meeting_attendees WHERE meeting_id = ?', [meetingId]),
+    resolutions: await x.all('SELECT id, sort_order, resolution_text, resolution_type, passed FROM compliance_meeting_resolutions WHERE meeting_id = ? ORDER BY sort_order, id', [meetingId]),
+    minutes: await x.get('SELECT id, content, ai_generated, finalized_at, created_at FROM compliance_meeting_minutes WHERE meeting_id = ? ORDER BY id DESC LIMIT 1', [meetingId]),
   };
 }
 
-function listMeetings(companyId) {
-  const db = getDb();
-  try {
-    return db.prepare(`
-      SELECT m.*,
-        (SELECT COUNT(*) FROM compliance_meeting_attendees a WHERE a.meeting_id = m.id AND a.present = 1) AS present_count,
-        (SELECT COUNT(*) FROM compliance_meeting_resolutions r WHERE r.meeting_id = m.id) AS resolution_count
-      FROM compliance_meetings m WHERE m.company_id = ? ORDER BY m.scheduled_at DESC, m.id DESC
-    `).all(companyId);
-  } finally { db.close(); }
+async function listMeetings(companyId) {
+  return dbAll(`
+    SELECT m.*,
+      (SELECT COUNT(*) FROM compliance_meeting_attendees a WHERE a.meeting_id = m.id AND a.present = TRUE) AS present_count,
+      (SELECT COUNT(*) FROM compliance_meeting_resolutions r WHERE r.meeting_id = m.id) AS resolution_count
+    FROM compliance_meetings m WHERE m.company_id = ? ORDER BY m.scheduled_at DESC, m.id DESC
+  `, [companyId]);
 }
 
-function getMeeting(companyId, id) {
-  const db = getDb();
-  try {
-    const m = db.prepare('SELECT * FROM compliance_meetings WHERE id = ? AND company_id = ?').get(id, companyId);
+async function getMeeting(companyId, id) {
+  return withExecutor(async (x) => {
+    const m = await x.get('SELECT * FROM compliance_meetings WHERE id = ? AND company_id = ?', [id, companyId]);
     if (!m) return { error: 'not_found' };
-    return { meeting: m, ..._children(db, id) };
-  } finally { db.close(); }
+    return { meeting: m, ...(await _children(x, id)) };
+  });
 }
 
-function createMeeting(companyId, data = {}) {
-  const db = getDb();
-  try {
-    if (!data.title) return { error: 'title is required' };
-    db.exec('BEGIN TRANSACTION');
-    try {
-      const info = db.prepare(`
-        INSERT INTO compliance_meetings (company_id, item_id, meeting_type, title, scheduled_at, venue, status, notes)
-        VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?)
-      `).run(companyId, data.item_id || null, data.meeting_type || 'board', data.title, data.scheduled_at || null, data.venue || null, data.notes || null);
-      const id = info.lastInsertRowid;
-      (data.agenda || []).forEach((t, i) => db.prepare('INSERT INTO compliance_meeting_agenda (meeting_id, sort_order, item_text) VALUES (?, ?, ?)').run(id, i, typeof t === 'string' ? t : t.item_text));
-      (data.attendees || []).forEach(a => db.prepare('INSERT INTO compliance_meeting_attendees (meeting_id, name, role, present) VALUES (?, ?, ?, ?)').run(id, a.name, a.role || null, a.present === 0 ? 0 : 1));
-      (data.resolutions || []).forEach((r, i) => db.prepare('INSERT INTO compliance_meeting_resolutions (meeting_id, sort_order, resolution_text, resolution_type, passed) VALUES (?, ?, ?, ?, ?)').run(id, i, typeof r === 'string' ? r : r.resolution_text, (typeof r === 'object' && r.resolution_type) || 'ordinary', (typeof r === 'object' && r.passed === 0) ? 0 : 1));
-      db.exec('COMMIT');
-      return { meeting: db.prepare('SELECT * FROM compliance_meetings WHERE id = ?').get(id), ..._children(db, id) };
-    } catch (e) { db.exec('ROLLBACK'); throw e; }
-  } finally { db.close(); }
+async function createMeeting(companyId, data = {}) {
+  if (!data.title) return { error: 'title is required' };
+  return withTxExecutor(async (x) => {
+    const id = await x.insert(`
+      INSERT INTO compliance_meetings (company_id, item_id, meeting_type, title, scheduled_at, venue, status, notes)
+      VALUES (?, ?, ?, ?, ?, ?, 'scheduled', ?)
+    `, [companyId, data.item_id || null, data.meeting_type || 'board', data.title, data.scheduled_at || null, data.venue || null, data.notes || null]);
+
+    const agenda = data.agenda || [];
+    for (let i = 0; i < agenda.length; i++) {
+      const t = agenda[i];
+      await x.run('INSERT INTO compliance_meeting_agenda (meeting_id, sort_order, item_text) VALUES (?, ?, ?)',
+        [id, i, typeof t === 'string' ? t : t.item_text]);
+    }
+    for (const a of (data.attendees || [])) {
+      await x.run('INSERT INTO compliance_meeting_attendees (meeting_id, name, role, present) VALUES (?, ?, ?, ?)',
+        [id, a.name, a.role || null, a.present === 0 ? 0 : 1]);
+    }
+    const resolutions = data.resolutions || [];
+    for (let i = 0; i < resolutions.length; i++) {
+      const r = resolutions[i];
+      await x.run('INSERT INTO compliance_meeting_resolutions (meeting_id, sort_order, resolution_text, resolution_type, passed) VALUES (?, ?, ?, ?, ?)',
+        [id, i, typeof r === 'string' ? r : r.resolution_text, (typeof r === 'object' && r.resolution_type) || 'ordinary', (typeof r === 'object' && r.passed === 0) ? 0 : 1]);
+    }
+    return { meeting: await x.get('SELECT * FROM compliance_meetings WHERE id = ?', [id]), ...(await _children(x, id)) };
+  });
 }
 
-function updateMeeting(companyId, id, data = {}) {
-  const db = getDb();
-  try {
-    const m = db.prepare('SELECT id FROM compliance_meetings WHERE id = ? AND company_id = ?').get(id, companyId);
+async function updateMeeting(companyId, id, data = {}) {
+  return withTxExecutor(async (x) => {
+    const m = await x.get('SELECT id FROM compliance_meetings WHERE id = ? AND company_id = ?', [id, companyId]);
     if (!m) return { error: 'not_found' };
     const cols = ['meeting_type', 'title', 'scheduled_at', 'venue', 'status', 'notes', 'quorum_met', 'item_id'].filter(c => data[c] !== undefined);
-    db.exec('BEGIN TRANSACTION');
-    try {
-      if (cols.length) db.prepare(`UPDATE compliance_meetings SET ${cols.map(c => `${c} = ?`).join(', ')}, updated_at = datetime('now') WHERE id = ?`).run(...cols.map(c => data[c]), id);
-      // Optional full-replace of children when arrays are provided.
-      const replace = (table, rows, insert) => { db.prepare(`DELETE FROM ${table} WHERE meeting_id = ?`).run(id); (rows || []).forEach(insert); };
-      if (Array.isArray(data.agenda)) replace('compliance_meeting_agenda', data.agenda, (t, i) => db.prepare('INSERT INTO compliance_meeting_agenda (meeting_id, sort_order, item_text) VALUES (?, ?, ?)').run(id, i, typeof t === 'string' ? t : t.item_text));
-      if (Array.isArray(data.attendees)) replace('compliance_meeting_attendees', data.attendees, (a) => db.prepare('INSERT INTO compliance_meeting_attendees (meeting_id, name, role, present) VALUES (?, ?, ?, ?)').run(id, a.name, a.role || null, a.present === 0 ? 0 : 1));
-      if (Array.isArray(data.resolutions)) replace('compliance_meeting_resolutions', data.resolutions, (r, i) => db.prepare('INSERT INTO compliance_meeting_resolutions (meeting_id, sort_order, resolution_text, resolution_type, passed) VALUES (?, ?, ?, ?, ?)').run(id, i, typeof r === 'string' ? r : r.resolution_text, (typeof r === 'object' && r.resolution_type) || 'ordinary', (typeof r === 'object' && r.passed === 0) ? 0 : 1));
-      db.exec('COMMIT');
-      return { meeting: db.prepare('SELECT * FROM compliance_meetings WHERE id = ?').get(id), ..._children(db, id) };
-    } catch (e) { db.exec('ROLLBACK'); throw e; }
-  } finally { db.close(); }
+    if (cols.length) {
+      await x.run(`UPDATE compliance_meetings SET ${cols.map(c => `${c} = ?`).join(', ')}, updated_at = ${sqlNow(x)} WHERE id = ?`,
+        [...cols.map(c => data[c]), id]);
+    }
+    // Optional full-replace of children when arrays are provided.
+    const replace = async (table, rows, insert) => {
+      await x.run(`DELETE FROM ${table} WHERE meeting_id = ?`, [id]);
+      const list = rows || [];
+      for (let i = 0; i < list.length; i++) await insert(list[i], i);
+    };
+    if (Array.isArray(data.agenda)) {
+      await replace('compliance_meeting_agenda', data.agenda, (t, i) =>
+        x.run('INSERT INTO compliance_meeting_agenda (meeting_id, sort_order, item_text) VALUES (?, ?, ?)', [id, i, typeof t === 'string' ? t : t.item_text]));
+    }
+    if (Array.isArray(data.attendees)) {
+      await replace('compliance_meeting_attendees', data.attendees, (a) =>
+        x.run('INSERT INTO compliance_meeting_attendees (meeting_id, name, role, present) VALUES (?, ?, ?, ?)', [id, a.name, a.role || null, a.present === 0 ? 0 : 1]));
+    }
+    if (Array.isArray(data.resolutions)) {
+      await replace('compliance_meeting_resolutions', data.resolutions, (r, i) =>
+        x.run('INSERT INTO compliance_meeting_resolutions (meeting_id, sort_order, resolution_text, resolution_type, passed) VALUES (?, ?, ?, ?, ?)',
+          [id, i, typeof r === 'string' ? r : r.resolution_text, (typeof r === 'object' && r.resolution_type) || 'ordinary', (typeof r === 'object' && r.passed === 0) ? 0 : 1]));
+    }
+    return { meeting: await x.get('SELECT * FROM compliance_meetings WHERE id = ?', [id]), ...(await _children(x, id)) };
+  });
 }
 
-function deleteMeeting(companyId, id) {
-  const db = getDb();
-  try {
-    const m = db.prepare('SELECT id FROM compliance_meetings WHERE id = ? AND company_id = ?').get(id, companyId);
+async function deleteMeeting(companyId, id) {
+  return withTxExecutor(async (x) => {
+    const m = await x.get('SELECT id FROM compliance_meetings WHERE id = ? AND company_id = ?', [id, companyId]);
     if (!m) return { error: 'not_found' };
-    db.exec('BEGIN TRANSACTION');
-    try {
-      for (const t of ['compliance_meeting_agenda', 'compliance_meeting_attendees', 'compliance_meeting_resolutions', 'compliance_meeting_minutes']) {
-        db.prepare(`DELETE FROM ${t} WHERE meeting_id = ?`).run(id);
-      }
-      db.prepare('DELETE FROM compliance_meetings WHERE id = ?').run(id);
-      db.exec('COMMIT');
-      return { deleted: true };
-    } catch (e) { db.exec('ROLLBACK'); throw e; }
-  } finally { db.close(); }
+    for (const t of ['compliance_meeting_agenda', 'compliance_meeting_attendees', 'compliance_meeting_resolutions', 'compliance_meeting_minutes']) {
+      await x.run(`DELETE FROM ${t} WHERE meeting_id = ?`, [id]);
+    }
+    await x.run('DELETE FROM compliance_meetings WHERE id = ?', [id]);
+    return { deleted: true };
+  });
 }
 
 // Deterministic minutes composed from the actual meeting record.
-function generateMinutes(companyId, id) {
-  const db = getDb();
-  try {
-    const m = db.prepare('SELECT * FROM compliance_meetings WHERE id = ? AND company_id = ?').get(id, companyId);
+async function generateMinutes(companyId, id) {
+  return withExecutor(async (x) => {
+    const m = await x.get('SELECT * FROM compliance_meetings WHERE id = ? AND company_id = ?', [id, companyId]);
     if (!m) return { error: 'not_found' };
-    const { agenda, attendees, resolutions } = _children(db, id);
-    const company = db.prepare('SELECT name, legal_business_name FROM companies WHERE id = ?').get(companyId) || {};
+    const { agenda, attendees, resolutions } = await _children(x, id);
+    const company = (await x.get('SELECT name, legal_business_name FROM companies WHERE id = ?', [companyId])) || {};
     const present = attendees.filter(a => a.present);
     const absent = attendees.filter(a => !a.present);
     const when = m.scheduled_at ? new Date(m.scheduled_at).toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' }) : '__';
@@ -145,24 +162,25 @@ function generateMinutes(companyId, id) {
     lines.push('Chairperson');
     const content = lines.join('\n');
 
-    db.prepare('INSERT INTO compliance_meeting_minutes (meeting_id, content, ai_generated) VALUES (?, ?, 1)').run(id, content);
+    await x.run('INSERT INTO compliance_meeting_minutes (meeting_id, content, ai_generated) VALUES (?, ?, TRUE)', [id, content]);
     return { content, ai_generated: 1 };
-  } finally { db.close(); }
+  });
 }
 
-function markHeld(companyId, id, { quorum_met } = {}) {
-  const db = getDb();
+async function markHeld(companyId, id, { quorum_met } = {}) {
   let itemId = null;
-  try {
-    const m = db.prepare('SELECT * FROM compliance_meetings WHERE id = ? AND company_id = ?').get(id, companyId);
+  const preErr = await withExecutor(async (x) => {
+    const m = await x.get('SELECT * FROM compliance_meetings WHERE id = ? AND company_id = ?', [id, companyId]);
     if (!m) return { error: 'not_found' };
-    db.prepare("UPDATE compliance_meetings SET status = 'held', quorum_met = ?, updated_at = datetime('now') WHERE id = ?")
-      .run(quorum_met ? 1 : 0, id);
+    await x.run(`UPDATE compliance_meetings SET status = 'held', quorum_met = ?, updated_at = ${sqlNow(x)} WHERE id = ?`,
+      [quorum_met ? 1 : 0, id]);
     itemId = m.item_id;
-  } finally { db.close(); }
+    return null;
+  });
+  if (preErr && preErr.error) return preErr;
   // Complete the linked compliance obligation via the canonical service (advances
-  // the recurring meeting's next due date). Runs on its own DB connection.
-  if (itemId) { try { complianceSvc.updateItem(companyId, itemId, { status: 'completed' }); } catch (_) { /* non-fatal */ } }
+  // the recurring meeting's next due date). Runs on its own connection/executor.
+  if (itemId) { try { await complianceSvc.updateItem(companyId, itemId, { status: 'completed' }); } catch (_) { /* non-fatal */ } }
   return getMeeting(companyId, id);
 }
 

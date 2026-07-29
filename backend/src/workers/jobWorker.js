@@ -8,17 +8,16 @@ const { JobTypes } = require('../constants/jobs');
 // REGISTER JOB HANDLERS
 // ============================================================================
 
-const { getDb } = require('../config/db');
+const { dbGet } = require('../config/dbEngine');
 
 async function updateAutomationLog(correlationId, status, duration, message) {
   if (!correlationId) return;
   try {
-    const db = getDb();
-    db.prepare(`
-      UPDATE automation_execution_logs 
-      SET status = ?, duration_ms = ?, message = ? 
+    await dbGet(`
+      UPDATE automation_execution_logs
+      SET status = ?, duration_ms = ?, message = ?
       WHERE correlation_id = ?
-    `).run(status, duration, message, correlationId);
+    `, [status, duration, message, correlationId]);
   } catch (err) {
     console.error('[JobWorker] Error updating automation log', err);
   }
@@ -102,7 +101,7 @@ function startJobWorker() {
     
     try {
       await jobQueueService.sweep();
-      eventBusService.sweep();
+      await eventBusService.sweep();
     } catch (err) {
       console.error('[JobWorker] Critical sweep failure:', err);
     } finally {

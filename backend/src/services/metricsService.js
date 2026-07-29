@@ -1,62 +1,65 @@
-const { getDb } = require('../config/db');
+const { withExecutor, dateSub } = require('../config/dbEngine');
 
 // Uses the most recent sales transaction date to anchor relative dates like "-30 days".
 // This ensures that demo/seeded data remains usable regardless of the current physical date.
-function getAnchorDate(db, companyId) {
-  const row = db.prepare('SELECT MAX(sale_date) as max_date FROM sales WHERE company_id = ?').get(companyId);
+async function getAnchorDate(x, companyId) {
+  const row = await x.get('SELECT MAX(sale_date) as max_date FROM sales WHERE company_id = ?', [companyId]);
   return row?.max_date || new Date().toISOString().slice(0, 10);
 }
 
-function getTopProducts(db, anchorDate, companyId, limit = 10) {
-  return db.prepare(`
-    SELECT p.name, SUM(s.quantity) AS units_sold, SUM(s.revenue) AS revenue 
-    FROM sales s 
-    JOIN products p ON p.id = s.product_id 
-    WHERE s.sale_date >= date(?, '-30 days') AND s.company_id = ?
-    GROUP BY p.id 
-    ORDER BY revenue DESC 
+async function getTopProducts(x, anchorDate, companyId, limit = 10) {
+  return x.all(`
+    SELECT p.name, SUM(s.quantity) AS units_sold, SUM(s.revenue) AS revenue
+    FROM sales s
+    JOIN products p ON p.id = s.product_id
+    WHERE s.sale_date >= ${dateSub(x, 30)} AND s.company_id = ?
+    GROUP BY p.id
+    ORDER BY revenue DESC
     LIMIT ?
-  `).all(anchorDate, companyId, limit);
+  `, [anchorDate, companyId, limit]);
 }
 
-function getSlowMovingProducts(db, anchorDate, companyId) {
-  return db.prepare(`
+async function getSlowMovingProducts(x, anchorDate, companyId) {
+  return x.all(`
     SELECT p.id, p.name, i.stock_quantity, COALESCE(SUM(s.quantity), 0) AS units_sold_last_30d
     FROM inventory i
     JOIN products p ON p.id = i.product_id
-    LEFT JOIN sales s ON s.product_id = p.id AND s.sale_date >= date(?, '-30 days') AND s.company_id = ?
-    WHERE p.company_id = ?
-    GROUP BY p.id
-    HAVING units_sold_last_30d = 0 AND i.stock_quantity > 0
-  `).all(anchorDate, companyId, companyId);
-}
-
-function getDeadStock(db, anchorDate, companyId) {
-  return db.prepare(`
-    SELECT p.id, p.name, i.stock_quantity, p.cost_price, (i.stock_quantity * p.cost_price) AS dead_stock_value
-    FROM inventory i
-    JOIN products p ON p.id = i.product_id
-    LEFT JOIN sales s ON s.product_id = p.id AND s.sale_date >= date(?, '-60 days') AND s.company_id = ?
+    LEFT JOIN sales s ON s.product_id = p.id AND s.sale_date >= ${dateSub(x, 30)} AND s.company_id = ?
     WHERE p.company_id = ?
     GROUP BY p.id
     HAVING COALESCE(SUM(s.quantity), 0) = 0 AND i.stock_quantity > 0
-  `).all(anchorDate, companyId, companyId);
+  `, [anchorDate, companyId, companyId]);
 }
 
-function getCustomerChurnRisk(db, anchorDate, companyId) {
-  return db.prepare(`
+async function getDeadStock(x, anchorDate, companyId) {
+  return x.all(`
+    SELECT p.id, p.name, i.stock_quantity, p.cost_price, (i.stock_quantity * p.cost_price) AS dead_stock_value
+    FROM inventory i
+    JOIN products p ON p.id = i.product_id
+    LEFT JOIN sales s ON s.product_id = p.id AND s.sale_date >= ${dateSub(x, 60)} AND s.company_id = ?
+    WHERE p.company_id = ?
+    GROUP BY p.id
+    HAVING COALESCE(SUM(s.quantity), 0) = 0 AND i.stock_quantity > 0
+  `, [anchorDate, companyId, companyId]);
+}
+
+async function getCustomerChurnRisk(x, anchorDate, companyId) {
+  return x.all(`
     SELECT c.id, c.name, COUNT(s.id) AS total_purchases_historical, MAX(s.sale_date) AS last_purchase_date
     FROM customers c
     JOIN sales s ON s.customer_id = c.id AND s.company_id = ?
     WHERE c.company_id = ?
     GROUP BY c.id
-    HAVING total_purchases_historical > 2 AND last_purchase_date < date(?, '-45 days')
-  `).all(companyId, companyId, anchorDate);
+    HAVING COUNT(s.id) > 2 AND MAX(s.sale_date) < ${dateSub(x, 45)}
+  `, [companyId, companyId, anchorDate]);
 }
 
-function getRevenueTrends(db, companyId) {
-  return db.prepare(`
-    SELECT strftime('%Y-%m', sale_date) AS month, 
+async function getRevenueTrends(x, companyId) {
+  // strftime('%Y-%m', ...) is SQLite-only; Postgres equivalent is
+  // TO_CHAR(date_col, 'YYYY-MM') over the real DATE column.
+  const monthExpr = x.engine === 'postgres' ? "TO_CHAR(sale_date, 'YYYY-MM')" : "strftime('%Y-%m', sale_date)";
+  return x.all(`
+    SELECT ${monthExpr} AS month,
            SUM(revenue) AS revenue,
            SUM(revenue - (s.quantity * p.cost_price)) AS profit
     FROM sales s
@@ -65,38 +68,38 @@ function getRevenueTrends(db, companyId) {
     GROUP BY month
     ORDER BY month DESC
     LIMIT 6
-  `).all(companyId);
+  `, [companyId]);
 }
 
-function getCreditRisk(db, anchorDate, companyId) {
-  return db.prepare(`
+async function getCreditRisk(x, anchorDate, companyId) {
+  return x.all(`
     SELECT c.id, c.name, (cr.total_amount - cr.paid_amount) AS outstanding_amount, cr.due_date
     FROM credits cr
     JOIN customers c ON c.id = cr.customer_id
-    WHERE cr.status IN ('pending', 'overdue') AND cr.due_date < date(?, '-30 days') AND cr.company_id = ?
-  `).all(anchorDate, companyId);
+    WHERE cr.status IN ('pending', 'overdue') AND cr.due_date < ${dateSub(x, 30)} AND cr.company_id = ?
+  `, [anchorDate, companyId]);
 }
 
-function getSalesSummaryPeriods(db, anchorDate, companyId) {
-  const current30d = db.prepare(`
+async function getSalesSummaryPeriods(x, anchorDate, companyId) {
+  const current30d = await x.get(`
     SELECT COALESCE(SUM(revenue), 0) AS revenue, COUNT(DISTINCT invoice_number) as transactions, COALESCE(SUM(quantity), 0) as items_sold
-    FROM sales WHERE sale_date >= date(?, '-30 days') AND company_id = ?
-  `).get(anchorDate, companyId);
+    FROM sales WHERE sale_date >= ${dateSub(x, 30)} AND company_id = ?
+  `, [anchorDate, companyId]);
 
-  const previous30d = db.prepare(`
-    SELECT COALESCE(SUM(revenue), 0) AS revenue 
-    FROM sales WHERE sale_date >= date(?, '-60 days') AND sale_date < date(?, '-30 days') AND company_id = ?
-  `).get(anchorDate, anchorDate, companyId);
+  const previous30d = await x.get(`
+    SELECT COALESCE(SUM(revenue), 0) AS revenue
+    FROM sales WHERE sale_date >= ${dateSub(x, 60)} AND sale_date < ${dateSub(x, 30)} AND company_id = ?
+  `, [anchorDate, anchorDate, companyId]);
 
-  const current7d = db.prepare(`
-    SELECT COALESCE(SUM(revenue), 0) AS revenue 
-    FROM sales WHERE sale_date >= date(?, '-7 days') AND company_id = ?
-  `).get(anchorDate, companyId);
+  const current7d = await x.get(`
+    SELECT COALESCE(SUM(revenue), 0) AS revenue
+    FROM sales WHERE sale_date >= ${dateSub(x, 7)} AND company_id = ?
+  `, [anchorDate, companyId]);
 
-  const previous7d = db.prepare(`
-    SELECT COALESCE(SUM(revenue), 0) AS revenue 
-    FROM sales WHERE sale_date >= date(?, '-14 days') AND sale_date < date(?, '-7 days') AND company_id = ?
-  `).get(anchorDate, anchorDate, companyId);
+  const previous7d = await x.get(`
+    SELECT COALESCE(SUM(revenue), 0) AS revenue
+    FROM sales WHERE sale_date >= ${dateSub(x, 14)} AND sale_date < ${dateSub(x, 7)} AND company_id = ?
+  `, [anchorDate, anchorDate, companyId]);
 
   const avgBasketSize = current30d.transactions > 0 ? (current30d.items_sold / current30d.transactions).toFixed(2) : 0;
 
@@ -110,31 +113,31 @@ function getSalesSummaryPeriods(db, anchorDate, companyId) {
   };
 }
 
-function getReorderAlerts(db, companyId) {
-  return db.prepare(`
+async function getReorderAlerts(x, companyId) {
+  return x.all(`
     SELECT p.id, p.name, i.stock_quantity, i.reorder_level
     FROM inventory i
     JOIN products p ON p.id = i.product_id
     WHERE i.stock_quantity <= i.reorder_level AND p.company_id = ?
-  `).all(companyId);
+  `, [companyId]);
 }
 
-function getOverstock(db, anchorDate, companyId) {
-  return db.prepare(`
+async function getOverstock(x, anchorDate, companyId) {
+  return x.all(`
     SELECT p.id, p.name, i.stock_quantity, COALESCE(SUM(s.quantity)/3.0, 0) as avg_monthly_sales
     FROM inventory i
     JOIN products p ON p.id = i.product_id
-    LEFT JOIN sales s ON s.product_id = p.id AND s.sale_date >= date(?, '-90 days') AND s.company_id = ?
+    LEFT JOIN sales s ON s.product_id = p.id AND s.sale_date >= ${dateSub(x, 90)} AND s.company_id = ?
     WHERE p.company_id = ?
     GROUP BY p.id
-    HAVING i.stock_quantity > 0 AND (avg_monthly_sales = 0 OR i.stock_quantity > (avg_monthly_sales * 3))
-  `).all(anchorDate, companyId, companyId);
+    HAVING i.stock_quantity > 0 AND (COALESCE(SUM(s.quantity)/3.0, 0) = 0 OR i.stock_quantity > (COALESCE(SUM(s.quantity)/3.0, 0) * 3))
+  `, [anchorDate, companyId, companyId]);
 }
 
-function getCustomerSummary(db, companyId) {
-  const total = db.prepare('SELECT COUNT(*) as cnt FROM customers WHERE company_id = ?').get(companyId).cnt;
-  const repeat = db.prepare('SELECT COUNT(*) as cnt FROM (SELECT customer_id FROM sales WHERE company_id = ? GROUP BY customer_id HAVING COUNT(id) > 1)').get(companyId).cnt;
-  const outstanding = db.prepare(`SELECT COALESCE(SUM(total_amount - paid_amount), 0) as total_outstanding FROM credits WHERE status IN ('pending', 'overdue') AND company_id = ?`).get(companyId).total_outstanding;
+async function getCustomerSummary(x, companyId) {
+  const total = (await x.get('SELECT COUNT(*) as cnt FROM customers WHERE company_id = ?', [companyId])).cnt;
+  const repeat = (await x.get('SELECT COUNT(*) as cnt FROM (SELECT customer_id FROM sales WHERE company_id = ? GROUP BY customer_id HAVING COUNT(id) > 1) sub', [companyId])).cnt;
+  const outstanding = (await x.get(`SELECT COALESCE(SUM(total_amount - paid_amount), 0) as total_outstanding FROM credits WHERE status IN ('pending', 'overdue') AND company_id = ?`, [companyId])).total_outstanding;
 
   return {
     total,
@@ -145,23 +148,22 @@ function getCustomerSummary(db, companyId) {
 
 // getMetricsSnapshot requires companyId to prevent cross-tenant data leaks.
 // Called by aiService.js with req.user.companyId.
-function getMetricsSnapshot(companyId) {
-  const db = getDb();
-  try {
-    const anchorDate = getAnchorDate(db, companyId);
+async function getMetricsSnapshot(companyId) {
+  return withExecutor(async (x) => {
+    const anchorDate = await getAnchorDate(x, companyId);
 
-    const topProducts = getTopProducts(db, anchorDate, companyId);
-    const slowMovingProducts = getSlowMovingProducts(db, anchorDate, companyId);
-    const deadStock = getDeadStock(db, anchorDate, companyId);
-    const churnRisk = getCustomerChurnRisk(db, anchorDate, companyId);
-    const revenueTrends = getRevenueTrends(db, companyId);
-    const creditRisk = getCreditRisk(db, anchorDate, companyId);
-    const salesSummary = getSalesSummaryPeriods(db, anchorDate, companyId);
-    const reorderAlerts = getReorderAlerts(db, companyId);
-    const overstock = getOverstock(db, anchorDate, companyId);
-    const customerSummary = getCustomerSummary(db, companyId);
+    const topProducts = await getTopProducts(x, anchorDate, companyId);
+    const slowMovingProducts = await getSlowMovingProducts(x, anchorDate, companyId);
+    const deadStock = await getDeadStock(x, anchorDate, companyId);
+    const churnRisk = await getCustomerChurnRisk(x, anchorDate, companyId);
+    const revenueTrends = await getRevenueTrends(x, companyId);
+    const creditRisk = await getCreditRisk(x, anchorDate, companyId);
+    const salesSummary = await getSalesSummaryPeriods(x, anchorDate, companyId);
+    const reorderAlerts = await getReorderAlerts(x, companyId);
+    const overstock = await getOverstock(x, anchorDate, companyId);
+    const customerSummary = await getCustomerSummary(x, companyId);
 
-    const totalSKUs = db.prepare('SELECT COUNT(*) as cnt FROM inventory i JOIN products p ON p.id = i.product_id WHERE p.company_id = ?').get(companyId).cnt;
+    const totalSKUs = (await x.get('SELECT COUNT(*) as cnt FROM inventory i JOIN products p ON p.id = i.product_id WHERE p.company_id = ?', [companyId])).cnt;
 
     return {
       generatedAt: new Date().toISOString(),
@@ -199,9 +201,7 @@ function getMetricsSnapshot(companyId) {
         creditRiskItems: creditRisk
       }
     };
-  } finally {
-    db.close();
-  }
+  });
 }
 
 module.exports = {

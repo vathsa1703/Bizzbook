@@ -1,14 +1,22 @@
-const { getDb } = require('../config/db');
+const { withExecutor } = require('../config/dbEngine');
 
-function calculateStoreHealthScore(companyId) {
-  const db = getDb();
-  try {
+// timeframe is always one of the fixed string literals '30' | '90' | '365' |
+// '1year' below, never user-composed SQL, so building the date-filter
+// fragment per engine here (rather than a parameterized value) is safe.
+function daysAgoExpr(x, days) {
+  return x.engine === 'postgres'
+    ? `AND created_at >= (now() - interval '${days} days')`
+    : `AND created_at >= date('now', '-${days} days')`;
+}
+
+async function calculateStoreHealthScore(companyId) {
+  return withExecutor(async (x) => {
     const today = new Date().toISOString().split('T')[0];
-    
+
     // 1. Calculate Spend Efficiency (Normalized ROI)
     const { getCampaignPerformance } = require('./marketingMetricsService');
-    const campaigns = getCampaignPerformance(db, companyId);
-    
+    const campaigns = await getCampaignPerformance(x, companyId);
+
     let spendEfficiencyScore = 50; // default average
     let avgRoi = 0;
     if (campaigns.length > 0) {
@@ -16,22 +24,22 @@ function calculateStoreHealthScore(companyId) {
       const totalCost = campaigns.reduce((s, c) => s + c.totalCost, 0);
 
       avgRoi = totalCost > 0 ? ((totalRev - totalCost) / totalCost) : (totalRev > 0 ? 1 : 0);
-      
+
       // Normalize: let's say an ROI of 0.5 (50%) is baseline (50 points). ROI > 2.0 (200%) caps at 100.
-      spendEfficiencyScore = Math.max(0, Math.min(100, Math.round(50 + (avgRoi * 25)))); 
+      spendEfficiencyScore = Math.max(0, Math.min(100, Math.round(50 + (avgRoi * 25))));
     }
 
     // 2. Retention Trend
-    const edges = db.prepare(`
-      SELECT relationship_type, count(*) as cnt 
-      FROM knowledge_graph_edges 
+    const edges = await x.all(`
+      SELECT relationship_type, count(*) as cnt
+      FROM knowledge_graph_edges
       WHERE company_id = ? AND node_a_type = 'customer'
       GROUP BY relationship_type
-    `).all(companyId);
-    
+    `, [companyId]);
+
     let retentionScore = 60; // baseline
     const atRiskCount = edges.find(e => e.relationship_type === 'is_at_risk')?.cnt || 0;
-    const totalCustomers = db.prepare(`SELECT count(*) as cnt FROM customers WHERE company_id = ?`).get(companyId).cnt;
+    const totalCustomers = (await x.get(`SELECT count(*) as cnt FROM customers WHERE company_id = ?`, [companyId])).cnt;
     if (totalCustomers > 0) {
       const atRiskPercent = atRiskCount / totalCustomers;
       retentionScore = Math.max(0, Math.min(100, Math.round(100 - (atRiskPercent * 200)))); // 50% at risk = 0 score. 0% at risk = 100
@@ -39,7 +47,7 @@ function calculateStoreHealthScore(companyId) {
 
     // 3. Engagement
     // Using coupon redemptions as a proxy for engagement
-    const coupons = db.prepare(`SELECT SUM(times_used) as total_used, count(*) as count FROM coupons WHERE company_id = ?`).get(companyId);
+    const coupons = await x.get(`SELECT SUM(times_used) as total_used, count(*) as count FROM coupons WHERE company_id = ?`, [companyId]);
     let engagementScore = 50;
     if (coupons.count > 0) {
       const avgRedemptions = (coupons.total_used || 0) / coupons.count;
@@ -47,7 +55,7 @@ function calculateStoreHealthScore(companyId) {
     }
 
     // 4. Review Sentiment
-    const surveys = db.prepare(`SELECT AVG(rating) as avg_rating, count(*) as count FROM survey_responses WHERE company_id = ?`).get(companyId);
+    const surveys = await x.get(`SELECT AVG(rating) as avg_rating, count(*) as count FROM survey_responses WHERE company_id = ?`, [companyId]);
     let sentimentScore = 70; // optimistic default
     if (surveys.count > 0 && surveys.avg_rating) {
       sentimentScore = Math.round((surveys.avg_rating / 5) * 100);
@@ -56,9 +64,9 @@ function calculateStoreHealthScore(companyId) {
     // Overall Score (Weighted)
     // 40% Efficiency, 30% Retention, 15% Engagement, 15% Sentiment
     const overallScore = Math.round(
-      (spendEfficiencyScore * 0.40) + 
-      (retentionScore * 0.30) + 
-      (engagementScore * 0.15) + 
+      (spendEfficiencyScore * 0.40) +
+      (retentionScore * 0.30) +
+      (engagementScore * 0.15) +
       (sentimentScore * 0.15)
     );
 
@@ -81,27 +89,27 @@ function calculateStoreHealthScore(companyId) {
     const biggestWeakness = sorted[3][0];
 
     // Fetch previous score for trend
-    const lastSnapshot = db.prepare(`
-      SELECT overall_score 
-      FROM store_health_history 
-      WHERE company_id = ? AND score_date < ? 
+    const lastSnapshot = await x.get(`
+      SELECT overall_score
+      FROM store_health_history
+      WHERE company_id = ? AND score_date < ?
       ORDER BY score_date DESC LIMIT 1
-    `).get(companyId, today);
+    `, [companyId, today]);
     const scoreChange = lastSnapshot ? (overallScore - lastSnapshot.overall_score) : 0;
 
     // Fetch top 3 recommended actions from marketing_signals
-    const signals = db.prepare(`
+    const signals = await x.all(`
       SELECT signal_name, confidence_score, urgency_score, metadata
       FROM marketing_signals
       WHERE company_id = ?
       ORDER BY urgency_score DESC, confidence_score DESC
       LIMIT 3
-    `).all(companyId);
+    `, [companyId]);
 
     // Upsert into history
-    db.prepare(`
+    await x.run(`
       INSERT INTO store_health_history (
-        company_id, score_date, overall_score, grade, 
+        company_id, score_date, overall_score, grade,
         spend_efficiency_score, retention_trend_score, engagement_score, review_sentiment_score,
         top_strength, biggest_weakness, metadata
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -115,11 +123,11 @@ function calculateStoreHealthScore(companyId) {
         top_strength = excluded.top_strength,
         biggest_weakness = excluded.biggest_weakness,
         metadata = excluded.metadata
-    `).run(
-      companyId, today, overallScore, grade, 
+    `, [
+      companyId, today, overallScore, grade,
       spendEfficiencyScore, retentionScore, engagementScore, sentimentScore,
       topStrength, biggestWeakness, JSON.stringify({ actions: signals })
-    );
+    ]);
 
     return {
       score_date: today,
@@ -131,21 +139,17 @@ function calculateStoreHealthScore(companyId) {
       biggest_weakness: biggestWeakness,
       recommended_actions: signals
     };
-
-  } catch (e) {
-    throw e;
-  }
+  });
 }
 
-function getChannelROIRanking(companyId) {
-  const db = getDb();
-  try {
+async function getChannelROIRanking(companyId) {
+  return withExecutor(async (x) => {
     const today = new Date().toISOString().split('T')[0];
     const { getCampaignPerformance } = require('./marketingMetricsService');
-    const campaigns = getCampaignPerformance(db, companyId);
-    
+    const campaigns = await getCampaignPerformance(x, companyId);
+
     // 1. Fetch channel costs configuration to get default costs if needed
-    const costs = db.prepare(`SELECT channel, cost_per_message FROM channel_costs WHERE company_id = ?`).all(companyId);
+    const costs = await x.all(`SELECT channel, cost_per_message FROM channel_costs WHERE company_id = ?`, [companyId]);
     const costMap = {};
     costs.forEach(c => { costMap[c.channel] = c.cost_per_message; });
     if (costs.length === 0) {
@@ -170,17 +174,17 @@ function getChannelROIRanking(companyId) {
             conversions: 0
           };
         }
-        
+
         channelStats[ch].messages += chUsage.msgs;
-        // In this simple model, we assign the campaign's full base cost and revenue to the channel 
+        // In this simple model, we assign the campaign's full base cost and revenue to the channel
         // assuming mostly 1 channel per campaign
         channelStats[ch].revenue += camp.revenue;
         channelStats[ch].campaign_cost += (camp.base_cost || 0);
-        
+
         // Estimate conversions: if revenue > 0, assume some % of targets converted.
         const targets = camp.target_count || 1; // avoid division by zero
         channelStats[ch].target_customers += targets;
-        
+
         if (camp.revenue > 0 && targets > 0) {
            const estimatedConversions = Math.min(targets, Math.ceil(camp.revenue / 500));
            channelStats[ch].conversions += estimatedConversions;
@@ -195,7 +199,7 @@ function getChannelROIRanking(companyId) {
       const msgCost = stats.messages * (costMap[ch] || 0);
       const totalCost = stats.campaign_cost + msgCost;
       const totalRev = stats.revenue;
-      
+
       let roi = 0;
       if (totalCost > 0) {
         roi = (totalRev - totalCost) / totalCost;
@@ -203,18 +207,18 @@ function getChannelROIRanking(companyId) {
         roi = totalRev / 100; // arbitrary high ROI if 0 cost
       }
 
-      const conversionRate = stats.target_customers > 0 
-        ? ((stats.conversions / stats.target_customers) * 100).toFixed(1) 
+      const conversionRate = stats.target_customers > 0
+        ? ((stats.conversions / stats.target_customers) * 100).toFixed(1)
         : 0;
 
       // Fetch trend
-      const lastSnapshot = db.prepare(`
-        SELECT roi 
-        FROM channel_roi_history 
+      const lastSnapshot = await x.get(`
+        SELECT roi
+        FROM channel_roi_history
         WHERE company_id = ? AND channel = ? AND snapshot_date < ?
         ORDER BY snapshot_date DESC LIMIT 1
-      `).get(companyId, ch, today);
-      
+      `, [companyId, ch, today]);
+
       let trend = 'same';
       if (lastSnapshot) {
         if (roi > lastSnapshot.roi) trend = 'up';
@@ -222,7 +226,7 @@ function getChannelROIRanking(companyId) {
       }
 
       // Upsert snapshot
-      db.prepare(`
+      await x.run(`
         INSERT INTO channel_roi_history (
           company_id, channel, snapshot_date, total_spend, total_revenue, roi, messages_sent, conversion_rate
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -232,7 +236,7 @@ function getChannelROIRanking(companyId) {
           roi = excluded.roi,
           messages_sent = excluded.messages_sent,
           conversion_rate = excluded.conversion_rate
-      `).run(companyId, ch, today, totalCost, totalRev, roi, stats.messages, parseFloat(conversionRate));
+      `, [companyId, ch, today, totalCost, totalRev, roi, stats.messages, parseFloat(conversionRate)]);
 
       results.push({
         channel: ch,
@@ -249,24 +253,23 @@ function getChannelROIRanking(companyId) {
     results.sort((a, b) => b.roi - a.roi);
 
     return { channels: results };
-
-  } finally {
-    db.close();
-  }
+  });
 }
 
-function getSuggestedBudgetSplit(companyId, requestedBudget) {
-  const db = getDb();
-  try {
+async function getSuggestedBudgetSplit(companyId, requestedBudget) {
+  return withExecutor(async (x) => {
     let targetBudget = requestedBudget;
     if (!targetBudget) {
-      const avg = db.prepare(`SELECT AVG(campaign_cost) as avg_cost FROM marketing_campaigns WHERE company_id = ? AND created_at >= date('now', '-90 days')`).get(companyId);
+      const dateExpr = x.engine === 'postgres'
+        ? `AND created_at >= (now() - interval '90 days')`
+        : `AND created_at >= date('now', '-90 days')`;
+      const avg = await x.get(`SELECT AVG(campaign_cost) as avg_cost FROM marketing_campaigns WHERE company_id = ? ${dateExpr}`, [companyId]);
       targetBudget = avg && avg.avg_cost ? Math.round(avg.avg_cost) : 5000;
       if (targetBudget <= 0) targetBudget = 5000;
     }
 
-    const { channels } = getChannelROIRanking(companyId);
-    
+    const { channels } = await getChannelROIRanking(companyId);
+
     // Get max values for normalization
     let maxRoi = 0, maxConv = 0, maxReach = 0;
     channels.forEach(ch => {
@@ -276,11 +279,11 @@ function getSuggestedBudgetSplit(companyId, requestedBudget) {
     });
 
     const { getConfidenceScore } = require('./marketingMetricsService');
-    const signalScore = getConfidenceScore(db, companyId, 'budget', 50);
+    const signalScore = await getConfidenceScore(x, companyId, 'budget', 50);
 
     // Filter positive ROI and calculate scores
     let positiveChannels = channels.filter(ch => ch.roi > 0);
-    
+
     // If no positive channels, fallback to even split among all channels or just top 1 by reach
     if (positiveChannels.length === 0 && channels.length > 0) {
       // Just pick the one with most reach or default to WhatsApp
@@ -292,19 +295,19 @@ function getSuggestedBudgetSplit(companyId, requestedBudget) {
       const normConv = maxConv > 0 ? (ch.conversionRate / maxConv) * 100 : 0;
       const normReach = maxReach > 0 ? (ch.messages / maxReach) * 100 : 0;
       const trendScore = ch.trend === 'up' ? 100 : (ch.trend === 'same' ? 50 : 0);
-      
-      const weightedScore = 
+
+      const weightedScore =
         (normRoi * 0.40) +
         (normConv * 0.25) +
         (signalScore * 0.15) +
         (trendScore * 0.10) +
         (normReach * 0.10);
-        
+
       return { ...ch, score: weightedScore };
     });
 
     let totalScore = scoredChannels.reduce((sum, ch) => sum + ch.score, 0);
-    
+
     let allocations = [];
     let reasoning = [];
     let totalAllocated = 0;
@@ -326,11 +329,11 @@ function getSuggestedBudgetSplit(companyId, requestedBudget) {
         let pct = (ch.score / totalScore) * 100;
         return { ...ch, pct };
       });
-      
+
       // Enforce min 10% and max 70%
       let overage = 0;
       let underage = 0;
-      
+
       rawAlloc.forEach(ch => {
         if (ch.pct < 10) {
           underage += (10 - ch.pct);
@@ -342,7 +345,7 @@ function getSuggestedBudgetSplit(companyId, requestedBudget) {
           ch.fixed = true;
         }
       });
-      
+
       // Rebalance overage/underage among non-fixed channels
       const balance = overage - underage;
       const nonFixed = rawAlloc.filter(ch => !ch.fixed);
@@ -358,14 +361,14 @@ function getSuggestedBudgetSplit(companyId, requestedBudget) {
       rawAlloc.forEach((ch, i) => {
         let amount = (i === rawAlloc.length - 1) ? remaining : Math.round(targetBudget * (ch.pct / 100));
         remaining -= amount;
-        
+
         allocations.push({
           channel: ch.channel,
           amount,
           percentage: Math.round(ch.pct),
           expectedRevenue: Math.round(amount * (1 + ch.roi))
         });
-        
+
         if (ch.pct === 70) reasoning.push(`${ch.channel} has produced the highest ROI and Conversion. Maxing allocation at 70%.`);
         else if (ch.trend === 'down') reasoning.push(`${ch.channel} performance has declined. Reduced allocation to mitigate risk.`);
         else if (ch.pct === 10) reasoning.push(`${ch.channel} has positive returns but low volume. Allocated 10% for testing.`);
@@ -374,7 +377,7 @@ function getSuggestedBudgetSplit(companyId, requestedBudget) {
     }
 
     if (allocations.length === 0) {
-      // Fallback 
+      // Fallback
       allocations.push({
         channel: 'whatsapp',
         amount: targetBudget,
@@ -386,7 +389,7 @@ function getSuggestedBudgetSplit(companyId, requestedBudget) {
 
     const expectedTotalRevenue = allocations.reduce((s, a) => s + (a.expectedRevenue || 0), 0);
     const expectedROI = (expectedTotalRevenue - targetBudget) / targetBudget;
-    
+
     // Revenue range +/- 10%
     const minRev = Math.round(expectedTotalRevenue * 0.90);
     const maxRev = Math.round(expectedTotalRevenue * 1.10);
@@ -399,22 +402,18 @@ function getSuggestedBudgetSplit(companyId, requestedBudget) {
       allocation: allocations,
       reasoning: [...new Set(reasoning)] // deduplicate
     };
-
-  } catch (e) {
-    throw e;
-  }
+  });
 }
 
-function getSegmentSpendPriority(companyId, timeframe = '30') {
-  const db = getDb();
-  try {
+async function getSegmentSpendPriority(companyId, timeframe = '30') {
+  return withExecutor(async (x) => {
     let dateFilter = '';
-    if (timeframe === '30') dateFilter = `AND created_at >= date('now', '-30 days')`;
-    else if (timeframe === '90') dateFilter = `AND created_at >= date('now', '-90 days')`;
-    else if (timeframe === '365') dateFilter = `AND created_at >= date('now', '-365 days')`;
+    if (timeframe === '30') dateFilter = daysAgoExpr(x, 30);
+    else if (timeframe === '90') dateFilter = daysAgoExpr(x, 90);
+    else if (timeframe === '365') dateFilter = daysAgoExpr(x, 365);
 
     const { getCampaignPerformance, getConfidenceScore } = require('./marketingMetricsService');
-    const campaigns = getCampaignPerformance(db, companyId, dateFilter);
+    const campaigns = await getCampaignPerformance(x, companyId, dateFilter);
 
     // Group by segment
     const segmentStats = {};
@@ -440,23 +439,23 @@ function getSegmentSpendPriority(companyId, timeframe = '30') {
     });
 
     const { getAllSegmentSummaries } = require('./segmentationEngine');
-    const segSummaries = getAllSegmentSummaries(companyId) || [];
+    const segSummaries = (await getAllSegmentSummaries(companyId)) || [];
     const sizeMap = {};
     segSummaries.forEach(s => { sizeMap[s.id] = s.count; });
-    
+
     let maxRoi = 0, maxRpc = 0, maxConv = 0;
-    
-    const rawSegments = Object.values(segmentStats).map(seg => {
+
+    const rawSegments = await Promise.all(Object.values(segmentStats).map(async seg => {
       const roi = seg.total_spend > 0 ? (seg.total_rev - seg.total_spend) / seg.total_spend : (seg.total_rev > 0 ? seg.total_rev / 100 : 0);
       let audienceSize = sizeMap[seg.raw_seg] || seg.total_targeted || 1;
       const rpc = seg.total_rev / (audienceSize || 1);
       const convRate = seg.total_targeted > 0 ? (seg.total_converted / seg.total_targeted) * 100 : 0;
-      
+
       if (roi > maxRoi) maxRoi = roi;
       if (rpc > maxRpc) maxRpc = rpc;
       if (convRate > maxConv) maxConv = convRate;
 
-      const conf = getConfidenceScore(db, companyId, seg.display_name, 50);
+      const conf = await getConfidenceScore(x, companyId, seg.display_name, 50);
 
       return {
         id: seg.raw_seg,
@@ -470,22 +469,22 @@ function getSegmentSpendPriority(companyId, timeframe = '30') {
         confidence: conf,
         campaignCount: seg.campaign_count
       };
-    });
+    }));
 
     const segments = rawSegments.map(seg => {
       const normRoi = maxRoi > 0 ? (Math.max(0, seg.roi) / maxRoi) * 100 : 0;
       const normRpc = maxRpc > 0 ? (seg.rpc / maxRpc) * 100 : 0;
       const normConv = maxConv > 0 ? (seg.convRate / maxConv) * 100 : 0;
-      
+
       // Mock trend for now (if ROI > 1.5, we say it's growing)
       const trendScore = seg.roi > 1.5 ? 100 : (seg.roi > 0 ? 50 : 0);
 
       // Priority Score = ROI(35%) + RPC(25%) + Conv(20%) + Signal(10%) + Trend(10%)
       const priorityScore = Math.round(
-        (normRoi * 0.35) + 
-        (normRpc * 0.25) + 
-        (normConv * 0.20) + 
-        (seg.confidence * 0.10) + 
+        (normRoi * 0.35) +
+        (normRpc * 0.25) +
+        (normConv * 0.20) +
+        (seg.confidence * 0.10) +
         (trendScore * 0.10)
       );
 
@@ -536,9 +535,9 @@ function getSegmentSpendPriority(companyId, timeframe = '30') {
     segments.sort((a, b) => b.priorityScore - a.priorityScore);
 
     const totalProjected = segments.reduce((s, a) => s + (a.expectedGain || 0), 0);
-    const topRec = segments.length > 0 
-      ? (segments[0].status.includes('Scale') || segments[0].status.includes('Increase') 
-          ? `Allocate ₹${segments[0].suggestedSpend.toLocaleString()} to ${segments[0].name} to gain ₹${segments[0].expectedGain.toLocaleString()}.` 
+    const topRec = segments.length > 0
+      ? (segments[0].status.includes('Scale') || segments[0].status.includes('Increase')
+          ? `Allocate ₹${segments[0].suggestedSpend.toLocaleString()} to ${segments[0].name} to gain ₹${segments[0].expectedGain.toLocaleString()}.`
           : `Maintain spend on ${segments[0].name}.`)
       : 'No segment data available for this timeframe.';
 
@@ -548,18 +547,14 @@ function getSegmentSpendPriority(companyId, timeframe = '30') {
       totalProjectedRevenue: totalProjected,
       segments
     };
-
-  } catch (e) {
-    throw e;
-  }
+  });
 }
 
-function getBreakEvenCalculator(companyId, timeframe = '1year') {
-  const db = getDb();
-  try {
+async function getBreakEvenCalculator(companyId, timeframe = '1year') {
+  return withExecutor(async (x) => {
     const { getStoreEconomics, getConfidenceScore } = require('./marketingMetricsService');
-    const eco = getStoreEconomics(db, companyId, timeframe);
-    
+    const eco = await getStoreEconomics(x, companyId, timeframe);
+
     const immediateCAC = eco.aov * eco.margin;
     const ltvCAC = eco.ltv * eco.margin;
 
@@ -569,7 +564,7 @@ function getBreakEvenCalculator(companyId, timeframe = '1year') {
       { name: 'Loss', min: Math.round(ltvCAC) + 1, max: null, label: '🔴 Loss Zone' }
     ];
 
-    const confidence = getConfidenceScore(db, companyId, 'break_even', 94);
+    const confidence = await getConfidenceScore(x, companyId, 'break_even', 94);
 
     return {
       grossMargin: Number((eco.margin * 100).toFixed(1)),
@@ -581,14 +576,12 @@ function getBreakEvenCalculator(companyId, timeframe = '1year') {
       profitZones,
       confidence: Math.round(confidence)
     };
-  } catch (e) {
-    throw e;
-  }
+  });
 }
 
-function getWeeklyRecommendation(companyId) {
+async function getWeeklyRecommendation(companyId) {
   try {
-    const segmentsData = getSegmentSpendPriority(companyId, '30');
+    const segmentsData = await getSegmentSpendPriority(companyId, '30');
     if (segmentsData.segments && segmentsData.segments.length > 0) {
       const topSegment = segmentsData.segments[0];
       if (topSegment.status.includes('Scale') || topSegment.status.includes('Increase')) {
@@ -599,7 +592,7 @@ function getWeeklyRecommendation(companyId) {
       }
     }
 
-    const { channels } = getChannelROIRanking(companyId);
+    const { channels } = await getChannelROIRanking(companyId);
     if (channels && channels.length > 0) {
       const topChannel = channels[0];
       if (topChannel.roi > 1.0) {
@@ -620,12 +613,11 @@ function getWeeklyRecommendation(companyId) {
   }
 }
 
-function getPostSpendReportCards(companyId) {
-  const db = getDb();
-  try {
+async function getPostSpendReportCards(companyId) {
+  return withExecutor(async (x) => {
     const { getCampaignPerformance } = require('./marketingMetricsService');
-    const campaigns = getCampaignPerformance(db, companyId);
-    
+    const campaigns = await getCampaignPerformance(x, companyId);
+
     // Sort by most recently completed (we don't have completed_at, so use id assuming chronological)
     campaigns.sort((a, b) => b.id - a.id);
     const recent = campaigns.slice(0, 5);
@@ -646,16 +638,13 @@ function getPostSpendReportCards(companyId) {
         grade
       };
     });
-  } catch (e) {
-    throw e;
-  }
+  });
 }
 
-function getDoNotSpendFlags(companyId) {
-  const db = getDb();
-  try {
+async function getDoNotSpendFlags(companyId) {
+  return withExecutor(async (x) => {
     const { getCampaignPerformance } = require('./marketingMetricsService');
-    const campaigns = getCampaignPerformance(db, companyId);
+    const campaigns = await getCampaignPerformance(x, companyId);
 
     const channelMap = {};
     const segmentMap = {};
@@ -699,9 +688,7 @@ function getDoNotSpendFlags(companyId) {
     }
 
     return flags;
-  } catch (e) {
-    throw e;
-  }
+  });
 }
 
 module.exports = {

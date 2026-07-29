@@ -2,6 +2,9 @@
 // Import & Export Intelligence API
 // Mounted at /api/trade (auth + branchAuth + rbac applied globally in app.js).
 // Thin controllers — all logic lives in tradeService. Mirrors routes/compliance.js.
+// Phase 2: tradeService's functions are now async (dual-engine SQLite/Postgres)
+// except getProfile/saveProfile, which are re-exports of complianceService.js
+// (out of this module's Phase 2 scope) and remain synchronous SQLite-only.
 // ============================================================================
 const express = require('express');
 const multer = require('multer');
@@ -38,80 +41,82 @@ const upload = multer({
 });
 
 // ── Business profile (shared with Compliance) ────────────────────────────────
-router.get('/profile', (req, res) => {
-  try { res.json({ profile: svc.getProfile(req.user.companyId) }); }
+// getProfile/saveProfile are complianceService.js re-exports, now async
+// (dual-engine executor pattern) — must be awaited.
+router.get('/profile', async (req, res) => {
+  try { res.json({ profile: await svc.getProfile(req.user.companyId) }); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.put('/profile', (req, res) => {
+router.put('/profile', async (req, res) => {
   try {
-    const profile = svc.saveProfile(req.user.companyId, req.body || {});
-    const result = svc.recompute(req.user.companyId);
+    const profile = await svc.saveProfile(req.user.companyId, req.body || {});
+    const result = await svc.recompute(req.user.companyId);
     res.json({ profile, recompute: result });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/recompute', (req, res) => {
+router.post('/recompute', async (req, res) => {
   try {
-    const result = svc.recompute(req.user.companyId);
+    const result = await svc.recompute(req.user.companyId);
     if (result.error) return res.status(400).json({ error: result.error });
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Dashboard ──────────────────────────────────────────────────────────────
-router.get('/overview', (req, res) => {
-  try { res.json(svc.getOverview(req.user.companyId)); }
+router.get('/overview', async (req, res) => {
+  try { res.json(await svc.getOverview(req.user.companyId)); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Guideline catalog (public browse) ────────────────────────────────────────
-router.get('/guidelines', (req, res) => {
-  try { res.json({ guidelines: svc.getGuidelines(req.query) }); }
+router.get('/guidelines', async (req, res) => {
+  try { res.json({ guidelines: await svc.getGuidelines(req.query) }); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.get('/guidelines/:id', (req, res) => {
+router.get('/guidelines/:id', async (req, res) => {
   try {
-    const result = svc.getGuidelineDetail(Number(req.params.id));
+    const result = await svc.getGuidelineDetail(Number(req.params.id));
     if (result.error === 'not_found') return res.status(404).json({ error: 'Guideline not found' });
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Requirements (per-company materialized applicable items) ────────────────
-router.get('/requirements', (req, res) => {
+router.get('/requirements', async (req, res) => {
   try {
     const { category, status } = req.query;
-    res.json({ requirements: svc.getRequirements(req.user.companyId, { category, status }) });
+    res.json({ requirements: await svc.getRequirements(req.user.companyId, { category, status }) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.get('/requirements/:id', (req, res) => {
+router.get('/requirements/:id', async (req, res) => {
   try {
-    const result = svc.getRequirementDetail(req.user.companyId, Number(req.params.id));
+    const result = await svc.getRequirementDetail(req.user.companyId, Number(req.params.id));
     if (result.error === 'not_found') return res.status(404).json({ error: 'Requirement not found' });
     res.json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.patch('/requirements/:id', (req, res) => {
+router.patch('/requirements/:id', async (req, res) => {
   try {
-    const result = svc.updateRequirement(req.user.companyId, Number(req.params.id), req.body || {});
+    const result = await svc.updateRequirement(req.user.companyId, Number(req.params.id), req.body || {});
     if (result.error === 'not_found') return res.status(404).json({ error: 'Requirement not found' });
     res.json({ requirement: result });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Document Checklist (Document Vault integration) ──────────────────────────
-router.post('/requirements/:id/documents', upload.array('files', 10), (req, res) => {
+router.post('/requirements/:id/documents', upload.array('files', 10), async (req, res) => {
   try {
     if (!req.files || !req.files.length) return res.status(400).json({ error: 'No file uploaded' });
     const requirementId = Number(req.params.id);
     const results = [];
     for (const file of req.files) {
       const docName = (req.files.length === 1 && req.body.doc_name) ? req.body.doc_name : file.originalname;
-      const r = svc.recordUpload(req.user.companyId, requirementId, {
+      const r = await svc.recordUpload(req.user.companyId, requirementId, {
         file, docName, expiryDate: req.body.expiry_date, uploadedBy: req.user.userId,
       });
       if (r.error === 'not_found') return res.status(404).json({ error: 'Requirement not found' });
@@ -121,50 +126,50 @@ router.post('/requirements/:id/documents', upload.array('files', 10), (req, res)
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.get('/requirements/:id/documents', (req, res) => {
+router.get('/requirements/:id/documents', async (req, res) => {
   try {
-    res.json({ documents: svc.listChecklistDocuments(req.user.companyId, Number(req.params.id), { includeHistory: req.query.history === '1' }) });
+    res.json({ documents: await svc.listChecklistDocuments(req.user.companyId, Number(req.params.id), { includeHistory: req.query.history === '1' }) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.get('/documents/:docId/download', (req, res) => {
+router.get('/documents/:docId/download', async (req, res) => {
   try {
-    const doc = svc.getDocumentForDownload(req.user.companyId, Number(req.params.docId));
+    const doc = await svc.getDocumentForDownload(req.user.companyId, Number(req.params.docId));
     if (!doc || !doc.file_path) return res.status(404).json({ error: 'Document not found' });
     res.download(doc.file_path, doc.original_name || doc.doc_name);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.patch('/documents/:docId', (req, res) => {
+router.patch('/documents/:docId', async (req, res) => {
   try {
-    const r = svc.updateDocument(req.user.companyId, Number(req.params.docId), req.body || {});
+    const r = await svc.updateDocument(req.user.companyId, Number(req.params.docId), req.body || {});
     if (r.error === 'not_found') return res.status(404).json({ error: 'Document not found' });
     res.json({ document: r });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.delete('/documents/:docId', (req, res) => {
+router.delete('/documents/:docId', async (req, res) => {
   try {
-    const r = svc.deleteDocument(req.user.companyId, Number(req.params.docId));
+    const r = await svc.deleteDocument(req.user.companyId, Number(req.params.docId));
     if (r.error === 'not_found') return res.status(404).json({ error: 'Document not found' });
     res.json(r);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Reference data ─────────────────────────────────────────────────────────
-router.get('/authorities', (req, res) => {
-  try { res.json({ authorities: svc.getAuthorities() }); }
+router.get('/authorities', async (req, res) => {
+  try { res.json({ authorities: await svc.getAuthorities() }); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.get('/countries', (req, res) => {
-  try { res.json({ countries: svc.getCountries() }); }
+router.get('/countries', async (req, res) => {
+  try { res.json({ countries: await svc.getCountries() }); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.get('/countries/:code', (req, res) => {
+router.get('/countries/:code', async (req, res) => {
   try {
-    const c = svc.getCountryDetail(req.params.code.toUpperCase());
+    const c = await svc.getCountryDetail(req.params.code.toUpperCase());
     if (c.error === 'not_found') return res.status(404).json({ error: 'Country not found' });
     res.json({ country: c });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -172,41 +177,41 @@ router.get('/countries/:code', (req, res) => {
 
 // ── AI Trade Copilot ─────────────────────────────────────────────────────────
 // POST /api/trade/copilot  { question }
-router.post('/copilot', (req, res) => {
+router.post('/copilot', async (req, res) => {
   try {
     if (!req.body || !req.body.question) return res.status(400).json({ error: 'question is required' });
-    res.json(svc.copilot(req.user.companyId, req.body.question));
+    res.json(await svc.copilot(req.user.companyId, req.body.question));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ── Admin: guideline management (data-driven, no code changes) ──────────────
-router.get('/admin/guidelines', (req, res) => {
+router.get('/admin/guidelines', async (req, res) => {
   try {
     if (!isAdmin(req)) return res.status(403).json({ error: 'Admin access required' });
-    res.json({ guidelines: svc.listGuidelinesAdmin({ country: req.query.country }) });
+    res.json({ guidelines: await svc.listGuidelinesAdmin({ country: req.query.country }) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/admin/guidelines', (req, res) => {
+router.post('/admin/guidelines', async (req, res) => {
   try {
     if (!isAdmin(req)) return res.status(403).json({ error: 'Admin access required' });
-    const result = svc.createGuideline(req.body || {});
+    const result = await svc.createGuideline(req.body || {});
     if (result.error) return res.status(400).json({ error: result.error });
     res.status(201).json(result);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.put('/admin/guidelines/:id', (req, res) => {
+router.put('/admin/guidelines/:id', async (req, res) => {
   try {
     if (!isAdmin(req)) return res.status(403).json({ error: 'Admin access required' });
-    res.json({ guideline: svc.updateGuideline(Number(req.params.id), req.body || {}) });
+    res.json({ guideline: await svc.updateGuideline(Number(req.params.id), req.body || {}) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.delete('/admin/guidelines/:id', (req, res) => {
+router.delete('/admin/guidelines/:id', async (req, res) => {
   try {
     if (!isAdmin(req)) return res.status(403).json({ error: 'Admin access required' });
-    res.json(svc.deleteGuideline(Number(req.params.id)));
+    res.json(await svc.deleteGuideline(Number(req.params.id)));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

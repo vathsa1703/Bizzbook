@@ -3,7 +3,7 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
-const { getDb } = require('../config/db');
+const { dbGet, dbAll } = require('../config/dbEngine');
 
 const UPLOADS_DIR = path.join(__dirname, '../../data/uploads/employee-docs');
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -27,44 +27,42 @@ const upload = multer({
 });
 
 // List documents for an employee
-router.get('/:employeeId', (req, res, next) => {
-  const db = getDb();
+router.get('/:employeeId', async (req, res, next) => {
   try {
-    const docs = db.prepare(`
+    const docs = await dbAll(`
       SELECT ed.*, u.name as uploaded_by_name, v.name as verified_by_name
       FROM employee_documents ed
       LEFT JOIN users u ON ed.uploaded_by = u.id
       LEFT JOIN users v ON ed.verified_by = v.id
       WHERE ed.employee_id = ? AND ed.company_id = ?
       ORDER BY ed.created_at DESC
-    `).all(req.params.employeeId, req.user.companyId);
+    `, [req.params.employeeId, req.user.companyId]);
     res.json(docs);
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
 // Upload a document
-router.post('/:employeeId', upload.single('file'), (req, res, next) => {
-  const db = getDb();
+router.post('/:employeeId', upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     const { doc_type, doc_name } = req.body;
 
-    const info = db.prepare(`
+    const insert = await dbGet(`
       INSERT INTO employee_documents (employee_id, company_id, doc_type, doc_name, file_path, file_size, mime_type, uploaded_by)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(req.params.employeeId, req.user.companyId, doc_type || 'Other',
+      RETURNING id
+    `, [req.params.employeeId, req.user.companyId, doc_type || 'Other',
       doc_name || req.file.originalname, req.file.filename,
-      req.file.size, req.file.mimetype, req.user.userId);
+      req.file.size, req.file.mimetype, req.user.userId]);
 
-    res.status(201).json(db.prepare('SELECT * FROM employee_documents WHERE id = ?').get(info.lastInsertRowid));
-  } catch (err) { next(err); } finally { db.close(); }
+    res.status(201).json(await dbGet('SELECT * FROM employee_documents WHERE id = ?', [insert.id]));
+  } catch (err) { next(err); }
 });
 
 // Serve/download a document
-router.get('/file/:id', (req, res, next) => {
-  const db = getDb();
+router.get('/file/:id', async (req, res, next) => {
   try {
-    const doc = db.prepare('SELECT * FROM employee_documents WHERE id = ? AND company_id = ?').get(req.params.id, req.user.companyId);
+    const doc = await dbGet('SELECT * FROM employee_documents WHERE id = ? AND company_id = ?', [req.params.id, req.user.companyId]);
     if (!doc) return res.status(404).json({ error: 'Document not found' });
 
     const filePath = path.join(UPLOADS_DIR, doc.file_path);
@@ -73,21 +71,20 @@ router.get('/file/:id', (req, res, next) => {
     res.setHeader('Content-Type', doc.mime_type);
     res.setHeader('Content-Disposition', `inline; filename="${doc.doc_name}"`);
     res.sendFile(filePath);
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
 // Delete a document
-router.delete('/:id', (req, res, next) => {
-  const db = getDb();
+router.delete('/:id', async (req, res, next) => {
   try {
-    const doc = db.prepare('SELECT * FROM employee_documents WHERE id = ? AND company_id = ?').get(req.params.id, req.user.companyId);
+    const doc = await dbGet('SELECT * FROM employee_documents WHERE id = ? AND company_id = ?', [req.params.id, req.user.companyId]);
     if (!doc) return res.status(404).json({ error: 'Document not found' });
 
     const filePath = path.join(UPLOADS_DIR, doc.file_path);
     if (fs.existsSync(filePath)) { try { fs.unlinkSync(filePath); } catch (e) { console.error('File delete error:', e.message); } }
-    db.prepare('DELETE FROM employee_documents WHERE id = ?').run(req.params.id);
+    await dbGet('DELETE FROM employee_documents WHERE id = ?', [req.params.id]);
     res.status(204).end();
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

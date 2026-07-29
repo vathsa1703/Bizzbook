@@ -16,7 +16,7 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
-const { getDb } = require('../config/db');
+const { dbGet } = require('../config/dbEngine');
 
 const UPLOADS_ROOT = path.join(__dirname, '../../data/uploads/employee-photos');
 
@@ -32,13 +32,13 @@ const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 
 // Verifies :id is an employee belonging to the caller's company. Runs before
 // multer so we never accept/write a file for an employee that isn't ours.
-function loadOwnedEmployee(req, res, next) {
-  const db = getDb();
+async function loadOwnedEmployee(req, res, next) {
   try {
     const companyId = req.user.companyId;
-    const employee = db.prepare(
-      'SELECT id, company_id, avatar FROM employees WHERE id = ? AND company_id = ?'
-    ).get(req.params.id, companyId);
+    const employee = await dbGet(
+      'SELECT id, company_id, avatar FROM employees WHERE id = ? AND company_id = ?',
+      [req.params.id, companyId]
+    );
     if (!employee) {
       return res.status(404).json({ error: 'Employee not found' });
     }
@@ -46,8 +46,6 @@ function loadOwnedEmployee(req, res, next) {
     next();
   } catch (err) {
     next(err);
-  } finally {
-    db.close();
   }
 }
 
@@ -93,8 +91,7 @@ router.post('/:id/photo', loadOwnedEmployee, (req, res, next) => {
     }
     next();
   });
-}, (req, res, next) => {
-  const db = getDb();
+}, async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No photo uploaded' });
@@ -112,14 +109,14 @@ router.post('/:id/photo', loadOwnedEmployee, (req, res, next) => {
       }
     }
 
-    db.prepare('UPDATE employees SET avatar = ? WHERE id = ? AND company_id = ?').run(req.file.filename, empId, companyId);
+    await dbGet('UPDATE employees SET avatar = ? WHERE id = ? AND company_id = ?', [req.file.filename, empId, companyId]);
 
     res.status(201).json({ avatar: req.file.filename });
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
 // GET /api/employees/:id/photo/file — stream the stored photo (authenticated, not static)
-router.get('/:id/photo/file', loadOwnedEmployee, (req, res, next) => {
+router.get('/:id/photo/file', loadOwnedEmployee, async (req, res, next) => {
   try {
     const employee = req.employeeRecord;
     if (!employee.avatar) {
@@ -138,8 +135,7 @@ router.get('/:id/photo/file', loadOwnedEmployee, (req, res, next) => {
 });
 
 // DELETE /api/employees/:id/photo — remove the employee's photo
-router.delete('/:id/photo', loadOwnedEmployee, (req, res, next) => {
-  const db = getDb();
+router.delete('/:id/photo', loadOwnedEmployee, async (req, res, next) => {
   try {
     const employee = req.employeeRecord;
     const companyId = req.user.companyId;
@@ -149,9 +145,9 @@ router.delete('/:id/photo', loadOwnedEmployee, (req, res, next) => {
         try { fs.unlinkSync(filePath); } catch (e) { console.error('Photo delete error:', e.message); }
       }
     }
-    db.prepare('UPDATE employees SET avatar = NULL WHERE id = ? AND company_id = ?').run(req.params.id, companyId);
+    await dbGet('UPDATE employees SET avatar = NULL WHERE id = ? AND company_id = ?', [req.params.id, companyId]);
     res.status(204).end();
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

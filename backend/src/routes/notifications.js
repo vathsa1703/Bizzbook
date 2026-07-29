@@ -1,42 +1,56 @@
 const express = require('express');
 const router = express.Router();
-const { getDb } = require('../config/db');
+const { dbGet, dbAll, engine } = require('../config/dbEngine');
 
-router.get('/', (req, res, next) => {
-  const db = getDb();
+router.get('/', async (req, res, next) => {
   try {
     const { page = 1, limit = 30 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    const notifs = db.prepare(`
+    const notifs = await dbAll(`
       SELECT * FROM notifications WHERE user_id = ? AND company_id = ?
       ORDER BY created_at DESC LIMIT ? OFFSET ?
-    `).all(req.user.userId, req.user.companyId, parseInt(limit), offset);
+    `, [req.user.userId, req.user.companyId, parseInt(limit), offset]);
     res.json(notifs);
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
-router.get('/unread-count', (req, res, next) => {
-  const db = getDb();
+router.get('/unread-count', async (req, res, next) => {
   try {
-    const result = db.prepare('SELECT count(*) as cnt FROM notifications WHERE user_id = ? AND company_id = ? AND is_read = 0').get(req.user.userId, req.user.companyId);
+    // is_read is BOOLEAN on Postgres, INTEGER 0/1 on SQLite (see
+    // schema.postgres.sql's notifications.is_read) — the literal has to
+    // match the column type per engine.
+    const unreadLiteral = engine() === 'postgres' ? 'false' : '0';
+    const result = await dbGet(
+      `SELECT count(*) as cnt FROM notifications WHERE user_id = ? AND company_id = ? AND is_read = ${unreadLiteral}`,
+      [req.user.userId, req.user.companyId]
+    );
     res.json({ count: result?.cnt || 0 });
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
-router.put('/:id/read', (req, res, next) => {
-  const db = getDb();
+router.put('/:id/read', async (req, res, next) => {
   try {
-    db.prepare("UPDATE notifications SET is_read = 1, read_at = datetime('now') WHERE id = ? AND user_id = ?").run(req.params.id, req.user.userId);
+    const activeLiteral = engine() === 'postgres' ? 'true' : '1';
+    const now = engine() === 'postgres' ? 'now()' : "datetime('now')";
+    await dbGet(
+      `UPDATE notifications SET is_read = ${activeLiteral}, read_at = ${now} WHERE id = ? AND user_id = ?`,
+      [req.params.id, req.user.userId]
+    );
     res.json({ success: true });
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
-router.put('/read-all', (req, res, next) => {
-  const db = getDb();
+router.put('/read-all', async (req, res, next) => {
   try {
-    db.prepare("UPDATE notifications SET is_read = 1, read_at = datetime('now') WHERE user_id = ? AND company_id = ? AND is_read = 0").run(req.user.userId, req.user.companyId);
+    const activeLiteral = engine() === 'postgres' ? 'true' : '1';
+    const now = engine() === 'postgres' ? 'now()' : "datetime('now')";
+    const unreadLiteral = engine() === 'postgres' ? 'false' : '0';
+    await dbGet(
+      `UPDATE notifications SET is_read = ${activeLiteral}, read_at = ${now} WHERE user_id = ? AND company_id = ? AND is_read = ${unreadLiteral}`,
+      [req.user.userId, req.user.companyId]
+    );
     res.json({ success: true });
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

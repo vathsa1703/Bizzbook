@@ -28,14 +28,9 @@ export default function CommunicationCenterView() {
   const loadDashboard = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/communication/dashboard', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data.stats);
-        setCampaigns(data.recentCampaigns);
-      }
+      const data = await api.communication.getDashboard();
+      setStats(data.stats);
+      setCampaigns(data.recentCampaigns);
     } catch (e) {
       console.error(e);
     }
@@ -45,10 +40,7 @@ export default function CommunicationCenterView() {
   const loadTemplates = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/communication/templates', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      if (res.ok) setTemplates(await res.json());
+      setTemplates(await api.communication.getTemplates());
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -56,10 +48,7 @@ export default function CommunicationCenterView() {
   const loadCampaigns = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/communication/campaigns', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      if (res.ok) setCampaigns(await res.json());
+      setCampaigns(await api.communication.getCampaigns());
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -67,10 +56,7 @@ export default function CommunicationCenterView() {
   const loadHistory = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/communication/history?limit=50', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      if (res.ok) setLogs(await res.json());
+      setLogs(await api.communication.getHistory(50));
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -229,14 +215,7 @@ function TemplatesTab({ templates, onRefresh }) {
 
   const handleSave = async () => {
     try {
-      await fetch('/api/communication/templates', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(form)
-      });
+      await api.communication.createTemplate(form);
       setShowForm(false);
       onRefresh();
     } catch (e) {
@@ -311,14 +290,7 @@ function CampaignsTab({ campaigns, templates, onRefresh }) {
 
   const handleDispatch = async () => {
     try {
-      await fetch('/api/communication/dispatch', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(form)
-      });
+      await api.communication.dispatch(form);
       setShowForm(false);
       onRefresh();
     } catch (e) {

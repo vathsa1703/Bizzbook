@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getDb } = require('../config/db');
+const { dbGet, dbAll, engine, isOn } = require('../config/dbEngine');
 const { authenticate } = require('../middleware/auth');
 const automationEngine = require('../services/AutomationEngine');
 
@@ -9,9 +9,9 @@ router.use(authenticate);
 /**
  * GET /api/automations/dashboard
  */
-router.get('/dashboard', (req, res) => {
+router.get('/dashboard', async (req, res) => {
   try {
-    const stats = automationEngine.getStats(req.user.companyId);
+    const stats = await automationEngine.getStats(req.user.companyId);
     res.json({ success: true, stats });
   } catch (error) {
     console.error('[AutomationsAPI] Error fetching dashboard:', error);
@@ -22,16 +22,15 @@ router.get('/dashboard', (req, res) => {
 /**
  * GET /api/automations/:id/history
  */
-router.get('/:id/history', (req, res) => {
+router.get('/:id/history', async (req, res) => {
   try {
-    const db = getDb();
-    const logs = db.prepare(`
+    const logs = await dbAll(`
       SELECT id, correlation_id, status, duration_ms, message, executed_at, customer_id
       FROM automation_execution_logs
       WHERE company_id = ? AND automation_id = ?
       ORDER BY executed_at DESC
       LIMIT 50
-    `).all(req.user.companyId, req.params.id);
+    `, [req.user.companyId, req.params.id]);
 
     res.json({ success: true, logs });
   } catch (error) {
@@ -43,18 +42,17 @@ router.get('/:id/history', (req, res) => {
 /**
  * GET /api/automations
  */
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const db = getDb();
-    const automations = db.prepare(`
+    const automations = await dbAll(`
       SELECT a.id, a.name, a.event_type, a.conditions, a.delay_minutes, a.action_type, a.action_payload, a.is_active, a.created_at,
              (SELECT COUNT(*) FROM automation_execution_logs l WHERE l.automation_id = a.id) as total_executions,
              (SELECT MAX(executed_at) FROM automation_execution_logs l WHERE l.automation_id = a.id) as last_run
       FROM marketing_automations a
       WHERE a.company_id = ?
       ORDER BY a.created_at DESC
-    `).all(req.user.companyId);
-    
+    `, [req.user.companyId]);
+
     for (const auto of automations) {
       if (auto.conditions) {
         try { auto.conditions = JSON.parse(auto.conditions); } catch(e) {}
@@ -74,19 +72,23 @@ router.get('/', (req, res) => {
 /**
  * POST /api/automations
  */
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
-    const db = getDb();
     const { name, event_type, conditions, delay_minutes, action_type, action_payload } = req.body;
 
     if (!name || !event_type || !action_type) {
       return res.status(400).json({ success: false, error: 'Name, event_type, and action_type are required.' });
     }
 
-    const info = db.prepare(`
+    // is_active is BOOLEAN on Postgres, INTEGER 0/1 on SQLite (see
+    // schema.postgres.sql's marketing_automations.is_active) — the "active on
+    // create" literal has to match the column type per engine.
+    const activeLiteral = engine() === 'postgres' ? 'true' : '1';
+
+    const row = await dbGet(`
       INSERT INTO marketing_automations (company_id, name, event_type, conditions, delay_minutes, action_type, action_payload, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-    `).run(
+      VALUES (?, ?, ?, ?, ?, ?, ?, ${activeLiteral}) RETURNING id
+    `, [
       req.user.companyId,
       name,
       event_type,
@@ -94,11 +96,11 @@ router.post('/', (req, res) => {
       delay_minutes || 0,
       action_type,
       action_payload ? JSON.stringify(action_payload) : null
-    );
+    ]);
 
-    automationEngine.reloadAutomations();
+    await automationEngine.reloadAutomations();
 
-    res.status(201).json({ success: true, automation_id: info.lastInsertRowid });
+    res.status(201).json({ success: true, automation_id: row.id });
   } catch (error) {
     console.error('[AutomationsAPI] Error creating automation:', error);
     res.status(500).json({ success: false, error: 'Failed to create automation.' });
@@ -108,20 +110,31 @@ router.post('/', (req, res) => {
 /**
  * PUT /api/automations/:id/toggle
  */
-router.put('/:id/toggle', (req, res) => {
+router.put('/:id/toggle', async (req, res) => {
   try {
-    const db = getDb();
-    const info = db.prepare(`
-      UPDATE marketing_automations 
-      SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END 
-      WHERE id = ? AND company_id = ?
-    `).run(req.params.id, req.user.companyId);
+    const companyId = req.user.companyId;
 
-    if (info.changes === 0) {
+    // dbGet/dbAll don't surface an affected-row count on either engine, so
+    // (like credits.js) existence + the current value are established with a
+    // SELECT first, and the CASE-based flip is done in JS instead of SQL —
+    // is_active is BOOLEAN on Postgres vs INTEGER 0/1 on SQLite.
+    const existing = await dbGet(
+      'SELECT is_active FROM marketing_automations WHERE id = ? AND company_id = ?',
+      [req.params.id, companyId]
+    );
+    if (!existing) {
       return res.status(404).json({ success: false, error: 'Automation not found' });
     }
 
-    automationEngine.reloadAutomations();
+    const currentlyActive = isOn(existing.is_active);
+    const newValue = engine() === 'postgres' ? !currentlyActive : (currentlyActive ? 0 : 1);
+
+    await dbGet(
+      'UPDATE marketing_automations SET is_active = ? WHERE id = ? AND company_id = ?',
+      [newValue, req.params.id, companyId]
+    );
+
+    await automationEngine.reloadAutomations();
 
     res.json({ success: true });
   } catch (error) {
@@ -133,22 +146,24 @@ router.put('/:id/toggle', (req, res) => {
 /**
  * DELETE /api/automations/:id
  */
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const db = getDb();
-    const info = db.prepare(`
-      DELETE FROM marketing_automations 
-      WHERE id = ? AND company_id = ?
-    `).run(req.params.id, req.user.companyId);
+    const companyId = req.user.companyId;
 
-    if (info.changes === 0) {
+    const existing = await dbGet(
+      'SELECT id FROM marketing_automations WHERE id = ? AND company_id = ?',
+      [req.params.id, companyId]
+    );
+    if (!existing) {
       return res.status(404).json({ success: false, error: 'Automation not found' });
     }
-    
-    // Also delete logs
-    db.prepare(`DELETE FROM automation_execution_logs WHERE automation_id = ? AND company_id = ?`).run(req.params.id, req.user.companyId);
 
-    automationEngine.reloadAutomations();
+    await dbGet('DELETE FROM marketing_automations WHERE id = ? AND company_id = ?', [req.params.id, companyId]);
+
+    // Also delete logs
+    await dbGet('DELETE FROM automation_execution_logs WHERE automation_id = ? AND company_id = ?', [req.params.id, companyId]);
+
+    await automationEngine.reloadAutomations();
 
     res.json({ success: true });
   } catch (error) {

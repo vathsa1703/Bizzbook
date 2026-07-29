@@ -6,12 +6,30 @@
 // does NOT have its own profile table. Same business_compliance_profile row,
 // extended with import_enabled/export_enabled/is_manufacturer/is_trader/
 // is_service_provider/iec_number (see complianceService.js PROFILE_FIELDS).
+// complianceService.js was migrated to the dual-engine executor pattern
+// separately (owned by the Compliance module) and its getProfile/saveProfile
+// are now async — these re-exports inherit that automatically since they're
+// plain references, not wrappers. Callers (routes/trade.js) must await them.
+//
+// Phase 2: dual-engine (SQLite + Postgres) via config/dbEngine.js's executor
+// abstraction (`x` = {engine, get, all, run, insert}). Two of this file's
+// dependencies — db/tradeSeed.js's seedTrade(db) and tradeRuleEngine.js's
+// computeApplicable(db, profile)/loadGuidelinesForCountry(db, ...) — are
+// hardcoded to a raw sqlite db.prepare() handle and are NOT part of this
+// module's edit scope, so this file no longer calls those two DB-touching
+// functions. Instead it re-implements their (small) DB-reading logic locally
+// against the executor, while still reusing tradeRuleEngine's exported PURE
+// functions (normalizeProfile/isRuleApplicable/computeNextDueDate) and
+// tradeSeed's exported DATA (GUIDELINES/AUTHORITIES/COUNTRIES) — only the
+// "how do I read/write rows" parts are duplicated, not the actual rule/seed
+// data, and the result is byte-identical to what seedTrade/computeApplicable
+// used to produce.
 // ============================================================================
 
-const { getDb } = require('../config/db');
-const { seedTrade } = require('../db/tradeSeed');
-const engine = require('./tradeRuleEngine');
+const { GUIDELINES, AUTHORITIES, COUNTRIES } = require('../db/tradeSeed');
+const ruleEngine = require('./tradeRuleEngine');
 const complianceService = require('./complianceService');
+const { dbGet, dbAll, engine, isOn, withExecutor, withTxExecutor } = require('../config/dbEngine');
 
 function today() { return new Date(new Date().toISOString().slice(0, 10)); }
 function daysBetween(fromStr) {
@@ -19,19 +37,97 @@ function daysBetween(fromStr) {
   const d = new Date(String(fromStr).slice(0, 10));
   return Math.round((d - today()) / 86400000);
 }
-function logEvent(db, companyId, { requirementId = null, guidelineId = null, eventType, detail = null }) {
-  db.prepare(
-    'INSERT INTO trade_events (company_id, requirement_id, guideline_id, event_type, detail) VALUES (?, ?, ?, ?, ?)'
-  ).run(companyId, requirementId, guidelineId, eventType, detail);
+async function logEvent(x, companyId, { requirementId = null, guidelineId = null, eventType, detail = null }) {
+  await x.run(
+    'INSERT INTO trade_events (company_id, requirement_id, guideline_id, event_type, detail) VALUES (?, ?, ?, ?, ?)',
+    [companyId, requirementId, guidelineId, eventType, detail]
+  );
 }
 function safeJson(s) { try { return JSON.parse(s); } catch (_) { return []; } }
 
 // Defensive, idempotent seed so the module works even if migration 27 hasn't
-// run for some reason. seedTrade is keyed by guideline code, so this is a
-// no-op once seeded.
-function ensureSeed(db) {
-  const row = db.prepare('SELECT COUNT(*) AS c FROM trade_guidelines').get();
-  if (!row || row.c === 0) seedTrade(db);
+// run for some reason. Keyed by guideline/authority/country code, so this is
+// a no-op once seeded. See file header for why this doesn't call
+// db/tradeSeed.js's seedTrade(db) directly.
+async function ensureSeed(x) {
+  const row = await x.get('SELECT COUNT(*) AS c FROM trade_guidelines');
+  if (row && row.c > 0) return;
+
+  const authIdByShortName = {};
+  for (const a of AUTHORITIES) {
+    const existingAuth = await x.get('SELECT id FROM trade_authorities WHERE short_name = ?', [a.short_name]);
+    if (existingAuth) { authIdByShortName[a.short_name] = existingAuth.id; continue; }
+    authIdByShortName[a.short_name] = await x.insert(
+      'INSERT INTO trade_authorities (name, short_name, description, website, country) VALUES (?, ?, ?, ?, ?)',
+      [a.name, a.short_name, a.description, a.website, 'IN']
+    );
+  }
+
+  for (const c of COUNTRIES) {
+    const existingCountry = await x.get('SELECT id FROM trade_countries WHERE country_code = ?', [c.country_code]);
+    if (existingCountry) continue;
+    await x.run(
+      `INSERT INTO trade_countries (country_code, country_name, region, requirements_json, restricted_products_json,
+        import_duties_notes, standards_json, shipping_notes, official_links_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [c.country_code, c.country_name, c.region, JSON.stringify(c.requirements),
+       JSON.stringify(c.restricted_products), c.import_duties_notes, JSON.stringify(c.standards),
+       c.shipping_notes, JSON.stringify(c.official_links)]
+    );
+  }
+
+  for (const g of GUIDELINES) {
+    const existingGuideline = await x.get('SELECT id FROM trade_guidelines WHERE code = ?', [g.code]);
+    if (existingGuideline) continue;
+    const guidelineId = await x.insert(
+      `INSERT INTO trade_guidelines
+        (code, country, category, title, description, department, authority_id, official_website,
+         fees, processing_time, renewal_requirement, penalty_info, faq_json, ai_explanation,
+         frequency, renewal_interval_months, mandatory, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        g.code, g.country || 'IN', g.category, g.title, g.description || null,
+        g.department || null, authIdByShortName[g.authority_short] || null, g.official_website || null,
+        g.fees || null, g.processing_time || null, g.renewal_requirement || null, g.penalty_info || null,
+        g.faq ? JSON.stringify(g.faq) : null, g.ai_explanation || null,
+        g.frequency || 'one_time', g.renewal_interval_months || null,
+        g.mandatory != null ? g.mandatory : 1, 1,
+      ]
+    );
+    for (const c of (g.conditions || [])) {
+      await x.run('INSERT INTO trade_rule_conditions (guideline_id, attribute, operator, value) VALUES (?, ?, ?, ?)', [guidelineId, c.attribute, c.operator, c.value ?? null]);
+    }
+    for (const d of (g.documents || [])) {
+      await x.run('INSERT INTO trade_documents (guideline_id, doc_name, is_required) VALUES (?, ?, ?)', [guidelineId, d, 1]);
+    }
+  }
+}
+
+// Local, executor-backed equivalent of tradeRuleEngine.js's
+// loadGuidelinesForCountry(db, country) — that function takes a raw sqlite
+// db.prepare() handle and is out of scope to edit. Same query, same shape.
+async function loadGuidelinesForCountryAsync(x, country = 'IN') {
+  const guidelines = await x.all('SELECT * FROM trade_guidelines WHERE is_active = ? AND country = ?', [1, country]);
+  for (const g of guidelines) {
+    g._conditions = await x.all('SELECT attribute, operator, value FROM trade_rule_conditions WHERE guideline_id = ?', [g.id]);
+  }
+  return guidelines;
+}
+
+// Local, executor-backed equivalent of tradeRuleEngine.js's
+// computeApplicable(db, profile) — reuses its exported PURE functions
+// (normalizeProfile/isRuleApplicable/computeNextDueDate) so the actual rule
+// evaluation logic isn't duplicated, only the DB read.
+async function computeApplicableAsync(x, profile) {
+  const normalized = ruleEngine.normalizeProfile(profile);
+  const guidelines = await loadGuidelinesForCountryAsync(x, profile.country || 'IN');
+  const applicable = [];
+  for (const guideline of guidelines) {
+    if (ruleEngine.isRuleApplicable(guideline, guideline._conditions, normalized)) {
+      applicable.push({ guideline, nextDueDate: ruleEngine.computeNextDueDate(guideline) });
+    }
+  }
+  return applicable;
 }
 
 // ── Profile (reused from Compliance — same table) ────────────────────────────
@@ -39,116 +135,116 @@ const getProfile = complianceService.getProfile;
 const saveProfile = complianceService.saveProfile;
 
 // ── Guideline catalog (public, read-only browse) ─────────────────────────────
-function getGuidelines({ category, country } = {}) {
-  const db = getDb();
-  try {
-    ensureSeed(db);
-    let sql = 'SELECT * FROM trade_guidelines WHERE is_active = 1';
-    const params = [];
+async function getGuidelines({ category, country } = {}) {
+  return withExecutor(async (x) => {
+    await ensureSeed(x);
+    // is_active bound as a param (not a literal `= 1`) — Postgres's is_active
+    // is a real BOOLEAN column with no implicit cast from a bare integer.
+    let sql = 'SELECT * FROM trade_guidelines WHERE is_active = ?';
+    const params = [1];
     if (category) { sql += ' AND category = ?'; params.push(category); }
     if (country) { sql += ' AND country = ?'; params.push(country); }
     sql += ' ORDER BY category, title';
-    const rows = db.prepare(sql).all(...params);
+    const rows = await x.all(sql, params);
     return rows.map(r => ({ ...r, faq: r.faq_json ? safeJson(r.faq_json) : [] }));
-  } finally { db.close(); }
+  });
 }
 
-function getGuidelineDetail(id) {
-  const db = getDb();
-  try {
-    const g = db.prepare('SELECT * FROM trade_guidelines WHERE id = ?').get(id);
+async function getGuidelineDetail(id) {
+  return withExecutor(async (x) => {
+    const g = await x.get('SELECT * FROM trade_guidelines WHERE id = ?', [id]);
     if (!g) return { error: 'not_found' };
-    const conditions = db.prepare('SELECT attribute, operator, value FROM trade_rule_conditions WHERE guideline_id = ?').all(id);
-    const documents = db.prepare('SELECT doc_name, is_required FROM trade_documents WHERE guideline_id = ?').all(id);
+    const conditions = await x.all('SELECT attribute, operator, value FROM trade_rule_conditions WHERE guideline_id = ?', [id]);
+    const documents = await x.all('SELECT doc_name, is_required FROM trade_documents WHERE guideline_id = ?', [id]);
     return { guideline: { ...g, faq: g.faq_json ? safeJson(g.faq_json) : [] }, conditions, documents };
-  } finally { db.close(); }
+  });
 }
 
 // ── Recompute: materialize applicable guidelines into trade_requirements ────
 // Additive & safe: new applicable guidelines are inserted, guidelines no
 // longer applicable are marked 'not_applicable' (never deleted).
-function recompute(companyId) {
-  const db = getDb();
-  try {
-    ensureSeed(db);
-    const profile = db.prepare('SELECT * FROM business_compliance_profile WHERE company_id = ?').get(companyId);
+async function recompute(companyId) {
+  return withTxExecutor(async (x) => {
+    await ensureSeed(x);
+    const profile = await x.get('SELECT * FROM business_compliance_profile WHERE company_id = ?', [companyId]);
     if (!profile) return { error: 'No business profile set. Complete onboarding first.' };
 
-    const applicable = engine.computeApplicable(db, profile);
+    const applicable = await computeApplicableAsync(x, profile);
     const applicableIds = new Set(applicable.map(a => a.guideline.id));
 
-    db.exec('BEGIN TRANSACTION');
-    try {
-      const findReq = db.prepare('SELECT * FROM trade_requirements WHERE company_id = ? AND guideline_id = ?');
-      const insReq = db.prepare(`
-        INSERT INTO trade_requirements (company_id, guideline_id, status, next_due_date, due_date)
-        VALUES (?, ?, 'pending', ?, ?)
-      `);
-      const reviveReq = db.prepare(`
-        UPDATE trade_requirements SET status = 'pending', next_due_date = ?, due_date = ?, updated_at = datetime('now')
-        WHERE id = ?
-      `);
-      let added = 0, revived = 0;
-      for (const { guideline, nextDueDate } of applicable) {
-        const existing = findReq.get(companyId, guideline.id);
-        if (!existing) {
-          insReq.run(companyId, guideline.id, nextDueDate, nextDueDate);
-          added++;
-        } else if (existing.status === 'not_applicable') {
-          reviveReq.run(nextDueDate, nextDueDate, existing.id);
-          revived++;
-        }
+    const nowExpr = x.engine === 'postgres' ? 'now()' : "datetime('now')";
+    const todayExpr = x.engine === 'postgres' ? 'CURRENT_DATE' : "date('now')";
+
+    let added = 0, revived = 0;
+    for (const { guideline, nextDueDate } of applicable) {
+      const existing = await x.get('SELECT * FROM trade_requirements WHERE company_id = ? AND guideline_id = ?', [companyId, guideline.id]);
+      if (!existing) {
+        await x.run(
+          `INSERT INTO trade_requirements (company_id, guideline_id, status, next_due_date, due_date)
+           VALUES (?, ?, 'pending', ?, ?)`,
+          [companyId, guideline.id, nextDueDate, nextDueDate]
+        );
+        added++;
+      } else if (existing.status === 'not_applicable') {
+        await x.run(
+          `UPDATE trade_requirements SET status = 'pending', next_due_date = ?, due_date = ?, updated_at = ${nowExpr}
+           WHERE id = ?`,
+          [nextDueDate, nextDueDate, existing.id]
+        );
+        revived++;
       }
+    }
 
-      const currentReqs = db.prepare("SELECT id, guideline_id, status FROM trade_requirements WHERE company_id = ? AND status != 'not_applicable'").all(companyId);
-      let removed = 0;
-      for (const r of currentReqs) {
-        if (!applicableIds.has(r.guideline_id)) {
-          db.prepare("UPDATE trade_requirements SET status = 'not_applicable', updated_at = datetime('now') WHERE id = ?").run(r.id);
-          removed++;
-        }
+    const currentReqs = await x.all("SELECT id, guideline_id, status FROM trade_requirements WHERE company_id = ? AND status != 'not_applicable'", [companyId]);
+    let removed = 0;
+    for (const r of currentReqs) {
+      if (!applicableIds.has(r.guideline_id)) {
+        await x.run(`UPDATE trade_requirements SET status = 'not_applicable', updated_at = ${nowExpr} WHERE id = ?`, [r.id]);
+        removed++;
       }
+    }
 
-      db.prepare(`
-        UPDATE trade_requirements SET status = 'overdue'
-        WHERE company_id = ? AND status IN ('pending','in_progress')
-          AND next_due_date IS NOT NULL AND next_due_date < date('now')
-      `).run(companyId);
+    await x.run(
+      `UPDATE trade_requirements SET status = 'overdue'
+       WHERE company_id = ? AND status IN ('pending','in_progress')
+         AND next_due_date IS NOT NULL AND next_due_date < ${todayExpr}`,
+      [companyId]
+    );
 
-      logEvent(db, companyId, { eventType: 'recomputed', detail: `applicable=${applicable.length} added=${added} revived=${revived} deactivated=${removed}` });
-      db.exec('COMMIT');
-      return { applicable: applicable.length, added, revived, deactivated: removed };
-    } catch (e) { db.exec('ROLLBACK'); throw e; }
-  } finally { db.close(); }
+    await logEvent(x, companyId, { eventType: 'recomputed', detail: `applicable=${applicable.length} added=${added} revived=${revived} deactivated=${removed}` });
+    return { applicable: applicable.length, added, revived, deactivated: removed };
+  });
 }
 
-function _requirementsQuery(db, companyId, { category, status, includeInactive } = {}) {
+async function _requirementsQuery(x, companyId, { category, status, includeInactive } = {}) {
+  const todayExpr = x.engine === 'postgres' ? 'CURRENT_DATE' : "date('now')";
+  // is_required / is_current bound as params (1), not literals — same
+  // BOOLEAN-column reasoning as getGuidelines above.
   let sql = `
     SELECT r.*, g.code, g.title, g.description, g.category, g.department, g.official_website,
            g.mandatory, g.frequency, g.priority, g.penalty_info, g.ai_explanation,
            g.fees, g.processing_time, g.renewal_requirement,
-           (SELECT COUNT(*) FROM trade_documents d WHERE d.guideline_id = g.id AND d.is_required = 1) AS required_docs,
-           (SELECT COUNT(DISTINCT c.doc_name) FROM trade_checklists c WHERE c.requirement_id = r.id AND c.is_current = 1) AS uploaded_docs,
-           (SELECT COUNT(*) FROM trade_checklists c WHERE c.requirement_id = r.id AND c.is_current = 1 AND c.expiry_date IS NOT NULL AND c.expiry_date < date('now')) AS expired_docs
+           (SELECT COUNT(*) FROM trade_documents d WHERE d.guideline_id = g.id AND d.is_required = ?) AS required_docs,
+           (SELECT COUNT(DISTINCT c.doc_name) FROM trade_checklists c WHERE c.requirement_id = r.id AND c.is_current = ?) AS uploaded_docs,
+           (SELECT COUNT(*) FROM trade_checklists c WHERE c.requirement_id = r.id AND c.is_current = ? AND c.expiry_date IS NOT NULL AND c.expiry_date < ${todayExpr}) AS expired_docs
     FROM trade_requirements r
     JOIN trade_guidelines g ON g.id = r.guideline_id
     WHERE r.company_id = ?`;
-  const params = [companyId];
+  const params = [1, 1, 1, companyId];
   if (!includeInactive) sql += " AND r.status != 'not_applicable'";
   if (category) { sql += ' AND g.category = ?'; params.push(category); }
   if (status) { sql += ' AND r.status = ?'; params.push(status); }
   sql += ' ORDER BY (r.next_due_date IS NULL), r.next_due_date ASC';
-  return db.prepare(sql).all(...params).map(row => ({
+  const rows = await x.all(sql, params);
+  return rows.map(row => ({
     ...row,
     daysRemaining: daysBetween(row.next_due_date),
     missingDocs: Math.max(0, (row.required_docs || 0) - (row.uploaded_docs || 0)),
   }));
 }
 
-function getRequirements(companyId, filters = {}) {
-  const db = getDb();
-  try { return _requirementsQuery(db, companyId, filters); }
-  finally { db.close(); }
+async function getRequirements(companyId, filters = {}) {
+  return withExecutor((x) => _requirementsQuery(x, companyId, filters));
 }
 
 // Health of a single requirement in [0,1] — mirrors complianceService.itemHealth.
@@ -171,11 +267,10 @@ function requirementHealth(item) {
   return 0.7 + 0.3 * docCoverage;
 }
 
-function getOverview(companyId) {
-  const db = getDb();
-  try {
-    const items = _requirementsQuery(db, companyId, {});
-    const profile = db.prepare('SELECT * FROM business_compliance_profile WHERE company_id = ?').get(companyId) || null;
+async function getOverview(companyId) {
+  return withExecutor(async (x) => {
+    const items = await _requirementsQuery(x, companyId, {});
+    const profile = (await x.get('SELECT * FROM business_compliance_profile WHERE company_id = ?', [companyId])) || null;
 
     const importItems = items.filter(i => ['import', 'registration', 'licensing'].includes(i.category));
     const exportItems = items.filter(i => ['export', 'registration', 'licensing'].includes(i.category));
@@ -201,11 +296,11 @@ function getOverview(companyId) {
       .slice(0, 20)
       .map(i => ({ id: i.id, code: i.code, title: i.title, category: i.category, next_due_date: i.next_due_date, daysRemaining: i.daysRemaining, status: i.status }));
 
-    const recentActivity = db.prepare(`
+    const recentActivity = await x.all(`
       SELECT e.event_type, e.detail, e.created_at, g.title
       FROM trade_events e LEFT JOIN trade_guidelines g ON g.id = e.guideline_id
       WHERE e.company_id = ? ORDER BY e.created_at DESC LIMIT 8
-    `).all(companyId);
+    `, [companyId]);
 
     return {
       profileConfigured: !!profile,
@@ -215,30 +310,32 @@ function getOverview(companyId) {
       recentActivity,
       computedAt: profile?.computed_at || null,
     };
-  } finally { db.close(); }
+  });
 }
 
-function getRequirementDetail(companyId, requirementId) {
-  const db = getDb();
-  try {
-    const rows = _requirementsQuery(db, companyId, { includeInactive: true });
+async function getRequirementDetail(companyId, requirementId) {
+  return withExecutor(async (x) => {
+    const rows = await _requirementsQuery(x, companyId, { includeInactive: true });
     const item = rows.find(r => r.id === Number(requirementId));
     if (!item) return { error: 'not_found' };
-    const requiredDocs = db.prepare('SELECT doc_name, is_required FROM trade_documents WHERE guideline_id = ?').all(item.guideline_id);
-    const uploaded = db.prepare(
-      'SELECT id, doc_name, original_name, mime_type, file_size, status, expiry_date, verified, version, uploaded_at FROM trade_checklists WHERE requirement_id = ? AND is_current = 1'
-    ).all(requirementId);
+    const requiredDocs = await x.all('SELECT doc_name, is_required FROM trade_documents WHERE guideline_id = ?', [item.guideline_id]);
+    const uploaded = await x.all(
+      'SELECT id, doc_name, original_name, mime_type, file_size, status, expiry_date, verified, version, uploaded_at FROM trade_checklists WHERE requirement_id = ? AND is_current = ?',
+      [requirementId, 1]
+    );
     const uploadedByName = {};
     for (const d of uploaded) uploadedByName[d.doc_name] = d;
     const docSlots = requiredDocs.map(rd => ({ doc_name: rd.doc_name, is_required: rd.is_required, document: uploadedByName[rd.doc_name] || null }));
     return { item, requiredDocs, uploaded, docSlots };
-  } finally { db.close(); }
+  });
 }
 
-function updateRequirement(companyId, requirementId, patch = {}) {
-  const db = getDb();
-  try {
-    const item = db.prepare('SELECT r.*, g.frequency, g.renewal_interval_months FROM trade_requirements r JOIN trade_guidelines g ON g.id = r.guideline_id WHERE r.id = ? AND r.company_id = ?').get(requirementId, companyId);
+async function updateRequirement(companyId, requirementId, patch = {}) {
+  return withExecutor(async (x) => {
+    const item = await x.get(
+      'SELECT r.*, g.frequency, g.renewal_interval_months FROM trade_requirements r JOIN trade_guidelines g ON g.id = r.guideline_id WHERE r.id = ? AND r.company_id = ?',
+      [requirementId, companyId]
+    );
     if (!item) return { error: 'not_found' };
 
     const sets = [];
@@ -248,31 +345,33 @@ function updateRequirement(companyId, requirementId, patch = {}) {
 
     if (patch.status === 'completed') {
       sets.push('completed_at = ?'); params.push(new Date().toISOString());
-      const nextDue = engine.computeNextDueDate({ frequency: item.frequency, renewal_interval_months: item.renewal_interval_months }, new Date(), new Date());
+      const nextDue = ruleEngine.computeNextDueDate({ frequency: item.frequency, renewal_interval_months: item.renewal_interval_months }, new Date(), new Date());
       if (nextDue) { sets.push('next_due_date = ?'); params.push(nextDue); }
     }
-    sets.push("updated_at = datetime('now')");
-    db.prepare(`UPDATE trade_requirements SET ${sets.join(', ')} WHERE id = ?`).run(...params, requirementId);
-    logEvent(db, companyId, { requirementId, guidelineId: item.guideline_id, eventType: 'status_changed', detail: patch.status || 'edited' });
-    return db.prepare('SELECT * FROM trade_requirements WHERE id = ?').get(requirementId);
-  } finally { db.close(); }
+    const nowExpr = x.engine === 'postgres' ? 'now()' : "datetime('now')";
+    sets.push(`updated_at = ${nowExpr}`);
+    await x.run(`UPDATE trade_requirements SET ${sets.join(', ')} WHERE id = ?`, [...params, requirementId]);
+    await logEvent(x, companyId, { requirementId, guidelineId: item.guideline_id, eventType: 'status_changed', detail: patch.status || 'edited' });
+    return x.get('SELECT * FROM trade_requirements WHERE id = ?', [requirementId]);
+  });
 }
 
 // ── Admin: guideline CRUD (data-driven, no code changes) ─────────────────────
-function listGuidelinesAdmin({ country } = {}) {
-  const db = getDb();
-  try {
-    ensureSeed(db);
+async function listGuidelinesAdmin({ country } = {}) {
+  return withExecutor(async (x) => {
+    await ensureSeed(x);
     let sql = 'SELECT * FROM trade_guidelines';
     const params = [];
     if (country) { sql += ' WHERE country = ?'; params.push(country); }
     sql += ' ORDER BY country, category, code';
-    const rows = db.prepare(sql).all(...params);
-    const condStmt = db.prepare('SELECT id, attribute, operator, value FROM trade_rule_conditions WHERE guideline_id = ?');
-    const docStmt = db.prepare('SELECT id, doc_name, is_required FROM trade_documents WHERE guideline_id = ?');
-    for (const g of rows) { g.conditions = condStmt.all(g.id); g.documents = docStmt.all(g.id); g.faq = g.faq_json ? safeJson(g.faq_json) : []; }
+    const rows = await x.all(sql, params);
+    for (const g of rows) {
+      g.conditions = await x.all('SELECT id, attribute, operator, value FROM trade_rule_conditions WHERE guideline_id = ?', [g.id]);
+      g.documents = await x.all('SELECT id, doc_name, is_required FROM trade_documents WHERE guideline_id = ?', [g.id]);
+      g.faq = g.faq_json ? safeJson(g.faq_json) : [];
+    }
     return rows;
-  } finally { db.close(); }
+  });
 }
 
 const GUIDELINE_COLUMNS = [
@@ -281,99 +380,83 @@ const GUIDELINE_COLUMNS = [
   'ai_explanation', 'frequency', 'renewal_interval_months', 'mandatory', 'priority', 'is_active',
 ];
 
-function createGuideline(data) {
-  const db = getDb();
-  try {
+async function createGuideline(data) {
+  return withTxExecutor(async (x) => {
     if (!data.code || !data.title || !data.category || !data.frequency) {
       return { error: 'code, title, category and frequency are required' };
     }
     const cols = GUIDELINE_COLUMNS.filter(c => data[c] !== undefined);
-    db.exec('BEGIN TRANSACTION');
-    try {
-      const info = db.prepare(`INSERT INTO trade_guidelines (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`)
-        .run(...cols.map(c => data[c]));
-      const guidelineId = info.lastInsertRowid;
-      for (const c of (data.conditions || [])) {
-        db.prepare('INSERT INTO trade_rule_conditions (guideline_id, attribute, operator, value) VALUES (?, ?, ?, ?)')
-          .run(guidelineId, c.attribute, c.operator, c.value ?? null);
-      }
-      for (const d of (data.documents || [])) {
-        const name = typeof d === 'string' ? d : d.doc_name;
-        db.prepare('INSERT INTO trade_documents (guideline_id, doc_name, is_required) VALUES (?, ?, ?)')
-          .run(guidelineId, name, (typeof d === 'object' && d.is_required === 0) ? 0 : 1);
-      }
-      db.exec('COMMIT');
-      return { id: guidelineId };
-    } catch (e) { db.exec('ROLLBACK'); throw e; }
-  } finally { db.close(); }
+    const guidelineId = await x.insert(
+      `INSERT INTO trade_guidelines (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`,
+      cols.map(c => data[c])
+    );
+    for (const c of (data.conditions || [])) {
+      await x.run('INSERT INTO trade_rule_conditions (guideline_id, attribute, operator, value) VALUES (?, ?, ?, ?)', [guidelineId, c.attribute, c.operator, c.value ?? null]);
+    }
+    for (const d of (data.documents || [])) {
+      const name = typeof d === 'string' ? d : d.doc_name;
+      await x.run('INSERT INTO trade_documents (guideline_id, doc_name, is_required) VALUES (?, ?, ?)', [guidelineId, name, (typeof d === 'object' && d.is_required === 0) ? 0 : 1]);
+    }
+    return { id: guidelineId };
+  });
 }
 
-function updateGuideline(id, data) {
-  const db = getDb();
-  try {
+async function updateGuideline(id, data) {
+  return withExecutor(async (x) => {
     const cols = GUIDELINE_COLUMNS.filter(c => data[c] !== undefined && c !== 'code');
     if (cols.length) {
-      db.prepare(`UPDATE trade_guidelines SET ${cols.map(c => `${c} = ?`).join(', ')}, updated_at = datetime('now') WHERE id = ?`)
-        .run(...cols.map(c => data[c]), id);
+      const nowExpr = x.engine === 'postgres' ? 'now()' : "datetime('now')";
+      await x.run(
+        `UPDATE trade_guidelines SET ${cols.map(c => `${c} = ?`).join(', ')}, updated_at = ${nowExpr} WHERE id = ?`,
+        [...cols.map(c => data[c]), id]
+      );
     }
     if (Array.isArray(data.conditions)) {
-      db.prepare('DELETE FROM trade_rule_conditions WHERE guideline_id = ?').run(id);
+      await x.run('DELETE FROM trade_rule_conditions WHERE guideline_id = ?', [id]);
       for (const c of data.conditions) {
-        db.prepare('INSERT INTO trade_rule_conditions (guideline_id, attribute, operator, value) VALUES (?, ?, ?, ?)')
-          .run(id, c.attribute, c.operator, c.value ?? null);
+        await x.run('INSERT INTO trade_rule_conditions (guideline_id, attribute, operator, value) VALUES (?, ?, ?, ?)', [id, c.attribute, c.operator, c.value ?? null]);
       }
     }
-    return db.prepare('SELECT * FROM trade_guidelines WHERE id = ?').get(id);
-  } finally { db.close(); }
+    return x.get('SELECT * FROM trade_guidelines WHERE id = ?', [id]);
+  });
 }
 
-function deleteGuideline(id) {
-  const db = getDb();
-  try {
-    db.exec('BEGIN TRANSACTION');
-    try {
-      db.prepare('DELETE FROM trade_rule_conditions WHERE guideline_id = ?').run(id);
-      db.prepare('DELETE FROM trade_documents WHERE guideline_id = ?').run(id);
-      db.prepare('DELETE FROM trade_guidelines WHERE id = ?').run(id);
-      db.exec('COMMIT');
-      return { deleted: true };
-    } catch (e) { db.exec('ROLLBACK'); throw e; }
-  } finally { db.close(); }
+async function deleteGuideline(id) {
+  return withTxExecutor(async (x) => {
+    await x.run('DELETE FROM trade_rule_conditions WHERE guideline_id = ?', [id]);
+    await x.run('DELETE FROM trade_documents WHERE guideline_id = ?', [id]);
+    await x.run('DELETE FROM trade_guidelines WHERE id = ?', [id]);
+    return { deleted: true };
+  });
 }
 
 // ── Reference data (read-only browse) ────────────────────────────────────────
-function getAuthorities() {
-  const db = getDb();
-  try { return db.prepare('SELECT * FROM trade_authorities ORDER BY name').all(); }
-  finally { db.close(); }
+async function getAuthorities() {
+  return dbAll('SELECT * FROM trade_authorities ORDER BY name');
 }
 
-function getCountries() {
-  const db = getDb();
-  try {
-    return db.prepare('SELECT * FROM trade_countries WHERE is_active = 1 ORDER BY country_name').all().map(c => ({
-      ...c,
-      requirements: c.requirements_json ? safeJson(c.requirements_json) : [],
-      restricted_products: c.restricted_products_json ? safeJson(c.restricted_products_json) : [],
-      standards: c.standards_json ? safeJson(c.standards_json) : [],
-      official_links: c.official_links_json ? safeJson(c.official_links_json) : [],
-    }));
-  } finally { db.close(); }
+async function getCountries() {
+  // is_active bound as a param — see getGuidelines for why.
+  const rows = await dbAll('SELECT * FROM trade_countries WHERE is_active = ? ORDER BY country_name', [1]);
+  return rows.map(c => ({
+    ...c,
+    requirements: c.requirements_json ? safeJson(c.requirements_json) : [],
+    restricted_products: c.restricted_products_json ? safeJson(c.restricted_products_json) : [],
+    standards: c.standards_json ? safeJson(c.standards_json) : [],
+    official_links: c.official_links_json ? safeJson(c.official_links_json) : [],
+  }));
 }
 
-function getCountryDetail(code) {
-  const db = getDb();
-  try {
-    const c = db.prepare('SELECT * FROM trade_countries WHERE country_code = ?').get(code);
-    if (!c) return { error: 'not_found' };
-    return {
-      ...c,
-      requirements: c.requirements_json ? safeJson(c.requirements_json) : [],
-      restricted_products: c.restricted_products_json ? safeJson(c.restricted_products_json) : [],
-      standards: c.standards_json ? safeJson(c.standards_json) : [],
-      official_links: c.official_links_json ? safeJson(c.official_links_json) : [],
-    };
-  } finally { db.close(); }
+async function getCountryDetail(code) {
+  const c = await dbGet('SELECT * FROM trade_countries WHERE country_code = ?', [code]);
+  if (!c) return { error: 'not_found' };
+  return {
+    ...c,
+    requirements: c.requirements_json ? safeJson(c.requirements_json) : [],
+    restricted_products: c.restricted_products_json ? safeJson(c.restricted_products_json) : [],
+    standards: c.standards_json ? safeJson(c.standards_json) : [],
+    official_links: c.official_links_json ? safeJson(c.official_links_json) : [],
+  };
 }
 
 // ── Document checklist (Document Vault integration) ──────────────────────────
@@ -387,46 +470,41 @@ function companyDir(companyId) {
   return dir;
 }
 
-function recordUpload(companyId, requirementId, { file, docName, expiryDate, uploadedBy }) {
-  const db = getDb();
-  try {
-    const req = db.prepare('SELECT id FROM trade_requirements WHERE id = ? AND company_id = ?').get(requirementId, companyId);
+async function recordUpload(companyId, requirementId, { file, docName, expiryDate, uploadedBy }) {
+  return withTxExecutor(async (x) => {
+    const req = await x.get('SELECT id FROM trade_requirements WHERE id = ? AND company_id = ?', [requirementId, companyId]);
     if (!req) return { error: 'not_found' };
-    db.exec('BEGIN TRANSACTION');
-    try {
-      const prevVersion = db.prepare('SELECT MAX(version) v FROM trade_checklists WHERE requirement_id = ? AND doc_name = ?').get(requirementId, docName)?.v || 0;
-      db.prepare('UPDATE trade_checklists SET is_current = 0 WHERE requirement_id = ? AND doc_name = ? AND is_current = 1').run(requirementId, docName);
-      const info = db.prepare(`
-        INSERT INTO trade_checklists (requirement_id, company_id, doc_name, original_name, file_path, mime_type, file_size, status, expiry_date, version, is_current, uploaded_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'uploaded', ?, ?, 1, ?)
-      `).run(requirementId, companyId, docName, file.originalname, file.path, file.mimetype, file.size, expiryDate || null, prevVersion + 1, uploadedBy || null);
-      logEvent(db, companyId, { requirementId, eventType: 'document_uploaded', detail: docName });
-      db.exec('COMMIT');
-      return db.prepare('SELECT * FROM trade_checklists WHERE id = ?').get(info.lastInsertRowid);
-    } catch (e) { db.exec('ROLLBACK'); throw e; }
-  } finally { db.close(); }
+
+    const prevVersionRow = await x.get('SELECT MAX(version) v FROM trade_checklists WHERE requirement_id = ? AND doc_name = ?', [requirementId, docName]);
+    const prevVersion = prevVersionRow?.v || 0;
+    // is_current cleared/set via bound params (0/1), not literals — see
+    // getGuidelines for why.
+    await x.run('UPDATE trade_checklists SET is_current = ? WHERE requirement_id = ? AND doc_name = ? AND is_current = ?', [0, requirementId, docName, 1]);
+    const newId = await x.insert(
+      `INSERT INTO trade_checklists (requirement_id, company_id, doc_name, original_name, file_path, mime_type, file_size, status, expiry_date, version, is_current, uploaded_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'uploaded', ?, ?, ?, ?)`,
+      [requirementId, companyId, docName, file.originalname, file.path, file.mimetype, file.size, expiryDate || null, prevVersion + 1, 1, uploadedBy || null]
+    );
+    await logEvent(x, companyId, { requirementId, eventType: 'document_uploaded', detail: docName });
+    return x.get('SELECT * FROM trade_checklists WHERE id = ?', [newId]);
+  });
 }
 
-function listChecklistDocuments(companyId, requirementId, { includeHistory = false } = {}) {
-  const db = getDb();
-  try {
-    let sql = 'SELECT * FROM trade_checklists WHERE requirement_id = ? AND company_id = ?';
-    if (!includeHistory) sql += ' AND is_current = 1';
-    sql += ' ORDER BY doc_name, version DESC';
-    return db.prepare(sql).all(requirementId, companyId);
-  } finally { db.close(); }
+async function listChecklistDocuments(companyId, requirementId, { includeHistory = false } = {}) {
+  let sql = 'SELECT * FROM trade_checklists WHERE requirement_id = ? AND company_id = ?';
+  const params = [requirementId, companyId];
+  if (!includeHistory) { sql += ' AND is_current = ?'; params.push(1); }
+  sql += ' ORDER BY doc_name, version DESC';
+  return dbAll(sql, params);
 }
 
-function getDocumentForDownload(companyId, docId) {
-  const db = getDb();
-  try { return db.prepare('SELECT * FROM trade_checklists WHERE id = ? AND company_id = ?').get(docId, companyId) || null; }
-  finally { db.close(); }
+async function getDocumentForDownload(companyId, docId) {
+  return dbGet('SELECT * FROM trade_checklists WHERE id = ? AND company_id = ?', [docId, companyId]);
 }
 
-function updateDocument(companyId, docId, patch = {}) {
-  const db = getDb();
-  try {
-    const doc = db.prepare('SELECT * FROM trade_checklists WHERE id = ? AND company_id = ?').get(docId, companyId);
+async function updateDocument(companyId, docId, patch = {}) {
+  return withExecutor(async (x) => {
+    const doc = await x.get('SELECT * FROM trade_checklists WHERE id = ? AND company_id = ?', [docId, companyId]);
     if (!doc) return { error: 'not_found' };
     const sets = [];
     const params = [];
@@ -434,20 +512,19 @@ function updateDocument(companyId, docId, patch = {}) {
     if (patch.verification_notes !== undefined) { sets.push('verification_notes = ?'); params.push(patch.verification_notes); }
     if (patch.expiry_date !== undefined) { sets.push('expiry_date = ?'); params.push(patch.expiry_date); }
     if (!sets.length) return doc;
-    db.prepare(`UPDATE trade_checklists SET ${sets.join(', ')} WHERE id = ?`).run(...params, docId);
-    return db.prepare('SELECT * FROM trade_checklists WHERE id = ?').get(docId);
-  } finally { db.close(); }
+    await x.run(`UPDATE trade_checklists SET ${sets.join(', ')} WHERE id = ?`, [...params, docId]);
+    return x.get('SELECT * FROM trade_checklists WHERE id = ?', [docId]);
+  });
 }
 
-function deleteDocument(companyId, docId) {
-  const db = getDb();
-  try {
-    const doc = db.prepare('SELECT * FROM trade_checklists WHERE id = ? AND company_id = ?').get(docId, companyId);
+async function deleteDocument(companyId, docId) {
+  return withExecutor(async (x) => {
+    const doc = await x.get('SELECT * FROM trade_checklists WHERE id = ? AND company_id = ?', [docId, companyId]);
     if (!doc) return { error: 'not_found' };
     if (doc.file_path && fs.existsSync(doc.file_path)) fs.unlinkSync(doc.file_path);
-    db.prepare('DELETE FROM trade_checklists WHERE id = ?').run(docId);
+    await x.run('DELETE FROM trade_checklists WHERE id = ?', [docId]);
     return { deleted: true };
-  } finally { db.close(); }
+  });
 }
 
 // ── AI Trade Copilot — structured-data first, never hallucinate ─────────────
@@ -485,8 +562,8 @@ function matchGuidelines(items, q) {
 // Best-effort keyword-overlap match against real seeded Q&A pairs — direct,
 // grounded answers for exactly-phrased questions before falling back to the
 // coarser intent patterns below.
-function matchFaq(db, q) {
-  const rows = db.prepare("SELECT title, faq_json FROM trade_guidelines WHERE faq_json IS NOT NULL AND faq_json != '[]'").all();
+async function matchFaq(x, q) {
+  const rows = await x.all("SELECT title, faq_json FROM trade_guidelines WHERE faq_json IS NOT NULL AND faq_json != '[]'");
   const qWords = q.split(/\W+/).filter(w => w.length > 3);
   if (!qWords.length) return null;
   let best = null, bestScore = 0;
@@ -500,14 +577,13 @@ function matchFaq(db, q) {
   return bestScore >= 2 ? best : null;
 }
 
-function copilot(companyId, question) {
-  const db = getDb();
-  try {
-    ensureSeed(db);
+async function copilot(companyId, question) {
+  return withExecutor(async (x) => {
+    await ensureSeed(x);
     const q = String(question || '').toLowerCase();
     const pick = (arr, msg) => ({ source: 'structured', answer: msg(arr), items: arr.slice(0, 12) });
 
-    const items = _requirementsQuery(db, companyId, {});
+    const items = await _requirementsQuery(x, companyId, {});
     if (!items.length) {
       return { source: 'structured', answer: 'No trade requirements yet. Complete your import/export profile (enable Import/Export, and tell us if you manufacture or trade goods) so I can work out what applies to your business.', items: [] };
     }
@@ -516,7 +592,7 @@ function copilot(companyId, question) {
     // Country-specific: "what do I need to export to USA?" / "can I export to Germany?"
     const countryCode = matchCountryCode(q);
     if (countryCode && /(export|import|ship|sell|countr|duty|duties|require|need|restrict|standard)/.test(q)) {
-      const c = db.prepare('SELECT * FROM trade_countries WHERE country_code = ?').get(countryCode);
+      const c = await x.get('SELECT * FROM trade_countries WHERE country_code = ?', [countryCode]);
       if (!c) return { source: 'structured', answer: `I don't have destination data for that country yet.`, items: [] };
       const reqs = safeJson(c.requirements_json);
       const restricted = safeJson(c.restricted_products_json);
@@ -580,13 +656,16 @@ function copilot(companyId, question) {
     }
     // "which laws/rules apply to me?" / mandatory
     if (/(which law|what law|apply to me|mandatory|required|must|compulsor|all requirement|everything)/.test(q)) {
-      const mand = items.filter(it => it.mandatory === 1);
+      // mandatory is a real BOOLEAN column on Postgres (true/false), not 0/1 —
+      // isOn() treats NULL/1/true as "on" and only explicit 0/false as "off",
+      // same semantics `=== 1` had on SQLite's INTEGER column.
+      const mand = items.filter(it => isOn(it.mandatory));
       return pick(mand, a => `${a.length} obligations apply to your import/export business: ${a.map(x => x.title).join('; ')}.`);
     }
 
     // FAQ fallback — grounded answer for phrased questions that don't fit any
     // structured intent above (tried last so it can't shadow the specific branches).
-    const faq = matchFaq(db, q);
+    const faq = await matchFaq(x, q);
     if (faq) {
       return { source: 'structured', answer: `${faq.a} (Re: ${faq.guideline})`, items: [] };
     }
@@ -594,7 +673,7 @@ function copilot(companyId, question) {
     // No structured rule matched — say so honestly instead of guessing with a
     // generic status summary that wouldn't actually address the question.
     return { source: 'structured', answer: "This topic is not currently available in the BizBook knowledge base.", items: [] };
-  } finally { db.close(); }
+  });
 }
 
 module.exports = {

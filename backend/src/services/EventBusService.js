@@ -1,6 +1,6 @@
 const EventEmitter = require('events');
 const crypto = require('crypto');
-const { getDb } = require('../config/db');
+const { dbGet, dbAll, engine } = require('../config/dbEngine');
 
 class EventBusService {
   constructor() {
@@ -16,39 +16,30 @@ class EventBusService {
     this.emitter.on(eventType, async (eventRecord) => {
       try {
         await handler(eventRecord.payload, eventRecord);
-        this.markProcessed(eventRecord.id);
+        await this.markProcessed(eventRecord.id);
       } catch (err) {
         console.error(`[EventBus] Handler failed for ${eventType}:`, err.message);
-        this.markFailed(eventRecord.id, err.message);
+        await this.markFailed(eventRecord.id, err.message);
       }
     });
   }
 
   /**
-   * Emit a domain event. 
+   * Emit a domain event.
    * It persists the event to system_events and notifies subscribers.
    */
-  emit(companyId, eventType, entityId, payload, correlationId = null) {
-    const db = getDb();
-    
+  async emit(companyId, eventType, entityId, payload, correlationId = null) {
     // Generate a correlation ID if one isn't passed down from a parent chain
     const finalCorrelationId = correlationId || `evt_${crypto.randomBytes(8).toString('hex')}`;
 
-    const stmt = db.prepare(`
+    const row = await dbGet(`
       INSERT INTO system_events (company_id, correlation_id, event_type, entity_id, payload, status)
       VALUES (?, ?, ?, ?, ?, 'pending')
-    `);
-
-    const info = stmt.run(
-      companyId,
-      finalCorrelationId,
-      eventType,
-      entityId,
-      JSON.stringify(payload)
-    );
+      RETURNING id
+    `, [companyId, finalCorrelationId, eventType, entityId, JSON.stringify(payload)]);
 
     const eventRecord = {
-      id: info.lastInsertRowid,
+      id: row.id,
       companyId,
       correlationId: finalCorrelationId,
       eventType,
@@ -64,28 +55,30 @@ class EventBusService {
     return finalCorrelationId;
   }
 
-  markProcessed(eventId) {
-    const db = getDb();
-    db.prepare(`UPDATE system_events SET status = 'completed', processed_at = datetime('now') WHERE id = ?`).run(eventId);
+  async markProcessed(eventId) {
+    const now = engine() === 'postgres' ? 'now()' : "datetime('now')";
+    await dbGet(`UPDATE system_events SET status = 'completed', processed_at = ${now} WHERE id = ?`, [eventId]);
   }
 
-  markFailed(eventId, errorLog) {
-    const db = getDb();
-    db.prepare(`UPDATE system_events SET status = 'failed', error_log = ? WHERE id = ?`).run(errorLog, eventId);
+  async markFailed(eventId, errorLog) {
+    await dbGet(`UPDATE system_events SET status = 'failed', error_log = ? WHERE id = ?`, [errorLog, eventId]);
   }
 
   /**
    * Called by a worker to pick up stranded 'pending' events
    * (e.g. if the server crashed right after emit before the handler completed)
    */
-  sweep() {
-    const db = getDb();
-    const stranded = db.prepare(`
-      SELECT id, company_id, correlation_id, event_type, entity_id, payload 
-      FROM system_events 
-      WHERE status = 'pending' AND created_at < datetime('now', '-1 minutes')
+  async sweep() {
+    // created_at < now - 1 minute: SQLite modifier vs Postgres interval.
+    const staleExpr = engine() === 'postgres'
+      ? `(now() - interval '1 minutes')`
+      : `datetime('now', '-1 minutes')`;
+    const stranded = await dbAll(`
+      SELECT id, company_id, correlation_id, event_type, entity_id, payload
+      FROM system_events
+      WHERE status = 'pending' AND created_at < ${staleExpr}
       LIMIT 20
-    `).all();
+    `);
 
     for (const record of stranded) {
       record.payload = JSON.parse(record.payload);

@@ -85,37 +85,60 @@ const DELETE_PERMISSION_BY_PREFIX = [
 ];
 
 // RBAC middleware — supports old 'admin' role and new multi-tenant roles (OWNER, MANAGER, CASHIER)
-function rbacMiddleware(req, res, next) {
-  const { userId, companyId, role } = req.user;
-  const method = req.method;
-  const url = req.originalUrl || req.url;
+// Phase 2: hasPermission() is now async (queryUserPermissions needs to await
+// a DB call on the Postgres path), so this middleware is async too. Note the
+// employees-prefix check below: `.some(action => hasPermission(...))` would
+// have been a real bug under async -- Array.prototype.some() does not await
+// its predicate, so every call would resolve to a (truthy) Promise and the
+// check would always short-circuit "allowed" on the first action regardless
+// of the actual permission result. Replaced with a plain for-loop that
+// actually awaits each check.
+async function rbacMiddleware(req, res, next) {
+  try {
+    const { userId, companyId, role } = req.user;
+    const method = req.method;
+    const url = req.originalUrl || req.url;
 
-  const isAdmin = role === 'admin' || role === 'OWNER' || role === 'MANAGER';
+    const isAdmin = role === 'admin' || role === 'OWNER' || role === 'MANAGER';
 
-  if (method === 'DELETE' && !isAdmin) {
-    const match = DELETE_PERMISSION_BY_PREFIX.find(m => url.startsWith(m.prefix));
-    const allowedByPermission = match && hasPermission(userId, companyId, role, match.action);
-    if (!allowedByPermission) {
-      return res.status(403).json({ error: 'Forbidden: Only administrators can delete records.', code: 'FORBIDDEN' });
+    if (method === 'DELETE' && !isAdmin) {
+      const match = DELETE_PERMISSION_BY_PREFIX.find(m => url.startsWith(m.prefix));
+      const allowedByPermission = match && await hasPermission(userId, companyId, role, match.action);
+      if (!allowedByPermission) {
+        return res.status(403).json({ error: 'Forbidden: Only administrators can delete records.', code: 'FORBIDDEN' });
+      }
     }
-  }
 
-  if (url.startsWith('/api/employees') && method !== 'GET' && !isAdmin) {
-    const allowedByPermission = ['employees.create', 'employees.edit', 'employees.delete']
-      .some(action => hasPermission(userId, companyId, role, action));
-    if (!allowedByPermission) {
-      return res.status(403).json({ error: 'Forbidden: Only administrators can manage employees.', code: 'FORBIDDEN' });
+    if (url.startsWith('/api/employees') && method !== 'GET' && !isAdmin) {
+      let allowedByPermission = false;
+      for (const action of ['employees.create', 'employees.edit', 'employees.delete']) {
+        if (await hasPermission(userId, companyId, role, action)) {
+          allowedByPermission = true;
+          break;
+        }
+      }
+      if (!allowedByPermission) {
+        return res.status(403).json({ error: 'Forbidden: Only administrators can manage employees.', code: 'FORBIDDEN' });
+      }
     }
-  }
 
-  if (url.startsWith('/api/suppliers') && method !== 'GET' && !isAdmin) {
-    if (!hasPermission(userId, companyId, role, 'suppliers.manage')) {
-      return res.status(403).json({ error: 'Forbidden: Only administrators can manage suppliers.', code: 'FORBIDDEN' });
+    if (url.startsWith('/api/suppliers') && method !== 'GET' && !isAdmin) {
+      if (!await hasPermission(userId, companyId, role, 'suppliers.manage')) {
+        return res.status(403).json({ error: 'Forbidden: Only administrators can manage suppliers.', code: 'FORBIDDEN' });
+      }
     }
-  }
 
-  next();
+    next();
+  } catch (err) {
+    next(err);
+  }
 }
+
+// Invitations: /validate/:token and /accept must stay reachable by an invitee
+// who has no account/JWT yet, so that piece is mounted here, ahead of the
+// global authenticate gate below. The rest of the module (list/create/revoke)
+// stays registered further down at its existing protected position.
+registerOptionalRoute('/api/invitations', () => require('./routes/invitations').publicRouter);
 
 const branchAuth = require('./middleware/branchAuth');
 app.use('/api', authenticate, branchAuth, rbacMiddleware);

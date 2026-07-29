@@ -392,7 +392,12 @@ export default function Marketing() {
     }).finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  // Refetch on every tab switch, not just initial mount -- the Campaigns/
+  // Opportunities tabs were showing stale data whenever a campaign got
+  // approved from the AI Copilot tab (a sibling tab in this same mounted
+  // component, not a separate page), since nothing ever triggered a refetch
+  // after that action.
+  useEffect(() => { loadData(); }, [loadData, activeTab]);
 
   const handleStatusChange = async (id, status) => {
     await api.marketing.updateCampaign(id, { status });

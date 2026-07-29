@@ -1,4 +1,4 @@
-const { getDb } = require('../config/db');
+const { dbGet, dbAll, engine } = require('../config/dbEngine');
 const exceljs = require('exceljs');
 
 class ReportsService {
@@ -6,20 +6,33 @@ class ReportsService {
 
   _getDateFilter(tablePrefix, field, filter, customStart, customEnd) {
     const column = tablePrefix ? `${tablePrefix}.${field}` : field;
+    const pg = engine() === 'postgres';
     switch (filter) {
       case 'today':
-        return `AND date(${column}) = date('now', 'localtime')`;
+        return pg
+          ? `AND ${column}::date = CURRENT_DATE`
+          : `AND date(${column}) = date('now', 'localtime')`;
       case '7days':
-        return `AND date(${column}) >= date('now', '-7 days', 'localtime')`;
+        return pg
+          ? `AND ${column}::date >= (CURRENT_DATE - interval '7 days')`
+          : `AND date(${column}) >= date('now', '-7 days', 'localtime')`;
       case '30days':
-        return `AND date(${column}) >= date('now', '-30 days', 'localtime')`;
+        return pg
+          ? `AND ${column}::date >= (CURRENT_DATE - interval '30 days')`
+          : `AND date(${column}) >= date('now', '-30 days', 'localtime')`;
       case '90days':
-        return `AND date(${column}) >= date('now', '-90 days', 'localtime')`;
+        return pg
+          ? `AND ${column}::date >= (CURRENT_DATE - interval '90 days')`
+          : `AND date(${column}) >= date('now', '-90 days', 'localtime')`;
       case 'month':
-        return `AND strftime('%Y-%m', ${column}, 'localtime') = strftime('%Y-%m', 'now', 'localtime')`;
+        return pg
+          ? `AND TO_CHAR(${column}, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')`
+          : `AND strftime('%Y-%m', ${column}, 'localtime') = strftime('%Y-%m', 'now', 'localtime')`;
       case 'custom':
         if (customStart && customEnd) {
-          return `AND date(${column}) >= date('${customStart}') AND date(${column}) <= date('${customEnd}')`;
+          return pg
+            ? `AND ${column}::date >= '${customStart}'::date AND ${column}::date <= '${customEnd}'::date`
+            : `AND date(${column}) >= date('${customStart}') AND date(${column}) <= date('${customEnd}')`;
         }
         return '';
       default:
@@ -28,50 +41,53 @@ class ReportsService {
   }
 
   async getExecutiveSummary(companyId, filters) {
-    const db = getDb();
     const dateFilter = this._getDateFilter(null, 'created_at', filters.range, filters.start, filters.end);
     const invoiceDateFilter = this._getDateFilter(null, 'invoice_date', filters.range, filters.start, filters.end);
 
     // Total Revenue
-    const revenueStats = db.prepare(`
-      SELECT SUM(grand_total) as revenue 
-      FROM invoices 
+    const revenueStats = await dbGet(`
+      SELECT SUM(grand_total) as revenue
+      FROM invoices
       WHERE company_id = ? ${invoiceDateFilter}
-    `).get(companyId);
+    `, [companyId]);
 
     // Total Campaigns
-    const campaignStats = db.prepare(`
-      SELECT COUNT(id) as count 
-      FROM marketing_campaigns 
+    const campaignStats = await dbGet(`
+      SELECT COUNT(id) as count
+      FROM marketing_campaigns
       WHERE company_id = ? ${dateFilter}
-    `).get(companyId);
+    `, [companyId]);
 
     // Active Customers (made a purchase in range)
-    const activeCustomers = db.prepare(`
-      SELECT COUNT(DISTINCT customer_id) as count 
-      FROM invoices 
+    const activeCustomers = await dbGet(`
+      SELECT COUNT(DISTINCT customer_id) as count
+      FROM invoices
       WHERE company_id = ? ${invoiceDateFilter}
-    `).get(companyId);
+    `, [companyId]);
 
     // New Customers
-    const newCustomers = db.prepare(`
+    const newCustomers = await dbGet(`
       SELECT COUNT(id) as count
       FROM customers
       WHERE company_id = ? ${dateFilter}
-    `).get(companyId);
+    `, [companyId]);
 
     // ROI Estimation placeholder (or from channel_roi_history)
-    
+
     // Revenue Trend Chart (daily/monthly based on range)
     const trendFormat = (filters.range === 'today' || filters.range === '7days' || filters.range === '30days') ? '%Y-%m-%d' : '%Y-%m';
-    const revenueTrend = db.prepare(`
-      SELECT strftime('${trendFormat}', invoice_date) as label, SUM(grand_total) as value
+    const pg = engine() === 'postgres';
+    const trendExpr = pg
+      ? `TO_CHAR(invoice_date, '${trendFormat === '%Y-%m-%d' ? 'YYYY-MM-DD' : 'YYYY-MM'}')`
+      : `strftime('${trendFormat}', invoice_date)`;
+    const revenueTrend = await dbAll(`
+      SELECT ${trendExpr} as label, SUM(grand_total) as value
       FROM invoices
       WHERE company_id = ? ${invoiceDateFilter}
       GROUP BY label
       ORDER BY label ASC
       LIMIT 30
-    `).all(companyId);
+    `, [companyId]);
 
     return {
       revenue: revenueStats.revenue || 0,
@@ -85,26 +101,25 @@ class ReportsService {
   }
 
   async getCampaignAnalytics(companyId, filters) {
-    const db = getDb();
     const dateFilter = this._getDateFilter(null, 'created_at', filters.range, filters.start, filters.end);
 
-    const campaigns = db.prepare(`
+    const campaigns = await dbAll(`
       SELECT id, name, status, start_date, end_date, budget, type
       FROM marketing_campaigns
       WHERE company_id = ? ${dateFilter}
       ORDER BY created_at DESC
-    `).all(companyId);
+    `, [companyId]);
 
     const totalCampaigns = campaigns.length;
     const activeCampaigns = campaigns.filter(c => c.status === 'active').length;
 
     // Performance Chart (by type)
-    const typeDistribution = db.prepare(`
+    const typeDistribution = await dbAll(`
       SELECT type as label, COUNT(id) as value
       FROM marketing_campaigns
       WHERE company_id = ? ${dateFilter}
       GROUP BY type
-    `).all(companyId);
+    `, [companyId]);
 
     return {
       totalCampaigns,
@@ -116,19 +131,20 @@ class ReportsService {
   }
 
   async getCustomerAnalytics(companyId, filters) {
-    const db = getDb();
     const dateFilter = this._getDateFilter(null, 'created_at', filters.range, filters.start, filters.end);
+    const pg = engine() === 'postgres';
+    const dailyExpr = pg ? `TO_CHAR(created_at, 'YYYY-MM-DD')` : `strftime('%Y-%m-%d', created_at)`;
 
-    const acquisitionTrend = db.prepare(`
-      SELECT strftime('%Y-%m-%d', created_at) as label, COUNT(id) as value
+    const acquisitionTrend = await dbAll(`
+      SELECT ${dailyExpr} as label, COUNT(id) as value
       FROM customers
       WHERE company_id = ? ${dateFilter}
       GROUP BY label
       ORDER BY label ASC
-    `).all(companyId);
+    `, [companyId]);
 
-    const totalCustomers = db.prepare(`SELECT COUNT(id) as count FROM customers WHERE company_id = ?`).get(companyId).count;
-    const newInPeriod = db.prepare(`SELECT COUNT(id) as count FROM customers WHERE company_id = ? ${dateFilter}`).get(companyId).count;
+    const totalCustomers = (await dbGet(`SELECT COUNT(id) as count FROM customers WHERE company_id = ?`, [companyId])).count;
+    const newInPeriod = (await dbGet(`SELECT COUNT(id) as count FROM customers WHERE company_id = ? ${dateFilter}`, [companyId])).count;
 
     return {
       totalCustomers,
@@ -139,19 +155,18 @@ class ReportsService {
   }
 
   async getCouponAnalytics(companyId, filters) {
-    const db = getDb();
     const dateFilter = this._getDateFilter(null, 'created_at', filters.range, filters.start, filters.end);
 
-    const issued = db.prepare(`SELECT COUNT(id) as count FROM coupons WHERE company_id = ? ${dateFilter}`).get(companyId).count;
-    const redeemed = db.prepare(`SELECT COUNT(id) as count FROM coupon_redemptions WHERE company_id = ? ${dateFilter}`).get(companyId).count;
-    const rev = db.prepare(`
-      SELECT SUM(i.grand_total) as revenue 
+    const issued = (await dbGet(`SELECT COUNT(id) as count FROM coupons WHERE company_id = ? ${dateFilter}`, [companyId])).count;
+    const redeemed = (await dbGet(`SELECT COUNT(id) as count FROM coupon_redemptions WHERE company_id = ? ${dateFilter}`, [companyId])).count;
+    const rev = await dbGet(`
+      SELECT SUM(i.grand_total) as revenue
       FROM coupon_redemptions cr
       JOIN invoices i ON cr.invoice_id = i.id
       WHERE cr.company_id = ? ${this._getDateFilter('cr', 'created_at', filters.range, filters.start, filters.end)}
-    `).get(companyId);
+    `, [companyId]);
 
-    const topCoupons = db.prepare(`
+    const topCoupons = await dbAll(`
       SELECT c.code, COUNT(cr.id) as redemptions
       FROM coupons c
       LEFT JOIN coupon_redemptions cr ON c.id = cr.coupon_id
@@ -159,7 +174,7 @@ class ReportsService {
       GROUP BY c.id
       ORDER BY redemptions DESC
       LIMIT 5
-    `).all(companyId);
+    `, [companyId]);
 
     return {
       issued,
@@ -171,13 +186,12 @@ class ReportsService {
   }
 
   async getLoyaltyAnalytics(companyId, filters) {
-    const db = getDb();
     const dateFilter = this._getDateFilter(null, 'created_at', filters.range, filters.start, filters.end);
 
-    const creditsIssued = db.prepare(`SELECT SUM(amount) as sum FROM wallet_transactions WHERE company_id = ? AND type = 'credit' ${dateFilter}`).get(companyId).sum || 0;
-    const creditsRedeemed = db.prepare(`SELECT SUM(amount) as sum FROM wallet_transactions WHERE company_id = ? AND type = 'debit' ${dateFilter}`).get(companyId).sum || 0;
-    
-    const activeWallets = db.prepare(`SELECT COUNT(id) as count FROM customer_wallets WHERE company_id = ? AND balance > 0`).get(companyId).count;
+    const creditsIssued = (await dbGet(`SELECT SUM(amount) as sum FROM wallet_transactions WHERE company_id = ? AND type = 'credit' ${dateFilter}`, [companyId])).sum || 0;
+    const creditsRedeemed = (await dbGet(`SELECT SUM(amount) as sum FROM wallet_transactions WHERE company_id = ? AND type = 'debit' ${dateFilter}`, [companyId])).sum || 0;
+
+    const activeWallets = (await dbGet(`SELECT COUNT(id) as count FROM customer_wallets WHERE company_id = ? AND balance > 0`, [companyId])).count;
 
     return {
       creditsIssued,
@@ -192,11 +206,10 @@ class ReportsService {
   }
 
   async getReferralAnalytics(companyId, filters) {
-    const db = getDb();
     const dateFilter = this._getDateFilter(null, 'created_at', filters.range, filters.start, filters.end);
 
-    const codes = db.prepare(`SELECT COUNT(id) as count FROM referral_codes WHERE company_id = ? ${dateFilter}`).get(companyId).count;
-    const uses = db.prepare(`SELECT COUNT(id) as count FROM referral_uses WHERE company_id = ? ${dateFilter}`).get(companyId).count;
+    const codes = (await dbGet(`SELECT COUNT(id) as count FROM referral_codes WHERE company_id = ? ${dateFilter}`, [companyId])).count;
+    const uses = (await dbGet(`SELECT COUNT(id) as count FROM referral_uses WHERE company_id = ? ${dateFilter}`, [companyId])).count;
 
     return {
       codesGenerated: codes,
@@ -210,10 +223,9 @@ class ReportsService {
   }
 
   async getSurveyAnalytics(companyId, filters) {
-    const db = getDb();
     const dateFilter = this._getDateFilter(null, 'created_at', filters.range, filters.start, filters.end);
 
-    const responses = db.prepare(`SELECT COUNT(id) as count, AVG(rating) as avgRating FROM survey_responses WHERE company_id = ? ${dateFilter}`).get(companyId);
+    const responses = await dbGet(`SELECT COUNT(id) as count, AVG(rating) as avgRating FROM survey_responses WHERE company_id = ? ${dateFilter}`, [companyId]);
 
     return {
       totalResponses: responses.count || 0,
@@ -229,33 +241,34 @@ class ReportsService {
   }
 
   async getCommunicationAnalytics(companyId, filters) {
-    const db = getDb();
     const dateFilter = this._getDateFilter(null, 'created_at', filters.range, filters.start, filters.end);
+    const pg = engine() === 'postgres';
+    const dailyExpr = pg ? `TO_CHAR(created_at, 'YYYY-MM-DD')` : `strftime('%Y-%m-%d', created_at)`;
 
-    const stats = db.prepare(`
-      SELECT 
+    const stats = await dbGet(`
+      SELECT
         COUNT(id) as total,
         SUM(CASE WHEN status = 'delivered' OR status = 'sent' THEN 1 ELSE 0 END) as delivered,
         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
       FROM communication_logs
       WHERE company_id = ? ${dateFilter}
-    `).get(companyId);
+    `, [companyId]);
 
-    const channelStats = db.prepare(`
+    const channelStats = await dbAll(`
       SELECT channel as label, COUNT(id) as value
       FROM communication_logs
       WHERE company_id = ? ${dateFilter}
       GROUP BY channel
-    `).all(companyId);
+    `, [companyId]);
 
-    const trend = db.prepare(`
-      SELECT strftime('%Y-%m-%d', created_at) as label, COUNT(id) as value
+    const trend = await dbAll(`
+      SELECT ${dailyExpr} as label, COUNT(id) as value
       FROM communication_logs
       WHERE company_id = ? ${dateFilter}
       GROUP BY label
       ORDER BY label ASC
       LIMIT 30
-    `).all(companyId);
+    `, [companyId]);
 
     const total = stats.total || 0;
     const delivered = stats.delivered || 0;
@@ -273,15 +286,14 @@ class ReportsService {
 
   async generateExport(companyId, type, format, filters) {
     let data = [];
-    const db = getDb();
     const dateFilter = this._getDateFilter(null, 'created_at', filters.range, filters.start, filters.end);
 
     switch(type) {
       case 'executive':
-        data = db.prepare(`SELECT invoice_date, grand_total, customer_id FROM invoices WHERE company_id = ? ${this._getDateFilter(null, 'invoice_date', filters.range, filters.start, filters.end)}`).all(companyId);
+        data = await dbAll(`SELECT invoice_date, grand_total, customer_id FROM invoices WHERE company_id = ? ${this._getDateFilter(null, 'invoice_date', filters.range, filters.start, filters.end)}`, [companyId]);
         break;
       case 'campaigns':
-        data = db.prepare(`SELECT name, channel, status, created_at, successful_deliveries, failed_deliveries FROM communication_campaigns WHERE company_id = ? ${dateFilter}`).all(companyId);
+        data = await dbAll(`SELECT name, channel, status, created_at, successful_deliveries, failed_deliveries FROM communication_campaigns WHERE company_id = ? ${dateFilter}`, [companyId]);
         break;
       default:
         data = [{ message: 'Export not fully implemented for this module yet' }];
@@ -302,7 +314,7 @@ class ReportsService {
       const buffer = await workbook.xlsx.writeBuffer();
       return buffer;
     }
-    
+
     throw new Error('Unsupported format');
   }
 }

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getDb } = require('../config/db');
+const { dbGet } = require('../config/dbEngine');
 
 // This route is a thin aggregation façade for the Home dashboard. It performs
 // NO business calculations of its own — every number comes from an existing
@@ -18,14 +18,14 @@ const {
 const automationEngine = require('../services/AutomationEngine');
 
 // GET /api/home/marketing-summary
-router.get('/marketing-summary', (req, res) => {
+router.get('/marketing-summary', async (req, res) => {
   const companyId = req.user.companyId;
 
   // ── 1. Top opportunity + customers-at-risk (marketingEngine) ────────────────
   let opportunity = null;
   let customersAtRisk = 0;
   try {
-    const opps = getMarketingOpportunities(companyId) || [];
+    const opps = (await getMarketingOpportunities(companyId)) || [];
     if (opps.length > 0) {
       const top = opps[0]; // engine returns them pre-ranked by score
       opportunity = {
@@ -49,7 +49,7 @@ router.get('/marketing-summary', (req, res) => {
   // ── 2. Store health (spendIntelligenceEngine) ───────────────────────────────
   let health = null;
   try {
-    const h = calculateStoreHealthScore(companyId);
+    const h = await calculateStoreHealthScore(companyId);
     health = { grade: h.grade, score: h.overall_score, trend: h.score_change || 0 };
   } catch (err) {
     console.error('[Home] health aggregation error:', err.message);
@@ -58,7 +58,7 @@ router.get('/marketing-summary', (req, res) => {
   // ── 3. Weekly recommendation (spendIntelligenceEngine) ──────────────────────
   let weeklyRecommendation = null;
   try {
-    weeklyRecommendation = getWeeklyRecommendation(companyId);
+    weeklyRecommendation = await getWeeklyRecommendation(companyId);
   } catch (err) {
     console.error('[Home] weekly-recommendation aggregation error:', err.message);
   }
@@ -68,28 +68,23 @@ router.get('/marketing-summary', (req, res) => {
   // the overspend signal is the existing do-not-spend engine.
   let rewardCost = null;
   try {
-    const db = getDb();
+    const row = await dbGet(`
+      SELECT COUNT(id) as redemptions, COALESCE(SUM(discount_applied), 0) as totalDiscount
+      FROM coupon_redemptions
+      WHERE company_id = ?
+    `, [companyId]);
+    let overspend = false;
     try {
-      const row = db.prepare(`
-        SELECT COUNT(id) as redemptions, COALESCE(SUM(discount_applied), 0) as totalDiscount
-        FROM coupon_redemptions
-        WHERE company_id = ?
-      `).get(companyId);
-      let overspend = false;
-      try {
-        const flags = getDoNotSpendFlags(companyId) || [];
-        overspend = Array.isArray(flags) && flags.length > 0;
-      } catch (flagErr) {
-        console.error('[Home] flags aggregation error:', flagErr.message);
-      }
-      rewardCost = {
-        total: Math.round(row?.totalDiscount || 0),
-        redemptions: row?.redemptions || 0,
-        overspend
-      };
-    } finally {
-      db.close();
+      const flags = (await getDoNotSpendFlags(companyId)) || [];
+      overspend = Array.isArray(flags) && flags.length > 0;
+    } catch (flagErr) {
+      console.error('[Home] flags aggregation error:', flagErr.message);
     }
+    rewardCost = {
+      total: Math.round(row?.totalDiscount || 0),
+      redemptions: row?.redemptions || 0,
+      overspend
+    };
   } catch (err) {
     console.error('[Home] reward-cost aggregation error:', err.message);
   }
@@ -97,7 +92,7 @@ router.get('/marketing-summary', (req, res) => {
   // ── 5. Automation health (AutomationEngine) ─────────────────────────────────
   let automations = null;
   try {
-    const s = automationEngine.getStats(companyId);
+    const s = await automationEngine.getStats(companyId);
     automations = { failed: s.failed, successRate: s.successRate, total: s.total };
   } catch (err) {
     console.error('[Home] automation aggregation error:', err.message);

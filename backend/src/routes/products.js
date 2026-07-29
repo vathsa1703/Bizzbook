@@ -1,6 +1,8 @@
 const express = require('express');
 const { getDb } = require('../config/db');
 const { HSN_REGEX } = require('../services/gstEngine');
+const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { withTransaction } = require('../config/pgDb');
 
 const router = express.Router();
 
@@ -14,8 +16,7 @@ const VALID_UQC = new Set([
 const { withBranchScope } = require('../utils/BranchScopedQuery');
 
 // GET all products with inventory data — scoped to company
-router.get('/', (req, res, next) => {
-  const db = getDb();
+router.get('/', async (req, res, next) => {
   try {
     if (!req.user.companyId) {
       return res.status(400).json({ error: 'companyId missing from token' });
@@ -47,27 +48,24 @@ router.get('/', (req, res, next) => {
     const scoped = withBranchScope(query, params, req.scopeContext, 'i.branch_id');
     scoped.sql += ` ORDER BY p.id DESC`;
 
-    const products = db.prepare(scoped.sql).all(...scoped.params);
+    const products = await dbAll(scoped.sql, scoped.params);
     res.json(products);
   } catch (err) {
     next(err);
-  } finally {
-    db.close();
   }
 });
 
 // GET single product — scoped to company
-router.get('/:id', (req, res, next) => {
-  const db = getDb();
+router.get('/:id', async (req, res, next) => {
   try {
-    const product = db.prepare(`
+    const product = await dbGet(`
       SELECT p.*, i.stock_quantity, i.reorder_level, i.last_restocked, s.name as supplier_name, pg.name as group_name
       FROM products p
       LEFT JOIN inventory i ON p.id = i.product_id
       LEFT JOIN suppliers s ON p.supplier_id = s.id
       LEFT JOIN product_groups pg ON p.group_id = pg.id
       WHERE p.id = ? AND p.company_id = ?
-    `).get(req.params.id, req.user.companyId);
+    `, [req.params.id, req.user.companyId]);
 
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
@@ -75,14 +73,11 @@ router.get('/:id', (req, res, next) => {
     res.json(product);
   } catch (err) {
     next(err);
-  } finally {
-    db.close();
   }
 });
 
 // POST create product + inventory — stamped with company_id
-router.post('/', (req, res, next) => {
-  const db = getDb();
+router.post('/', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
     const { name, group_id, category, cost_price, selling_price, supplier_id, hsn_code = null, use_custom_gst = false, gst_rate = null, cess_rate = 0, uqc = 'NOS', stock_quantity = 0, reorder_level = 10 } = req.body;
@@ -104,22 +99,21 @@ router.post('/', (req, res, next) => {
       return res.status(400).json({ error: `CESS Rate must be a number.` });
     }
 
-    db.exec('BEGIN TRANSACTION');
-
+    // group_id validation moved ahead of the transaction (pure read, no side
+    // effects yet) so a 400 here doesn't need to unwind a withTransaction
+    // callback on the Postgres path.
     let syncedCategory = 'Uncategorized';
     let finalGroupId = null;
-
     if (group_id) {
-      const group = db.prepare('SELECT name FROM product_groups WHERE id = ?').get(group_id);
+      const group = await dbGet('SELECT name FROM product_groups WHERE id = ?', [group_id]);
       if (!group) {
-        db.exec('ROLLBACK');
         return res.status(400).json({ error: 'Invalid group_id' });
       }
       syncedCategory = group.name;
       finalGroupId = group_id;
     }
 
-    const params = [
+    const insertParams = [
       name,
       syncedCategory,
       finalGroupId,
@@ -133,45 +127,68 @@ router.post('/', (req, res, next) => {
       uqc || 'NOS',
       companyId,
     ];
+    const invStock = Number(stock_quantity) || 0;
+    const invReorder = reorder_level !== '' && reorder_level !== null && reorder_level !== undefined ? Number(reorder_level) : 10;
+    const invRestocked = new Date().toISOString().split('T')[0];
 
-    const productRes = db.prepare(`
-      INSERT INTO products (name, category, group_id, cost_price, selling_price, supplier_id, hsn_code, use_custom_gst, gst_rate, cess_rate, uqc, company_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(...params);
+    let productId;
 
-    const productId = productRes.lastInsertRowid;
+    if (engine() === 'postgres') {
+      productId = await withTransaction(async (tx) => {
+        const productRow = await tx.getOne(`
+          INSERT INTO products (name, category, group_id, cost_price, selling_price, supplier_id, hsn_code, use_custom_gst, gst_rate, cess_rate, uqc, company_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          RETURNING id
+        `, insertParams);
+        const txProductId = productRow.id;
 
-    db.prepare(`
-      INSERT INTO inventory (product_id, stock_quantity, reorder_level, last_restocked, company_id)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(
-      productId,
-      Number(stock_quantity) || 0,
-      reorder_level !== '' && reorder_level !== null && reorder_level !== undefined ? Number(reorder_level) : 10,
-      new Date().toISOString().split('T')[0],
-      companyId,
-    );
+        await tx.query(`
+          INSERT INTO inventory (product_id, stock_quantity, reorder_level, last_restocked, company_id)
+          VALUES (?, ?, ?, ?, ?)
+        `, [txProductId, invStock, invReorder, invRestocked, companyId]);
 
-    db.exec('COMMIT');
+        return txProductId;
+      });
+    } else {
+      const db = getDb();
+      try {
+        db.exec('BEGIN TRANSACTION');
+
+        const productRes = db.prepare(`
+          INSERT INTO products (name, category, group_id, cost_price, selling_price, supplier_id, hsn_code, use_custom_gst, gst_rate, cess_rate, uqc, company_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(...insertParams);
+
+        productId = productRes.lastInsertRowid;
+
+        db.prepare(`
+          INSERT INTO inventory (product_id, stock_quantity, reorder_level, last_restocked, company_id)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(productId, invStock, invReorder, invRestocked, companyId);
+
+        db.exec('COMMIT');
+      } catch (err) {
+        try { db.exec('ROLLBACK'); } catch (_) {}
+        throw err;
+      } finally {
+        db.close();
+      }
+    }
 
     res.status(201).json({ id: productId, name, category: syncedCategory, cost_price, selling_price, supplier_id, hsn_code, gst_rate, cess_rate, uqc });
   } catch (err) {
-    try { db.exec('ROLLBACK'); } catch (_) {}
     next(err);
-  } finally {
-    db.close();
   }
 });
 
 // PUT update product + inventory — scoped to company
-router.put('/:id', (req, res, next) => {
-  const db = getDb();
+router.put('/:id', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
     const { name, group_id, category, cost_price, selling_price, supplier_id, hsn_code, use_custom_gst, gst_rate, cess_rate, uqc, stock_quantity, reorder_level } = req.body;
     const productId = req.params.id;
 
-    const existing = db.prepare('SELECT * FROM products WHERE id = ? AND company_id = ?').get(productId, companyId);
+    const existing = await dbGet('SELECT * FROM products WHERE id = ? AND company_id = ?', [productId, companyId]);
     if (!existing) {
       return res.status(404).json({ error: 'Product not found' });
     }
@@ -192,13 +209,11 @@ router.put('/:id', (req, res, next) => {
       return res.status(400).json({ error: `CESS Rate must be a number.` });
     }
 
-    db.exec('BEGIN TRANSACTION');
-
+    // Same reasoning as POST: group_id validation moved ahead of the transaction.
     if (group_id !== undefined) {
       if (group_id) {
-        const group = db.prepare('SELECT name FROM product_groups WHERE id = ?').get(group_id);
+        const group = await dbGet('SELECT name FROM product_groups WHERE id = ?', [group_id]);
         if (!group) {
-          db.exec('ROLLBACK');
           return res.status(400).json({ error: 'Invalid group_id' });
         }
         syncedCategory = group.name;
@@ -209,7 +224,7 @@ router.put('/:id', (req, res, next) => {
       }
     }
 
-    const params = [
+    const updateParams = [
       name !== undefined ? name : existing.name,
       syncedCategory,
       finalGroupId,
@@ -225,83 +240,149 @@ router.put('/:id', (req, res, next) => {
       companyId,
     ];
 
-    db.prepare(`
-      UPDATE products
-       SET name = ?, category = ?, group_id = ?, cost_price = ?, selling_price = ?,
-           supplier_id = ?, hsn_code = ?, use_custom_gst = ?, gst_rate = ?, cess_rate = ?, uqc = ?
-       WHERE id = ? AND company_id = ?
-    `).run(...params);
+    const touchesInventory = stock_quantity !== undefined || reorder_level !== undefined;
 
-    if (stock_quantity !== undefined || reorder_level !== undefined) {
-      const inv = db.prepare('SELECT id, stock_quantity FROM inventory WHERE product_id = ? AND company_id = ?').get(productId, companyId);
-      if (inv) {
-        let lastRestocked = null;
-        if (Number(stock_quantity) > inv.stock_quantity) {
-          lastRestocked = new Date().toISOString().split('T')[0];
+    if (engine() === 'postgres') {
+      await withTransaction(async (tx) => {
+        await tx.query(`
+          UPDATE products
+           SET name = ?, category = ?, group_id = ?, cost_price = ?, selling_price = ?,
+               supplier_id = ?, hsn_code = ?, use_custom_gst = ?, gst_rate = ?, cess_rate = ?, uqc = ?
+           WHERE id = ? AND company_id = ?
+        `, updateParams);
+
+        if (touchesInventory) {
+          const inv = await tx.getOne('SELECT id, stock_quantity FROM inventory WHERE product_id = ? AND company_id = ?', [productId, companyId]);
+          if (inv) {
+            let lastRestocked = null;
+            if (Number(stock_quantity) > inv.stock_quantity) {
+              lastRestocked = new Date().toISOString().split('T')[0];
+            }
+            await tx.query(`
+              UPDATE inventory
+              SET stock_quantity = COALESCE(?, stock_quantity),
+                  reorder_level = COALESCE(?, reorder_level),
+                  last_restocked = COALESCE(?, last_restocked)
+              WHERE product_id = ? AND company_id = ?
+            `, [
+              stock_quantity !== undefined && stock_quantity !== '' ? Number(stock_quantity) : inv.stock_quantity,
+              reorder_level !== undefined && reorder_level !== '' ? Number(reorder_level) : null,
+              lastRestocked,
+              productId,
+              companyId,
+            ]);
+          } else {
+            await tx.query(`
+              INSERT INTO inventory (product_id, stock_quantity, reorder_level, last_restocked, company_id)
+              VALUES (?, ?, ?, ?, ?)
+            `, [
+              productId,
+              Number(stock_quantity) || 0,
+              reorder_level !== undefined && reorder_level !== '' ? Number(reorder_level) : 10,
+              new Date().toISOString().split('T')[0],
+              companyId,
+            ]);
+          }
         }
+      });
+    } else {
+      const db = getDb();
+      try {
+        db.exec('BEGIN TRANSACTION');
+
         db.prepare(`
-          UPDATE inventory
-          SET stock_quantity = COALESCE(?, stock_quantity),
-              reorder_level = COALESCE(?, reorder_level),
-              last_restocked = COALESCE(?, last_restocked)
-          WHERE product_id = ? AND company_id = ?
-        `).run(
-          stock_quantity !== undefined && stock_quantity !== '' ? Number(stock_quantity) : inv.stock_quantity,
-          reorder_level !== undefined && reorder_level !== '' ? Number(reorder_level) : null,
-          lastRestocked,
-          productId,
-          companyId,
-        );
-      } else {
-        db.prepare(`
-          INSERT INTO inventory (product_id, stock_quantity, reorder_level, last_restocked, company_id)
-          VALUES (?, ?, ?, ?, ?)
-        `).run(
-          productId,
-          Number(stock_quantity) || 0,
-          reorder_level !== undefined && reorder_level !== '' ? Number(reorder_level) : 10,
-          new Date().toISOString().split('T')[0],
-          companyId,
-        );
+          UPDATE products
+           SET name = ?, category = ?, group_id = ?, cost_price = ?, selling_price = ?,
+               supplier_id = ?, hsn_code = ?, use_custom_gst = ?, gst_rate = ?, cess_rate = ?, uqc = ?
+           WHERE id = ? AND company_id = ?
+        `).run(...updateParams);
+
+        if (touchesInventory) {
+          const inv = db.prepare('SELECT id, stock_quantity FROM inventory WHERE product_id = ? AND company_id = ?').get(productId, companyId);
+          if (inv) {
+            let lastRestocked = null;
+            if (Number(stock_quantity) > inv.stock_quantity) {
+              lastRestocked = new Date().toISOString().split('T')[0];
+            }
+            db.prepare(`
+              UPDATE inventory
+              SET stock_quantity = COALESCE(?, stock_quantity),
+                  reorder_level = COALESCE(?, reorder_level),
+                  last_restocked = COALESCE(?, last_restocked)
+              WHERE product_id = ? AND company_id = ?
+            `).run(
+              stock_quantity !== undefined && stock_quantity !== '' ? Number(stock_quantity) : inv.stock_quantity,
+              reorder_level !== undefined && reorder_level !== '' ? Number(reorder_level) : null,
+              lastRestocked,
+              productId,
+              companyId,
+            );
+          } else {
+            db.prepare(`
+              INSERT INTO inventory (product_id, stock_quantity, reorder_level, last_restocked, company_id)
+              VALUES (?, ?, ?, ?, ?)
+            `).run(
+              productId,
+              Number(stock_quantity) || 0,
+              reorder_level !== undefined && reorder_level !== '' ? Number(reorder_level) : 10,
+              new Date().toISOString().split('T')[0],
+              companyId,
+            );
+          }
+        }
+
+        db.exec('COMMIT');
+      } catch (err) {
+        try { db.exec('ROLLBACK'); } catch (_) {}
+        throw err;
+      } finally {
+        db.close();
       }
     }
 
-    db.exec('COMMIT');
     res.json({ message: 'Product updated successfully' });
   } catch (err) {
-    try { db.exec('ROLLBACK'); } catch (_) {}
     next(err);
-  } finally {
-    db.close();
   }
 });
 
 // DELETE product — scoped to company
-router.delete('/:id', (req, res, next) => {
-  const db = getDb();
+router.delete('/:id', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
     const productId = req.params.id;
 
-    const product = db.prepare('SELECT id FROM products WHERE id = ? AND company_id = ?').get(productId, companyId);
+    const product = await dbGet('SELECT id FROM products WHERE id = ? AND company_id = ?', [productId, companyId]);
     if (!product) return res.status(404).json({ error: 'Product not found' });
 
-    const salesExist = db.prepare('SELECT id FROM sales WHERE product_id = ? AND company_id = ? LIMIT 1').get(productId, companyId);
+    const salesExist = await dbGet('SELECT id FROM sales WHERE product_id = ? AND company_id = ? LIMIT 1', [productId, companyId]);
     if (salesExist) {
       return res.status(400).json({ error: 'Cannot delete product with sales transactions.' });
     }
 
-    db.exec('BEGIN TRANSACTION');
-    db.prepare('DELETE FROM inventory WHERE product_id = ? AND company_id = ?').run(productId, companyId);
-    db.prepare('DELETE FROM products WHERE id = ? AND company_id = ?').run(productId, companyId);
-    db.exec('COMMIT');
+    if (engine() === 'postgres') {
+      await withTransaction(async (tx) => {
+        await tx.query('DELETE FROM inventory WHERE product_id = ? AND company_id = ?', [productId, companyId]);
+        await tx.query('DELETE FROM products WHERE id = ? AND company_id = ?', [productId, companyId]);
+      });
+    } else {
+      const db = getDb();
+      try {
+        db.exec('BEGIN TRANSACTION');
+        db.prepare('DELETE FROM inventory WHERE product_id = ? AND company_id = ?').run(productId, companyId);
+        db.prepare('DELETE FROM products WHERE id = ? AND company_id = ?').run(productId, companyId);
+        db.exec('COMMIT');
+      } catch (err) {
+        try { db.exec('ROLLBACK'); } catch (_) {}
+        throw err;
+      } finally {
+        db.close();
+      }
+    }
 
     res.status(204).end();
   } catch (err) {
-    try { db.exec('ROLLBACK'); } catch (_) {}
     next(err);
-  } finally {
-    db.close();
   }
 });
 

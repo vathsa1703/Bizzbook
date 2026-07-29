@@ -7,12 +7,12 @@
 
 'use strict';
 
-const { getDb } = require('../config/db');
+const { dbAll, engine } = require('../config/dbEngine');
 const {
   resolveStateCode,
   isValidGSTIN,
   getAllStates,
-  getCompanyGstProfile,
+  getCompanyGstProfileAsync,
 } = require('./gstEngine');
 
 const B2CL_THRESHOLD = 250000; // ₹2,50,000
@@ -45,8 +45,8 @@ function roundTwo(n) {
 // `company_settings` is deprecated (see schema.sql) and must not be read here;
 // it is also not scoped by company_id in any consistent way historically.
 
-function getCompanyInfo(db, companyId) {
-  const profile = getCompanyGstProfile(db, companyId);
+async function getCompanyInfo(companyId) {
+  const profile = await getCompanyGstProfileAsync(companyId);
   return {
     gstin:       profile.gstin,
     legal_name:  profile.legal_name,
@@ -66,23 +66,26 @@ function getCompanyInfo(db, companyId) {
  * scoped to a single company — GSTR-1 filing must never mix tenants.
  * period: { month: 1-12, year: 4-digit }  — both optional (returns all if omitted)
  */
-function fetchInvoices(db, { month, year, companyId } = {}) {
+async function fetchInvoices({ month, year, companyId } = {}) {
   let dateFilter = '';
   const params = [];
+  const isPg = engine() === 'postgres';
 
+  // strftime() is SQLite-only; Postgres's invoice_date is a native DATE
+  // column, so TO_CHAR(...) does the equivalent YYYY-MM/YYYY string format.
   if (year && month) {
     const mm = String(month).padStart(2, '0');
-    dateFilter = `AND strftime('%Y-%m', i.invoice_date) = ?`;
+    dateFilter = isPg ? `AND TO_CHAR(i.invoice_date, 'YYYY-MM') = ?` : `AND strftime('%Y-%m', i.invoice_date) = ?`;
     params.push(`${year}-${mm}`);
   } else if (year) {
-    dateFilter = `AND strftime('%Y', i.invoice_date) = ?`;
+    dateFilter = isPg ? `AND TO_CHAR(i.invoice_date, 'YYYY') = ?` : `AND strftime('%Y', i.invoice_date) = ?`;
     params.push(String(year));
   }
 
   const companyFilter = `AND i.company_id = ?`;
   params.push(companyId);
 
-  const invoices = db.prepare(`
+  const invoices = await dbAll(`
     SELECT
       i.id, i.invoice_number, i.invoice_date, i.grand_total,
       i.taxable_value, i.cgst, i.sgst, i.igst,
@@ -98,10 +101,10 @@ function fetchInvoices(db, { month, year, companyId } = {}) {
     LEFT JOIN customers c ON i.customer_id = c.id
     WHERE 1=1 ${dateFilter} ${companyFilter}
     ORDER BY i.invoice_date, i.invoice_number
-  `).all(...params);
+  `, params);
 
   // Attach line items + HSN info
-  const itemsStmt = db.prepare(`
+  const itemsSql = `
     SELECT
       ii.id, ii.invoice_id, ii.quantity, ii.rate,
       ii.taxable_value, ii.cgst, ii.sgst, ii.igst, ii.total,
@@ -112,12 +115,13 @@ function fetchInvoices(db, { month, year, companyId } = {}) {
     FROM invoice_items ii
     LEFT JOIN products p ON ii.product_id = p.id
     WHERE ii.invoice_id = ?
-  `);
+  `;
 
-  return invoices.map(inv => ({
-    ...inv,
-    items: itemsStmt.all(inv.id),
-  }));
+  const result = [];
+  for (const inv of invoices) {
+    result.push({ ...inv, items: await dbAll(itemsSql, [inv.id]) });
+  }
+  return result;
 }
 
 // ─── Classification ───────────────────────────────────────────────────────────
@@ -326,16 +330,14 @@ function validateInvoices(invoices, companyInfo) {
  *   b2b, b2cl, b2cs, hsn, docs
  * }}
  */
-function buildGstrData(period = {}) {
+async function buildGstrData(period = {}) {
   if (!period.companyId) {
     throw new Error('buildGstrData requires a companyId — GST filing data must be tenant-scoped.');
   }
-  const db = getDb();
-  try {
-    const company      = getCompanyInfo(db, period.companyId);
-    const allInvoices  = fetchInvoices(db, period);
+  const company      = await getCompanyInfo(period.companyId);
+  const allInvoices  = await fetchInvoices(period);
 
-    const b2b  = [];
+  const b2b  = [];
     const b2cl = [];
     const b2csMap = new Map(); // key: `${stateCode}_${rate}`
 
@@ -480,9 +482,6 @@ function buildGstrData(period = {}) {
       hsn,
       docs,
     };
-  } finally {
-    db.close();
-  }
 }
 
 module.exports = {

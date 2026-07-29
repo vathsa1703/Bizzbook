@@ -1,6 +1,7 @@
 const { getDb } = require('../config/db');
+const pgDb = require('../config/pgDb');
 
-function validateSystem(app) {
+async function validateSystem(app) {
   console.log('\n========================================');
   console.log('   SYSTEM VALIDATION & STARTUP CHECKS   ');
   console.log('========================================\n');
@@ -50,53 +51,107 @@ function validateSystem(app) {
     });
   }
 
-  // 2. Database Connection & Schema
-  let db;
-  try {
-    db = getDb();
-    logResult('Database Connection', true);
-    if (app && app.setHealthStatus) app.setHealthStatus('database', 'connected');
-  } catch (e) {
-    logResult('Database Connection', false, e.message);
-    if (app && app.setHealthStatus) app.setHealthStatus('database', 'failed');
-    return false; // Cannot proceed without DB
-  }
+  const dbEngine = (process.env.DB_ENGINE || 'sqlite').toLowerCase();
 
-  // 3. Core Tables Existence
-  const requiredTables = ['users', 'customers', 'sales', 'marketing_campaigns', 'schema_versions'];
-  let tablesPassed = true;
-  requiredTables.forEach(t => {
+  if (dbEngine === 'postgres') {
+    // 2. Database Connection & Schema (Postgres)
     try {
-      db.prepare(`SELECT 1 FROM ${t} LIMIT 1`).get();
+      await pgDb.bootstrapPostgresSchema();
+      await pgDb.query('SELECT 1');
+      logResult('Database Connection (Postgres)', true);
+      if (app && app.setHealthStatus) app.setHealthStatus('database', 'connected');
     } catch (e) {
-      if (e.message.includes('no such table')) {
+      logResult('Database Connection (Postgres)', false, e.message);
+      if (app && app.setHealthStatus) app.setHealthStatus('database', 'failed');
+      return false; // Cannot proceed without DB
+    }
+
+    // 3. Core Tables Existence (Postgres)
+    const requiredTables = ['users', 'customers', 'sales', 'marketing_campaigns', 'schema_versions'];
+    let tablesPassed = true;
+    for (const t of requiredTables) {
+      try {
+        await pgDb.query(`SELECT 1 FROM ${t} LIMIT 1`);
+      } catch (e) {
         logResult(`Table: ${t}`, false, 'Missing table');
         tablesPassed = false;
       }
     }
-  });
-  if (tablesPassed) logResult('Core Tables Check', true);
-  if (app && app.setHealthStatus) app.setHealthStatus('migrations', tablesPassed ? 'passed' : 'failed');
+    if (tablesPassed) logResult('Core Tables Check', true);
+    if (app && app.setHealthStatus) app.setHealthStatus('migrations', tablesPassed ? 'passed' : 'failed');
 
-  // 4. Auth Functionality Validation
-  try {
-    // Try to perform a mock read/write on users table within a transaction
-    db.exec('BEGIN TRANSACTION');
-    
-    const testEmail = 'validator_test_' + Date.now() + '@internal.com';
-    const insert = db.prepare('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)');
-    insert.run('Validator', testEmail, 'mockhash', 'employee');
-    
-    const user = db.prepare('SELECT id FROM users WHERE email = ?').get(testEmail);
-    if (!user) throw new Error('Failed to read back inserted user');
-    
-    db.exec('ROLLBACK'); // Discard test data
-    logResult('Auth Functionality (Read/Write)', true);
-    if (app && app.setHealthStatus) app.setHealthStatus('auth', 'ready');
-  } catch (e) {
-    db.exec('ROLLBACK');
-    logResult('Auth Functionality (Read/Write)', false, e.message);
-    if (app && app.setHealthStatus) app.setHealthStatus('auth', 'failed');
+    // 4. Auth Functionality Validation (Postgres) — exercises withTransaction(),
+    // the piece every Step 2 module rewrite depends on. The sentinel error
+    // forces a rollback after read-back succeeds, so no test row persists.
+    try {
+      const testEmail = 'validator_test_' + Date.now() + '@internal.com';
+      await pgDb.withTransaction(async (tx) => {
+        await tx.query(
+          'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)',
+          ['Validator', testEmail, 'mockhash', 'employee']
+        );
+        const user = await tx.getOne('SELECT id FROM users WHERE email = ?', [testEmail]);
+        if (!user) throw new Error('Failed to read back inserted user');
+        throw new Error('__VALIDATOR_ROLLBACK__');
+      });
+    } catch (e) {
+      if (e.message === '__VALIDATOR_ROLLBACK__') {
+        logResult('Auth Functionality (Read/Write)', true);
+        if (app && app.setHealthStatus) app.setHealthStatus('auth', 'ready');
+      } else {
+        logResult('Auth Functionality (Read/Write)', false, e.message);
+        if (app && app.setHealthStatus) app.setHealthStatus('auth', 'failed');
+      }
+    }
+  } else {
+    // 2. Database Connection & Schema (SQLite — unchanged from pre-Phase-2 behavior)
+    let db;
+    try {
+      db = getDb();
+      logResult('Database Connection', true);
+      if (app && app.setHealthStatus) app.setHealthStatus('database', 'connected');
+    } catch (e) {
+      logResult('Database Connection', false, e.message);
+      if (app && app.setHealthStatus) app.setHealthStatus('database', 'failed');
+      return false; // Cannot proceed without DB
+    }
+
+    // 3. Core Tables Existence
+    const requiredTables = ['users', 'customers', 'sales', 'marketing_campaigns', 'schema_versions'];
+    let tablesPassed = true;
+    requiredTables.forEach(t => {
+      try {
+        db.prepare(`SELECT 1 FROM ${t} LIMIT 1`).get();
+      } catch (e) {
+        if (e.message.includes('no such table')) {
+          logResult(`Table: ${t}`, false, 'Missing table');
+          tablesPassed = false;
+        }
+      }
+    });
+    if (tablesPassed) logResult('Core Tables Check', true);
+    if (app && app.setHealthStatus) app.setHealthStatus('migrations', tablesPassed ? 'passed' : 'failed');
+
+    // 4. Auth Functionality Validation
+    try {
+      // Try to perform a mock read/write on users table within a transaction
+      db.exec('BEGIN TRANSACTION');
+
+      const testEmail = 'validator_test_' + Date.now() + '@internal.com';
+      const insert = db.prepare('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)');
+      insert.run('Validator', testEmail, 'mockhash', 'employee');
+
+      const user = db.prepare('SELECT id FROM users WHERE email = ?').get(testEmail);
+      if (!user) throw new Error('Failed to read back inserted user');
+
+      db.exec('ROLLBACK'); // Discard test data
+      logResult('Auth Functionality (Read/Write)', true);
+      if (app && app.setHealthStatus) app.setHealthStatus('auth', 'ready');
+    } catch (e) {
+      db.exec('ROLLBACK');
+      logResult('Auth Functionality (Read/Write)', false, e.message);
+      if (app && app.setHealthStatus) app.setHealthStatus('auth', 'failed');
+    }
   }
 
   // 5. Finalize Health Status

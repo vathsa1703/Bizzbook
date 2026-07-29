@@ -36,70 +36,70 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } });
 
 // ── Board & list ─────────────────────────────────────────────────────────────
-router.get('/board', (req, res, next) => {
-  try { res.json(svc.getBoard(ctx(req), req.query)); } catch (err) { next(err); }
+router.get('/board', async (req, res, next) => {
+  try { res.json(await svc.getBoard(ctx(req), req.query)); } catch (err) { next(err); }
 });
-router.get('/analytics', (req, res, next) => {
-  try { res.json(svc.analytics(ctx(req))); } catch (err) { next(err); }
+router.get('/analytics', async (req, res, next) => {
+  try { res.json(await svc.analytics(ctx(req))); } catch (err) { next(err); }
 });
-router.get('/', (req, res, next) => {
-  try { res.json({ tasks: svc.listTasks(ctx(req), req.query) }); } catch (err) { next(err); }
+router.get('/', async (req, res, next) => {
+  try { res.json({ tasks: await svc.listTasks(ctx(req), req.query) }); } catch (err) { next(err); }
 });
-router.post('/', (req, res, next) => {
-  try { send(res, svc.createTask(ctx(req), req.body || {}), 201); } catch (err) { next(err); }
+router.post('/', async (req, res, next) => {
+  try { send(res, await svc.createTask(ctx(req), req.body || {}), 201); } catch (err) { next(err); }
 });
 
 // ── Single task ──────────────────────────────────────────────────────────────
-router.get('/:id', (req, res, next) => {
-  try { send(res, svc.getTask(ctx(req), Number(req.params.id))); } catch (err) { next(err); }
+router.get('/:id', async (req, res, next) => {
+  try { send(res, await svc.getTask(ctx(req), Number(req.params.id))); } catch (err) { next(err); }
 });
-router.patch('/:id', (req, res, next) => {
-  try { send(res, svc.updateTask(ctx(req), Number(req.params.id), req.body || {})); } catch (err) { next(err); }
+router.patch('/:id', async (req, res, next) => {
+  try { send(res, await svc.updateTask(ctx(req), Number(req.params.id), req.body || {})); } catch (err) { next(err); }
 });
-router.delete('/:id', (req, res, next) => {
-  try { send(res, svc.deleteTask(ctx(req), Number(req.params.id))); } catch (err) { next(err); }
+router.delete('/:id', async (req, res, next) => {
+  try { send(res, await svc.deleteTask(ctx(req), Number(req.params.id))); } catch (err) { next(err); }
 });
 
 // ── Assignments ──────────────────────────────────────────────────────────────
-router.post('/:id/assignments', (req, res, next) => {
-  try { send(res, svc.addAssignees(ctx(req), Number(req.params.id), req.body || {}), 201); } catch (err) { next(err); }
+router.post('/:id/assignments', async (req, res, next) => {
+  try { send(res, await svc.addAssignees(ctx(req), Number(req.params.id), req.body || {}), 201); } catch (err) { next(err); }
 });
-router.delete('/:id/assignments/:type/:assigneeId', (req, res, next) => {
-  try { send(res, svc.removeAssignee(ctx(req), Number(req.params.id), req.params.type, req.params.assigneeId)); } catch (err) { next(err); }
+router.delete('/:id/assignments/:type/:assigneeId', async (req, res, next) => {
+  try { send(res, await svc.removeAssignee(ctx(req), Number(req.params.id), req.params.type, req.params.assigneeId)); } catch (err) { next(err); }
 });
 
 // ── Comments ─────────────────────────────────────────────────────────────────
-router.post('/:id/comments', (req, res, next) => {
-  try { send(res, svc.addComment(ctx(req), Number(req.params.id), req.body?.body, req.body?.mentions), 201); } catch (err) { next(err); }
+router.post('/:id/comments', async (req, res, next) => {
+  try { send(res, await svc.addComment(ctx(req), Number(req.params.id), req.body?.body, req.body?.mentions), 201); } catch (err) { next(err); }
 });
 
 // ── Checklist ────────────────────────────────────────────────────────────────
-router.post('/:id/checklist', (req, res, next) => {
-  try { send(res, svc.addChecklistItem(ctx(req), Number(req.params.id), req.body?.title), 201); } catch (err) { next(err); }
+router.post('/:id/checklist', async (req, res, next) => {
+  try { send(res, await svc.addChecklistItem(ctx(req), Number(req.params.id), req.body?.title), 201); } catch (err) { next(err); }
 });
-router.patch('/:id/checklist/:itemId', (req, res, next) => {
-  try { send(res, svc.toggleChecklistItem(ctx(req), Number(req.params.id), Number(req.params.itemId), req.body?.is_done)); } catch (err) { next(err); }
+router.patch('/:id/checklist/:itemId', async (req, res, next) => {
+  try { send(res, await svc.toggleChecklistItem(ctx(req), Number(req.params.id), Number(req.params.itemId), req.body?.is_done)); } catch (err) { next(err); }
 });
-router.delete('/:id/checklist/:itemId', (req, res, next) => {
-  try { send(res, svc.deleteChecklistItem(ctx(req), Number(req.params.id), Number(req.params.itemId))); } catch (err) { next(err); }
+router.delete('/:id/checklist/:itemId', async (req, res, next) => {
+  try { send(res, await svc.deleteChecklistItem(ctx(req), Number(req.params.id), Number(req.params.itemId))); } catch (err) { next(err); }
 });
 
 // ── Attachments ──────────────────────────────────────────────────────────────
-router.post('/:id/attachments', upload.single('file'), (req, res, next) => {
+router.post('/:id/attachments', upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    send(res, svc.recordAttachment(ctx(req), Number(req.params.id), req.file), 201);
+    send(res, await svc.recordAttachment(ctx(req), Number(req.params.id), req.file), 201);
   } catch (err) { next(err); }
 });
-router.get('/attachments/:attId/download', (req, res, next) => {
+router.get('/attachments/:attId/download', async (req, res, next) => {
   try {
-    const att = svc.getAttachmentForDownload(ctx(req), Number(req.params.attId));
+    const att = await svc.getAttachmentForDownload(ctx(req), Number(req.params.attId));
     if (!att || !att.file_path) return res.status(404).json({ error: 'Attachment not found' });
     res.download(att.file_path, att.original_name || att.file_name);
   } catch (err) { next(err); }
 });
-router.delete('/attachments/:attId', (req, res, next) => {
-  try { send(res, svc.deleteAttachment(ctx(req), Number(req.params.attId))); } catch (err) { next(err); }
+router.delete('/attachments/:attId', async (req, res, next) => {
+  try { send(res, await svc.deleteAttachment(ctx(req), Number(req.params.attId))); } catch (err) { next(err); }
 });
 
 module.exports = router;

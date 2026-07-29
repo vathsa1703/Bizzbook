@@ -2,7 +2,7 @@ const OpenAI = require('openai');
 const { getMetricsSnapshot } = require('./metricsService');
 const { getMarketingOpportunities } = require('./marketingEngine');
 const { buildMarketingContextSummary } = require('./marketingAI');
-const { getDb } = require('../config/db');
+const { dbGet, dbAll } = require('../config/dbEngine');
 
 function getClient() {
   const key = process.env.OPENAI_API_KEY;
@@ -49,30 +49,27 @@ If a field is missing, omit it or set it to null/0. Do not wrap the JSON in mark
   return JSON.parse(raw);
 }
 
-function buildAIContext(metrics, companyId) {
+async function buildAIContext(metrics, companyId) {
   let marketingSummary = '';
   let activeCampaignsSummary = '';
   let segmentsSummary = '';
-  const db = getDb();
   try {
     // Only load marketing context if explicitly requested by a strategic query
     // We pass this logic down to the callLLM function now.
 
-    const activeCampaigns = db.prepare(`SELECT name, status, target_count, expected_impact, actual_revenue, roi FROM marketing_campaigns WHERE company_id = ? AND status IN ('active', 'completed') ORDER BY created_at DESC LIMIT 3`).all(companyId);
+    const activeCampaigns = await dbAll(`SELECT name, status, target_count, expected_impact, actual_revenue, roi FROM marketing_campaigns WHERE company_id = ? AND status IN ('active', 'completed') ORDER BY created_at DESC LIMIT 3`, [companyId]);
     if (activeCampaigns.length > 0) {
       activeCampaignsSummary = '\nACTIVE/COMPLETED CAMPAIGNS:\n' + activeCampaigns.map(c => `- ${c.name} (${c.status}): Targeted ${c.target_count}, Expected ₹${c.expected_impact}, Actual ₹${c.actual_revenue}, ROI: ${c.roi !== null ? Math.round(c.roi * 100) + '%' : 'N/A'}`).join('\n');
     }
 
     const { getAllSegmentSummaries } = require('./segmentationEngine');
-    const segments = getAllSegmentSummaries(companyId);
+    const segments = await getAllSegmentSummaries(companyId);
     if (segments.length > 0) {
       segmentsSummary = '\nTOP CUSTOMER SEGMENTS:\n' + segments.slice(0, 3).map(s => `- ${s.name}: ${s.customerCount} customers, ₹${s.totalRevenue} value`).join('\n');
     }
 
   } catch (e) {
     // Non-fatal — marketing context is additive
-  } finally {
-    db.close();
   }
   return `
 BUSINESS SNAPSHOT — ${metrics.generatedAt}
@@ -120,17 +117,15 @@ Rules:
 
 // callLLM now accepts companyId to scope chat history and AI cache to the correct tenant.
 async function callLLM(userId, companyId, sessionId, userMessage, businessType = 'General Business') {
-  const db = getDb();
-
   // 1. Get business context scoped to this company
-  const metrics = getMetricsSnapshot(companyId);
-  const contextBlock = buildAIContext(metrics, companyId);
+  const metrics = await getMetricsSnapshot(companyId);
+  const contextBlock = await buildAIContext(metrics, companyId);
 
   let systemPromptToUse = getSystemPrompt(businessType);
 
   // 1b. Intent Routing: Only query Opportunity Engine for strategic questions
   if (isStrategicQuery(userMessage)) {
-    const opportunities = getMarketingOpportunities(companyId);
+    const opportunities = await getMarketingOpportunities(companyId);
     if (opportunities.length > 0) {
       const opsStr = opportunities.map((o, i) =>
         `${i+1}. ${o.name}\n   Score: ${o.overall_score}\n   Confidence: ${o.confidenceScore}%\n\nDetected Because:\n${o.detectedBecause}\n\nExpected Recovery:\n₹${Math.round(o.expectedImpact).toLocaleString()}`
@@ -141,9 +136,10 @@ async function callLLM(userId, companyId, sessionId, userMessage, businessType =
   }
 
   // 2. Fetch recent chat history scoped to this company + session
-  const historyRows = db.prepare(
-    'SELECT role, content FROM ai_chat_history WHERE session_id = ? AND company_id = ? ORDER BY id ASC LIMIT 10'
-  ).all(sessionId, companyId);
+  const historyRows = await dbAll(
+    'SELECT role, content FROM ai_chat_history WHERE session_id = ? AND company_id = ? ORDER BY id ASC LIMIT 10',
+    [sessionId, companyId]
+  );
   const history = historyRows.map(row => ({ role: row.role, content: row.content }));
 
   const messages = [
@@ -169,7 +165,7 @@ async function callLLM(userId, companyId, sessionId, userMessage, businessType =
   try {
     if (!process.env.OPENAI_API_KEY) {
       console.log('No OPENAI_API_KEY found, using mock response for testing.');
-      const opportunities = isStrategicQuery(userMessage) ? getMarketingOpportunities(companyId) : [];
+      const opportunities = isStrategicQuery(userMessage) ? await getMarketingOpportunities(companyId) : [];
       if (opportunities.length > 0) {
         responseText = `You currently have ${opportunities.length} high-impact opportunities.\n1. ${opportunities[0].name}\n   Score: ${opportunities[0].overall_score}\n   Confidence: ${opportunities[0].confidenceScore}%\n\nDetected Because:\n${opportunities[0].detectedBecause}\n\nExpected Recovery:\n₹${Math.round(opportunities[0].expectedImpact).toLocaleString()}\n\nI recommend addressing ${opportunities[0].name} first due to its higher opportunity score and larger impact.\nYou can generate a complete execution strategy from the Marketing tab.`;
       } else {
@@ -193,13 +189,9 @@ async function callLLM(userId, companyId, sessionId, userMessage, businessType =
   }
 
   // 3. Save chat history scoped to company
-  const insertStmt = db.prepare(
-    'INSERT INTO ai_chat_history (user_id, company_id, session_id, role, content, tokens_used) VALUES (?, ?, ?, ?, ?, ?)'
-  );
-  insertStmt.run(userId, companyId, sessionId, 'user', userMessage, 0);
-  insertStmt.run(userId, companyId, sessionId, 'assistant', responseText, tokensUsed);
-
-  db.close();
+  const insertSql = 'INSERT INTO ai_chat_history (user_id, company_id, session_id, role, content, tokens_used) VALUES (?, ?, ?, ?, ?, ?)';
+  await dbGet(insertSql, [userId, companyId, sessionId, 'user', userMessage, 0]);
+  await dbGet(insertSql, [userId, companyId, sessionId, 'assistant', responseText, tokensUsed]);
 
   return {
     reply: responseText,

@@ -11,6 +11,8 @@
  * emission point to extend.
  */
 const { getDb } = require('../config/db');
+const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { withTransaction } = require('../config/pgDb');
 
 const THRESHOLDS = [1, 3, 7, 15, 30, 60, 90]; // ascending
 
@@ -20,40 +22,39 @@ function bucketFor(daysRemaining) {
   return null; // more than 90 days away — no reminder yet
 }
 
-function ownerUserId(db, companyId) {
-  const c = db.prepare('SELECT owner_user_id FROM companies WHERE id = ?').get(companyId);
+async function ownerUserId(companyId) {
+  const c = await dbGet('SELECT owner_user_id FROM companies WHERE id = ?', [companyId]);
   if (c && c.owner_user_id) return c.owner_user_id;
-  const u = db.prepare("SELECT id FROM users WHERE company_id = ? ORDER BY (role='OWNER') DESC, id ASC LIMIT 1").get(companyId);
+  const u = await dbGet("SELECT id FROM users WHERE company_id = ? ORDER BY (role='OWNER') DESC, id ASC LIMIT 1", [companyId]);
   return u ? u.id : null;
 }
 
-function runComplianceReminders() {
-  const db = getDb();
+async function runComplianceReminders() {
   try {
     console.log('[ComplianceReminders] Running daily compliance reminder scan...');
 
+    const pg = engine() === 'postgres';
+    const today = pg ? 'CURRENT_DATE' : "date('now')";
+    // julianday() is SQLite-only; next_due_date is a real DATE column on
+    // Postgres, so a plain date subtraction against CURRENT_DATE gives the
+    // day-count integer directly.
+    const daysRemainingExpr = pg ? `(i.next_due_date::date - CURRENT_DATE)` : `CAST(julianday(i.next_due_date) - julianday('now') AS INTEGER)`;
+
     // Mark newly-overdue items so the score & UI stay accurate.
-    db.prepare(`
+    await dbGet(`
       UPDATE business_compliance_items
       SET status = 'overdue'
       WHERE status IN ('pending','in_progress')
-        AND next_due_date IS NOT NULL AND next_due_date < date('now')
-    `).run();
+        AND next_due_date IS NOT NULL AND next_due_date < ${today}
+    `);
 
-    const items = db.prepare(`
+    const items = await dbAll(`
       SELECT i.id, i.company_id, i.next_due_date, i.rule_id, r.title, r.priority,
-             CAST(julianday(i.next_due_date) - julianday('now') AS INTEGER) AS days_remaining
+             ${daysRemainingExpr} AS days_remaining
       FROM business_compliance_items i
       JOIN compliance_rules r ON r.id = i.rule_id
       WHERE i.status NOT IN ('completed','not_applicable')
         AND i.next_due_date IS NOT NULL
-    `).all();
-
-    const wasSent = db.prepare("SELECT 1 FROM compliance_events WHERE company_id = ? AND item_id = ? AND event_type = 'reminder_sent' AND detail = ? LIMIT 1");
-    const markSent = db.prepare("INSERT INTO compliance_events (company_id, item_id, rule_id, event_type, detail) VALUES (?, ?, ?, 'reminder_sent', ?)");
-    const insertNotif = db.prepare(`
-      INSERT INTO notifications (company_id, user_id, type, title, body, related_type, related_id)
-      VALUES (?, ?, 'compliance', ?, ?, 'compliance_item', ?)
     `);
 
     const ownerCache = {};
@@ -62,25 +63,52 @@ function runComplianceReminders() {
     for (const it of items) {
       const bucket = bucketFor(it.days_remaining);
       if (!bucket) continue;
-      if (wasSent.get(it.company_id, it.id, bucket)) continue;
+
+      const wasSent = await dbGet(
+        "SELECT 1 as x FROM compliance_events WHERE company_id = ? AND item_id = ? AND event_type = 'reminder_sent' AND detail = ? LIMIT 1",
+        [it.company_id, it.id, bucket]
+      );
+      if (wasSent) continue;
 
       const uid = ownerCache[it.company_id] !== undefined
         ? ownerCache[it.company_id]
-        : (ownerCache[it.company_id] = ownerUserId(db, it.company_id));
+        : (ownerCache[it.company_id] = await ownerUserId(it.company_id));
 
       const title = bucket === 'expired' ? `Overdue: ${it.title}` : `Reminder: ${it.title}`;
       const body = bucket === 'expired'
         ? `${it.title} is overdue (was due ${it.next_due_date}). File as soon as possible to limit penalties.`
         : `${it.title} is due in ${it.days_remaining} day(s) on ${it.next_due_date}.`;
 
-      db.exec('BEGIN TRANSACTION');
       try {
-        insertNotif.run(it.company_id, uid, title, body, it.id);
-        markSent.run(it.company_id, it.id, it.rule_id, bucket);
-        db.exec('COMMIT');
+        if (pg) {
+          await withTransaction(async (tx) => {
+            await tx.query(`
+              INSERT INTO notifications (company_id, user_id, type, title, body, related_type, related_id)
+              VALUES (?, ?, 'compliance', ?, ?, 'compliance_item', ?)
+            `, [it.company_id, uid, title, body, it.id]);
+            await tx.query("INSERT INTO compliance_events (company_id, item_id, rule_id, event_type, detail) VALUES (?, ?, ?, 'reminder_sent', ?)", [it.company_id, it.id, it.rule_id, bucket]);
+          });
+        } else {
+          const db = getDb();
+          try {
+            db.exec('BEGIN TRANSACTION');
+            try {
+              db.prepare(`
+                INSERT INTO notifications (company_id, user_id, type, title, body, related_type, related_id)
+                VALUES (?, ?, 'compliance', ?, ?, 'compliance_item', ?)
+              `).run(it.company_id, uid, title, body, it.id);
+              db.prepare("INSERT INTO compliance_events (company_id, item_id, rule_id, event_type, detail) VALUES (?, ?, ?, 'reminder_sent', ?)").run(it.company_id, it.id, it.rule_id, bucket);
+              db.exec('COMMIT');
+            } catch (e) {
+              db.exec('ROLLBACK');
+              throw e;
+            }
+          } finally {
+            db.close();
+          }
+        }
         created++;
       } catch (e) {
-        db.exec('ROLLBACK');
         console.error('[ComplianceReminders] failed for item', it.id, e.message);
       }
     }
@@ -90,8 +118,6 @@ function runComplianceReminders() {
   } catch (err) {
     console.error('[ComplianceReminders] Error:', err.message);
     return { error: err.message };
-  } finally {
-    db.close();
   }
 }
 

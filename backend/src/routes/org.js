@@ -9,14 +9,14 @@
 // and reporting chains. Everything is scoped to req.user.companyId.
 // ============================================================================
 const express = require('express');
-const { getDb } = require('../config/db');
+const { dbGet, dbAll } = require('../config/dbEngine');
 
 const router = express.Router();
 
 // Load every active employee for the company as flat rows, enriched with the
 // display fields the org chart needs (department, branch, team count, reports).
-function loadEmployees(db, companyId) {
-  return db.prepare(`
+async function loadEmployees(companyId) {
+  return dbAll(`
     SELECT e.id, e.name, e.job_title, e.status, e.avatar, e.manager_id,
            e.department_id, e.employment_type, e.user_id,
            COALESCE(d.name, e.department) AS department,
@@ -29,7 +29,7 @@ function loadEmployees(db, companyId) {
     LEFT JOIN departments d ON e.department_id = d.id
     WHERE e.company_id = ? AND e.deleted_at IS NULL
     ORDER BY e.name ASC
-  `).all(companyId);
+  `, [companyId]);
 }
 
 // GET /api/org/chart — the full reporting tree.
@@ -37,17 +37,16 @@ function loadEmployees(db, companyId) {
 // company OWNER has an employee record, unrooted employees are placed under it
 // (per spec: "if employee has no manager, place under Company Owner"); otherwise
 // they are returned as top-level roots.
-router.get('/chart', (req, res, next) => {
-  const db = getDb();
+router.get('/chart', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
-    const rows = loadEmployees(db, companyId);
+    const rows = await loadEmployees(companyId);
 
     const byId = new Map();
     for (const r of rows) byId.set(r.id, { ...r, children: [] });
 
     // Identify the owner's employee record, if any, to anchor orphans.
-    const company = db.prepare('SELECT owner_user_id FROM companies WHERE id = ?').get(companyId);
+    const company = await dbGet('SELECT owner_user_id FROM companies WHERE id = ?', [companyId]);
     let ownerEmpId = null;
     if (company && company.owner_user_id) {
       const ownerEmp = rows.find(r => r.user_id === company.owner_user_id);
@@ -70,21 +69,18 @@ router.get('/chart', (req, res, next) => {
     res.json({ roots, total: rows.length, ownerEmployeeId: ownerEmpId });
   } catch (err) {
     next(err);
-  } finally {
-    db.close();
   }
 });
 
 // GET /api/org/:id/chain — reporting chain (ancestors up to a root) + direct
 // reports for one employee. Powers "highlight reporting chain" and the profile.
-router.get('/:id/chain', (req, res, next) => {
-  const db = getDb();
+router.get('/:id/chain', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
     const empId = Number(req.params.id);
 
-    const get = db.prepare('SELECT id, name, job_title, avatar, manager_id, status FROM employees WHERE id = ? AND company_id = ? AND deleted_at IS NULL');
-    const self = get.get(empId, companyId);
+    const getEmp = (id) => dbGet('SELECT id, name, job_title, avatar, manager_id, status FROM employees WHERE id = ? AND company_id = ? AND deleted_at IS NULL', [id, companyId]);
+    const self = await getEmp(empId);
     if (!self) return res.status(404).json({ error: 'Employee not found' });
 
     // Walk up manager_id (cap depth to stay safe even if legacy data is cyclic).
@@ -93,7 +89,7 @@ router.get('/:id/chain', (req, res, next) => {
     let cursor = self.manager_id;
     let depth = 0;
     while (cursor && depth < 50 && !seen.has(cursor)) {
-      const m = get.get(cursor, companyId);
+      const m = await getEmp(cursor);
       if (!m) break;
       managers.unshift(m); // top-most first
       seen.add(m.id);
@@ -101,16 +97,15 @@ router.get('/:id/chain', (req, res, next) => {
       depth++;
     }
 
-    const subordinates = db.prepare(
-      'SELECT id, name, job_title, avatar, status FROM employees WHERE manager_id = ? AND company_id = ? AND deleted_at IS NULL ORDER BY name ASC'
-    ).all(empId, companyId);
+    const subordinates = await dbAll(
+      'SELECT id, name, job_title, avatar, status FROM employees WHERE manager_id = ? AND company_id = ? AND deleted_at IS NULL ORDER BY name ASC',
+      [empId, companyId]
+    );
 
     const chainIds = [...managers.map(m => m.id), empId];
     res.json({ employee: self, managers, subordinates, reportingChainIds: chainIds });
   } catch (err) {
     next(err);
-  } finally {
-    db.close();
   }
 });
 

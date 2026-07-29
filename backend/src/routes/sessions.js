@@ -1,42 +1,44 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
-const { getDb } = require('../config/db');
+const { dbGet, dbAll } = require('../config/dbEngine');
 
 // List sessions for current user (or all company sessions for admin)
-router.get('/', (req, res, next) => {
-  const db = getDb();
+router.get('/', async (req, res, next) => {
   try {
     const { role, userId, companyId } = req.user;
     const isAdmin = role === 'OWNER' || role === 'admin' || role === 'MANAGER';
     let sql, params;
+    // is_active bound as a parameter, not a literal 1 -- Postgres rejects a
+    // literal integer compared against a BOOLEAN column the same way it
+    // rejects one assigned to one (see auth.js/company.js for the write-side
+    // version of this same bug).
     if (isAdmin && req.query.all === 'true') {
-      sql = `SELECT s.*, u.name as user_name, u.email as user_email FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.company_id = ? AND s.is_active = 1 ORDER BY s.last_activity DESC`;
-      params = [companyId];
+      sql = `SELECT s.*, u.name as user_name, u.email as user_email FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.company_id = ? AND s.is_active = ? ORDER BY s.last_activity DESC`;
+      params = [companyId, 1];
     } else {
-      sql = `SELECT * FROM sessions WHERE user_id = ? AND is_active = 1 ORDER BY last_activity DESC`;
-      params = [userId];
+      sql = `SELECT * FROM sessions WHERE user_id = ? AND is_active = ? ORDER BY last_activity DESC`;
+      params = [userId, 1];
     }
 
     // Mark current session
     const currentHash = crypto.createHash('sha256').update(req.user.token || '').digest('hex');
-    const sessions = db.prepare(sql).all(...params).map(s => ({
+    const sessions = (await dbAll(sql, params)).map(s => ({
       ...s,
       is_current: s.token_hash === currentHash,
       token_hash: undefined // don't expose hash
     }));
 
     res.json(sessions);
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
 // Terminate a specific session
-router.delete('/:id', (req, res, next) => {
-  const db = getDb();
+router.delete('/:id', async (req, res, next) => {
   try {
     const { userId, companyId, role } = req.user;
     const isAdmin = role === 'OWNER' || role === 'admin';
-    const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(req.params.id);
+    const session = await dbGet('SELECT * FROM sessions WHERE id = ?', [req.params.id]);
     if (!session) return res.status(404).json({ error: 'Session not found' });
 
     // Only admins can terminate others' sessions
@@ -45,19 +47,18 @@ router.delete('/:id', (req, res, next) => {
     }
     if (session.company_id !== companyId) return res.status(403).json({ error: 'Forbidden' });
 
-    db.prepare('UPDATE sessions SET is_active = 0 WHERE id = ?').run(req.params.id);
+    await dbGet('UPDATE sessions SET is_active = ? WHERE id = ?', [0, req.params.id]);
     res.status(204).end();
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
 // Terminate all except current
-router.delete('/', (req, res, next) => {
-  const db = getDb();
+router.delete('/', async (req, res, next) => {
   try {
     const currentHash = crypto.createHash('sha256').update(req.user.token || '').digest('hex');
-    db.prepare('UPDATE sessions SET is_active = 0 WHERE user_id = ? AND token_hash != ?').run(req.user.userId, currentHash);
+    await dbGet('UPDATE sessions SET is_active = ? WHERE user_id = ? AND token_hash != ?', [0, req.user.userId, currentHash]);
     res.json({ success: true });
-  } catch (err) { next(err); } finally { db.close(); }
+  } catch (err) { next(err); }
 });
 
 module.exports = router;
