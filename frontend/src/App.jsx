@@ -6,6 +6,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AIProvider } from './contexts/AIContext';
 import ChatFAB from './components/ai/ChatFAB';
 
+import LandingPage from './pages/LandingPage';
 import Home      from './pages/Home';
 import Sales     from './pages/Sales';
 import Stock     from './pages/Stock';
@@ -58,6 +59,7 @@ const PAGES = {
 
 export default function App() {
   const [tab, setTab] = useState('home');
+  const [showLanding, setShowLanding] = useState(true);
   const { user, loading } = useAuth();
 
   let content;
@@ -73,7 +75,9 @@ export default function App() {
     );
   } else if (!user) {
     const hasBusinessType = localStorage.getItem('businessType');
-    if (!hasBusinessType && tab !== 'login' && tab !== 'register') {
+    if (showLanding && tab !== 'login' && tab !== 'register') {
+      content = <LandingPage onGetStarted={() => setShowLanding(false)} />;
+    } else if (!hasBusinessType && tab !== 'login' && tab !== 'register') {
       content = <BusinessSelection onNavigate={setTab} />;
     } else if (tab === 'register') {
       content = <Register onNavigate={setTab} />;
