@@ -179,6 +179,7 @@ registerOptionalRoute('/api/leaves', () => require('./routes/leaves'));
 registerOptionalRoute('/api/attendance', () => require('./routes/attendance'));
 registerOptionalRoute('/api/payroll', () => require('./routes/payroll'));
 registerOptionalRoute('/api/employee-documents', () => require('./routes/employeeDocuments'));
+registerOptionalRoute('/api/employees', () => require('./routes/employeePhoto'));
 registerOptionalRoute('/api/audit-logs', () => require('./routes/auditLogs'));
 registerOptionalRoute('/api/sessions', () => require('./routes/sessions'));
 registerOptionalRoute('/api/notifications', () => require('./routes/notifications'));

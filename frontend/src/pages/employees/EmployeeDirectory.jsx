@@ -61,7 +61,9 @@ export default function EmployeeDirectory({ onViewChange }) {
   const [form, setForm] = useState({
     name: '', department: '', salary: '', joining_date: new Date().toISOString().split('T')[0],
     job_title: '', phone: '', email: '', employment_type: 'Full Time', status: 'Active',
-    department_id: '', branch_id: ''
+    department_id: '', branch_id: '', qualification: '',
+    emergency_contact_name: '', emergency_contact_relation: '', emergency_contact_phone: '',
+    employee_code: ''
   });
 
   const load = useCallback(async () => {
@@ -90,19 +92,35 @@ export default function EmployeeDirectory({ onViewChange }) {
 
   const openCreate = () => {
     setEditingEmp(null);
-    setForm({ name: '', department: '', salary: '', joining_date: new Date().toISOString().split('T')[0], job_title: '', phone: '', email: '', employment_type: 'Full Time', status: 'Active', department_id: '', branch_id: '' });
+    setForm({
+      name: '', department: '', salary: '', joining_date: new Date().toISOString().split('T')[0],
+      job_title: '', phone: '', email: '', employment_type: 'Full Time', status: 'Active',
+      department_id: '', branch_id: '', qualification: '',
+      emergency_contact_name: '', emergency_contact_relation: '', emergency_contact_phone: '',
+      employee_code: ''
+    });
     setShowModal(true);
   };
 
   const openEdit = (emp) => {
     setEditingEmp(emp);
-    setForm({ name: emp.name || '', department: emp.department || '', salary: emp.salary || '', joining_date: emp.joining_date || '', job_title: emp.job_title || '', phone: emp.phone || '', email: emp.email || '', employment_type: emp.employment_type || 'Full Time', status: emp.status || 'Active', department_id: emp.department_id || '', branch_id: emp.branch_id || '' });
+    setForm({
+      name: emp.name || '', department: emp.department || '', salary: emp.salary || '', joining_date: emp.joining_date || '',
+      job_title: emp.job_title || '', phone: emp.phone || '', email: emp.email || '', employment_type: emp.employment_type || 'Full Time',
+      status: emp.status || 'Active', department_id: emp.department_id || '', branch_id: emp.branch_id || '',
+      qualification: emp.qualification || '',
+      emergency_contact_name: emp.emergency_contact_name || '', emergency_contact_relation: emp.emergency_contact_relation || '', emergency_contact_phone: emp.emergency_contact_phone || '',
+      employee_code: ''
+    });
     setShowModal(true);
   };
 
   const handleSubmit = async () => {
     if (!form.name || !form.department || !form.salary || !form.joining_date) {
       showToast('Name, department, salary and joining date are required', 'error'); return;
+    }
+    if (!form.emergency_contact_name?.trim() || !form.emergency_contact_phone?.trim()) {
+      showToast('Emergency contact name and phone are required', 'error'); return;
     }
     setSubmitting(true);
     try {
@@ -266,6 +284,9 @@ export default function EmployeeDirectory({ onViewChange }) {
             <FormField label="Full Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Rahul Sharma" />
             <FormField label="Job Title" value={form.job_title} onChange={e => setForm(f => ({ ...f, job_title: e.target.value }))} placeholder="Sales Manager" />
           </div>
+          {!editingEmp && (
+            <FormField label="Employee ID" value={form.employee_code} onChange={e => setForm(f => ({ ...f, employee_code: e.target.value }))} placeholder="Auto-generated if left blank" />
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Department *</label>
@@ -292,6 +313,19 @@ export default function EmployeeDirectory({ onViewChange }) {
             <FormField label="Email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="rahul@company.com" />
             <FormField label="Phone" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+91 9876543210" />
           </div>
+          <FormField label="Qualification" value={form.qualification} onChange={e => setForm(f => ({ ...f, qualification: e.target.value }))} placeholder="B.Com, MBA, etc." />
+
+          <div className="pt-2 border-t border-edge dark:border-edge-dark">
+            <p className="text-xs font-semibold text-inkB dark:text-inkB-dark uppercase tracking-wider mb-2 mt-2">Emergency Contact</p>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Contact Name *" value={form.emergency_contact_name} onChange={e => setForm(f => ({ ...f, emergency_contact_name: e.target.value }))} placeholder="Priya Sharma" />
+              <FormField label="Relation" value={form.emergency_contact_relation} onChange={e => setForm(f => ({ ...f, emergency_contact_relation: e.target.value }))} placeholder="Spouse, Parent, etc." />
+            </div>
+            <div className="mt-3">
+              <FormField label="Contact Phone *" value={form.emergency_contact_phone} onChange={e => setForm(f => ({ ...f, emergency_contact_phone: e.target.value }))} placeholder="+91 9876543210" />
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-inkB dark:text-inkB-dark mb-1">Employment Type</label>

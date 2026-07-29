@@ -1175,6 +1175,69 @@ function runMigrations(db) {
       console.error('[DB] Migration 28 FAILED — rolled back:', e.message);
     }
   }
+
+  // Version 29: Employee profile — qualification + structured emergency contact
+  if (!hasVersion(29)) {
+    console.log('[DB] Running Migration 29: Employee qualification + structured emergency contact');
+    db.exec('BEGIN TRANSACTION');
+    try {
+      addColumnIfNotExists(db, 'employees', 'qualification', 'TEXT');
+      addColumnIfNotExists(db, 'employees', 'emergency_contact_name', 'TEXT');
+      addColumnIfNotExists(db, 'employees', 'emergency_contact_relation', 'TEXT');
+      addColumnIfNotExists(db, 'employees', 'emergency_contact_phone', 'TEXT');
+
+      markVersion(29, 'Employee qualification + structured emergency contact');
+      db.exec('COMMIT');
+      console.log('[DB] Migration 29 complete.');
+    } catch (e) {
+      db.exec('ROLLBACK');
+      console.error('[DB] Migration 29 FAILED — rolled back:', e.message);
+    }
+  }
+
+  // Version 30: Investor Directory (Growth Hub reference data, mirrors
+  // government_schemes) + government_schemes.last_verified_at.
+  // schema_growth.sql only gets replayed via migration 26's one-time db.exec,
+  // so a DB that already has version 26 marked won't pick up new tables added
+  // to that file afterward — this migration creates investor_directory and
+  // adds the new column directly, same idempotent pattern as every other
+  // migration here.
+  if (!hasVersion(30)) {
+    console.log('[DB] Running Migration 30: Investor Directory + scheme verification tracking');
+    db.exec('BEGIN TRANSACTION');
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS investor_directory (
+          id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+          name                TEXT NOT NULL,
+          org_type            TEXT,
+          focus_sectors       TEXT,
+          investment_stage    TEXT,
+          ticket_size_min     REAL,
+          ticket_size_max     REAL,
+          region              TEXT,
+          country_code        TEXT DEFAULT 'IN',
+          website_url         TEXT,
+          contact_info        TEXT,
+          description         TEXT,
+          notable_portfolio   TEXT,
+          is_active           INTEGER DEFAULT 1,
+          sort_order          INTEGER DEFAULT 0,
+          created_at          TEXT DEFAULT (datetime('now')),
+          updated_at          TEXT DEFAULT (datetime('now'))
+        );
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_investor_directory_type ON investor_directory(org_type, investment_stage);');
+      addColumnIfNotExists(db, 'government_schemes', 'last_verified_at', 'TEXT');
+
+      markVersion(30, 'Growth Hub: investor_directory reference table + government_schemes.last_verified_at');
+      db.exec('COMMIT');
+      console.log('[DB] Migration 30 complete.');
+    } catch (e) {
+      db.exec('ROLLBACK');
+      console.error('[DB] Migration 30 FAILED — rolled back:', e.message);
+    }
+  }
 }
 
 // Finds or creates the per-company "Owner" system role (all permissions granted) and
