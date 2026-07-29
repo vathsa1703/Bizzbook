@@ -1,3 +1,9 @@
+databases:
+  - name: bizbook-db
+    plan: free
+    databaseName: bizbook
+    user: bizbook
+
 services:
   - type: web
     name: bizbook
@@ -21,6 +27,10 @@ services:
         value: llama-3.3-70b-versatile
       - key: WHISPER_MODEL
         value: whisper-large-v3
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bizbook-db
+          property: connectionString
 
 # The frontend install uses --include=dev deliberately: NODE_ENV=production (set below)
 # is applied by Render during the build phase too, and npm omits devDependencies by
@@ -38,3 +48,12 @@ services:
 # the service's own filesystem, which works fine on the free plan for demo/testing. If
 # you later add a Render persistent disk (paid plan required), mount it and set DB_PATH
 # to a path on that disk — no code change needed, see backend/src/config/db.js.
+#
+# `databases: bizbook-db` above provisions a free Render Postgres instance and wires its
+# connection string into DATABASE_URL automatically on blueprint sync. It's declared here
+# ahead of the actual code cutover (see docs/postgres-migration-checklist.md) so the
+# instance exists and is reachable before the app's data layer is switched over --
+# DATABASE_URL is inert until backend/src/config/dbEngine.js (or equivalent) is wired in
+# as the live path. Render's free Postgres plan expires 30 days after creation and does
+# not auto-renew -- fine for finishing this migration, not for a production cutover;
+# upgrade the `plan:` under `databases:` before relying on it long-term.
