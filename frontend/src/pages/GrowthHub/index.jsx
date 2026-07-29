@@ -18,6 +18,7 @@ import { SIDEBAR_TABS } from './shared';
 import DashboardTab from './DashboardTab';
 import FundingTab from './FundingTab';
 import SchemesTab from './SchemesTab';
+import InvestorDirectoryTab from './InvestorDirectoryTab';
 import InvestorsTab from './InvestorsTab';
 import EquityTab from './EquityTab';
 import CapTableTab from './CapTableTab';
@@ -48,6 +49,7 @@ export default function GrowthHub({ onNavigate }) {
       case 'overview':      return <DashboardTab onTabChange={setActiveTab} />;
       case 'funding':       return <FundingTab />;
       case 'schemes':       return <SchemesTab />;
+      case 'investor-directory': return <InvestorDirectoryTab />;
       case 'investors':     return <InvestorsTab />;
       case 'equity':        return <EquityTab />;
       case 'cap-table':     return <CapTableTab />;

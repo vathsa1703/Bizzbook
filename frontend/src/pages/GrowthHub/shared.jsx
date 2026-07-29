@@ -7,7 +7,7 @@ import React from 'react';
 import {
   TrendingUp, DollarSign, Landmark, Users, PieChart as PieIcon, BarChart2,
   Globe, Handshake, Presentation, FolderCheck, Map, Bot, Star, Layers,
-  Plus, StickyNote, Ship,
+  Plus, StickyNote, Ship, Building2,
 } from 'lucide-react';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -16,6 +16,7 @@ export const SIDEBAR_TABS = [
   { key: 'overview',    label: 'Overview',           icon: BarChart2    },
   { key: 'funding',     label: 'Funding',            icon: DollarSign   },
   { key: 'schemes',     label: 'Gov. Schemes',       icon: Landmark     },
+  { key: 'investor-directory', label: 'Investor Directory', icon: Building2 },
   { key: 'investors',   label: 'Investors',          icon: Users        },
   { key: 'equity',      label: 'Equity',             icon: PieIcon      },
   { key: 'cap-table',   label: 'Cap Table',          icon: Layers       },
