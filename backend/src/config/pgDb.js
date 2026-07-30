@@ -145,6 +145,117 @@ async function bootstrapPostgresSchema() {
   console.log('[PG] Bootstrap complete.');
 }
 
+// ── Incremental Postgres migrations (post-bootstrap) ────────────────────────
+// bootstrapPostgresSchema() above is deliberately ONE-SHOT: it applies the
+// whole DDL file to an empty database and marks version 1. That is correct for
+// a fresh database and wrong for every subsequent schema change — a database
+// bootstrapped from an older schema.postgres.sql skips the bootstrap forever
+// (isBootstrapped() is true), so any DDL added to that file afterwards is
+// simply never applied to it. There was no mechanism to close that gap, which
+// is exactly how `investor_directory` came to be "committed but missing":
+// commit b5d870d appended it (plus employees' qualification/emergency-contact
+// columns and government_schemes' last_verified_at/created_at/updated_at) to
+// schema.postgres.sql and touched nothing else, so every already-bootstrapped
+// database still lacks all of it. The DDL file was right; nothing ever ran it.
+//
+// This is the SQLite side's runMigrations() pattern (config/db.js) ported over:
+// numbered, append-only, each recorded in schema_versions, each wrapped in its
+// own transaction. Two differences from the SQLite version, both simplifying:
+// Postgres DDL is transactional (a failed migration rolls back cleanly instead
+// of leaving a half-applied schema), and Postgres has native ADD COLUMN IF NOT
+// EXISTS / CREATE TABLE IF NOT EXISTS / CREATE INDEX IF NOT EXISTS, so no
+// PRAGMA-style existence probing is needed.
+//
+// Every statement here MUST be idempotent, because these run against fresh
+// databases too: a fresh bootstrap already applied the current DDL file (which
+// contains all of this), so migration 2 is a no-op there — it still gets
+// recorded, so schema_versions honestly reflects which steps are known-applied
+// regardless of which path a given database arrived by.
+//
+// To add a schema change from here on: append the DDL to schema.postgres.sql
+// (so fresh databases get it at bootstrap) AND add a numbered block below (so
+// existing databases get it too). Doing only the first is the bug above.
+const PG_MIGRATIONS = [
+  {
+    version: 2,
+    description: 'b5d870d backfill: employee qualification/emergency-contact, government_schemes timestamps, investor_directory',
+    statements: [
+      `ALTER TABLE employees ADD COLUMN IF NOT EXISTS qualification TEXT`,
+      `ALTER TABLE employees ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT`,
+      `ALTER TABLE employees ADD COLUMN IF NOT EXISTS emergency_contact_relation TEXT`,
+      `ALTER TABLE employees ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT`,
+
+      `ALTER TABLE government_schemes ADD COLUMN IF NOT EXISTS last_verified_at TIMESTAMPTZ`,
+      `ALTER TABLE government_schemes ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now()`,
+      `ALTER TABLE government_schemes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now()`,
+
+      // Kept character-for-character in sync with the block in
+      // schema.postgres.sql — global reference data, deliberately not
+      // company_id-scoped (this is the curated directory, not the per-company
+      // `investors` CRM table).
+      `CREATE TABLE IF NOT EXISTS investor_directory (
+        id                  INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        name                TEXT NOT NULL,
+        org_type            TEXT,
+        focus_sectors       TEXT,
+        investment_stage    TEXT,
+        ticket_size_min     DOUBLE PRECISION,
+        ticket_size_max     DOUBLE PRECISION,
+        region              TEXT,
+        country_code        TEXT DEFAULT 'IN',
+        website_url         TEXT,
+        contact_info        TEXT,
+        description         TEXT,
+        notable_portfolio   TEXT,
+        is_active           BOOLEAN DEFAULT true,
+        sort_order          INTEGER DEFAULT 0,
+        created_at          TIMESTAMPTZ DEFAULT now(),
+        updated_at          TIMESTAMPTZ DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_investor_directory_type ON investor_directory(org_type, investment_stage)`,
+    ],
+  },
+];
+
+async function hasPgVersion(version) {
+  const row = await getOne('SELECT 1 FROM schema_versions WHERE version = ?', [version]);
+  return !!row;
+}
+
+// Runs after bootstrapPostgresSchema() on every boot. Safe to call repeatedly:
+// already-recorded versions are skipped, and every statement is IF NOT EXISTS.
+async function runPostgresMigrations() {
+  for (const migration of PG_MIGRATIONS) {
+    if (await hasPgVersion(migration.version)) continue;
+
+    console.log(`[PG] Running Migration ${migration.version}: ${migration.description}`);
+    const pool = getPgPool();
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const statement of migration.statements) {
+        await client.query(statement);
+      }
+      await client.query(
+        'INSERT INTO schema_versions (version, description) VALUES ($1, $2) ON CONFLICT (version) DO NOTHING',
+        [migration.version, migration.description]
+      );
+      await client.query('COMMIT');
+      console.log(`[PG] Migration ${migration.version} complete.`);
+    } catch (e) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackErr) {
+        console.error('[PG] ROLLBACK failed:', rollbackErr.message);
+      }
+      console.error(`[PG] Migration ${migration.version} FAILED — rolled back:`, e.message);
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+}
+
 module.exports = {
   getPgPool,
   query,
@@ -153,5 +264,6 @@ module.exports = {
   withTransaction,
   addColumnIfNotExists,
   bootstrapPostgresSchema,
+  runPostgresMigrations,
   toPgPlaceholders,
 };

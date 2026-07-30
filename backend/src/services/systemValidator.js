@@ -57,6 +57,10 @@ async function validateSystem(app) {
     // 2. Database Connection & Schema (Postgres)
     try {
       await pgDb.bootstrapPostgresSchema();
+      // bootstrapPostgresSchema() only ever runs on an empty database; every
+      // schema change made after a database was bootstrapped arrives through
+      // here instead. Both are needed — see runPostgresMigrations()'s comment.
+      await pgDb.runPostgresMigrations();
       await pgDb.query('SELECT 1');
       logResult('Database Connection (Postgres)', true);
       if (app && app.setHealthStatus) app.setHealthStatus('database', 'connected');
