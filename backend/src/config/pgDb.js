@@ -1,6 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 const { getPgPool } = require('./pgPool');
+// Same source data as the SQLite seed (migrations 10/21/27 in config/db.js) --
+// complianceSeed.js/tradeSeed.js export their raw data arrays alongside the
+// SQLite-specific insert functions specifically so a second engine doesn't
+// need to duplicate the data, only the insert mechanics. See migration 5
+// below for why Postgres never got this data in the first place.
+const { CATEGORIES: COMPLIANCE_CATEGORIES, RULES: COMPLIANCE_RULES, RESOURCES: COMPLIANCE_RESOURCES } = require('../db/complianceSeed');
+const { GUIDELINES: TRADE_GUIDELINES, AUTHORITIES: TRADE_AUTHORITIES, COUNTRIES: TRADE_COUNTRIES } = require('../db/tradeSeed');
 
 // Phase 2 foundation: the Postgres-side equivalent of config/db.js's getDb().
 // Nothing in services/ or routes/ calls this yet — modules are rewritten one at
@@ -320,6 +327,166 @@ const PG_MIGRATIONS = [
       if (compositeExists.rowCount === 0) {
         await client.query('ALTER TABLE invoices ADD CONSTRAINT invoices_company_id_invoice_number_key UNIQUE (company_id, invoice_number)');
       }
+    },
+  },
+  {
+    version: 5,
+    description: 'reference-data seeding: gst_uqc_master, compliance_rules/categories, trade_guidelines/authorities/countries (mirrors SQLite migrations 10/21/27)',
+    // Confirmed via direct count comparison against the live seeded SQLite
+    // database that this data was NEVER seeded into Postgres at all (0 rows
+    // in every one of these 4 tables) -- not a Postgres-specific bug like
+    // migrations 2-4, but a gap in what got ported during Phase 2: the tables
+    // themselves are in schema.postgres.sql (so bootstrapPostgresSchema()
+    // creates them), but the SQLite-side seed data only ever gets inserted by
+    // config/db.js's migrations 10/21/27, which never run on the Postgres
+    // path. All four tables are global reference data, not company-scoped --
+    // no tenant-splitting concern like migrations 3/31 had.
+    //
+    // Reuses the exact same data arrays complianceSeed.js/tradeSeed.js export
+    // for the SQLite seed (CATEGORIES/RULES/RESOURCES, GUIDELINES/
+    // AUTHORITIES/COUNTRIES) rather than re-typing this data a second time --
+    // only the insert mechanics differ (native pg $n params, BOOLEAN instead
+    // of INTEGER 0/1 for mandatory/is_required/is_active, RETURNING id instead
+    // of lastInsertRowid). Idempotent by natural key exactly like the SQLite
+    // version (code / short_name / country_code), so admin edits made later
+    // via the API are never clobbered by a re-run.
+    async run(client) {
+      // ── gst_uqc_master (migration 10's static 9-row list) ──────────────────
+      const UQCS = [
+        ['NOS', 'Numbers'], ['KGS', 'Kilograms'], ['MTR', 'Meters'],
+        ['PCS', 'Pieces'], ['LTR', 'Liters'], ['BOX', 'Boxes'],
+        ['DOZ', 'Dozens'], ['PAC', 'Packs'], ['SET', 'Sets'],
+      ];
+      for (const [code, desc] of UQCS) {
+        await client.query('INSERT INTO gst_uqc_master (code, description) VALUES ($1, $2) ON CONFLICT (code) DO NOTHING', [code, desc]);
+      }
+
+      // ── compliance_categories ───────────────────────────────────────────────
+      for (const c of COMPLIANCE_CATEGORIES) {
+        await client.query(
+          'INSERT INTO compliance_categories (key, name, icon, sort_order) VALUES ($1,$2,$3,$4) ON CONFLICT (key) DO NOTHING',
+          [c.key, c.name, c.icon, c.sort_order]
+        );
+      }
+
+      // ── compliance_rules (+ conditions + documents) ─────────────────────────
+      let complianceRulesCreated = 0;
+      for (const r of COMPLIANCE_RULES) {
+        const existing = await client.query('SELECT id FROM compliance_rules WHERE code = $1', [r.code]);
+        if (existing.rowCount > 0) continue; // already seeded -- respect any admin edits
+
+        const inserted = await client.query(`
+          INSERT INTO compliance_rules
+            (code, country, state, title, description, category_key, department, portal_url, reference_url,
+             mandatory, frequency, renewal_interval_months, due_day, due_month, grace_period_days,
+             penalty_info, priority, ai_explanation, is_active)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,true)
+          RETURNING id
+        `, [
+          r.code, r.country || 'IN', r.state || null, r.title, r.description || null,
+          r.category_key, r.department || null, r.portal_url || null, r.reference_url || null,
+          r.mandatory != null ? !!r.mandatory : true, r.frequency,
+          r.renewal_interval_months || null, r.due_day || null, r.due_month || null,
+          r.grace_period_days || 0, r.penalty_info || null, r.priority || 'medium',
+          r.ai_explanation || null,
+        ]);
+        const ruleId = inserted.rows[0].id;
+        for (const c of (r.conditions || [])) {
+          await client.query(
+            'INSERT INTO compliance_rule_conditions (rule_id, attribute, operator, value) VALUES ($1,$2,$3,$4)',
+            [ruleId, c.attribute, c.operator, c.value]
+          );
+        }
+        for (const d of (r.documents || [])) {
+          await client.query(
+            'INSERT INTO compliance_rule_documents (rule_id, doc_name, is_required) VALUES ($1,$2,true)',
+            [ruleId, d]
+          );
+        }
+        complianceRulesCreated++;
+      }
+
+      // ── Government Resource Center fields (fills only if still NULL) ───────
+      for (const [code, r] of Object.entries(COMPLIANCE_RESOURCES)) {
+        await client.query(`
+          UPDATE compliance_rules
+          SET processing_fee   = COALESCE(processing_fee, $1),
+              typical_timeline = COALESCE(typical_timeline, $2),
+              guide_url        = COALESCE(guide_url, $3),
+              forms_json       = COALESCE(forms_json, $4)
+          WHERE code = $5
+        `, [
+          r.processing_fee || null, r.typical_timeline || null, r.guide_url || null,
+          r.forms ? JSON.stringify(r.forms) : null, code,
+        ]);
+      }
+
+      // ── trade_authorities (keyed by short_name) ─────────────────────────────
+      const authIdByShortName = {};
+      for (const a of TRADE_AUTHORITIES) {
+        const existing = await client.query('SELECT id FROM trade_authorities WHERE short_name = $1', [a.short_name]);
+        if (existing.rowCount > 0) {
+          authIdByShortName[a.short_name] = existing.rows[0].id;
+        } else {
+          const inserted = await client.query(
+            'INSERT INTO trade_authorities (name, short_name, description, website, country) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+            [a.name, a.short_name, a.description, a.website, 'IN']
+          );
+          authIdByShortName[a.short_name] = inserted.rows[0].id;
+        }
+      }
+
+      // ── trade_countries (keyed by country_code) ─────────────────────────────
+      for (const c of TRADE_COUNTRIES) {
+        const existing = await client.query('SELECT id FROM trade_countries WHERE country_code = $1', [c.country_code]);
+        if (existing.rowCount > 0) continue;
+        await client.query(`
+          INSERT INTO trade_countries (country_code, country_name, region, requirements_json, restricted_products_json,
+            import_duties_notes, standards_json, shipping_notes, official_links_json)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        `, [
+          c.country_code, c.country_name, c.region, JSON.stringify(c.requirements),
+          JSON.stringify(c.restricted_products), c.import_duties_notes, JSON.stringify(c.standards),
+          c.shipping_notes, JSON.stringify(c.official_links),
+        ]);
+      }
+
+      // ── trade_guidelines (+ conditions + documents) ─────────────────────────
+      for (const g of TRADE_GUIDELINES) {
+        const existing = await client.query('SELECT id FROM trade_guidelines WHERE code = $1', [g.code]);
+        if (existing.rowCount > 0) continue;
+
+        const inserted = await client.query(`
+          INSERT INTO trade_guidelines
+            (code, country, category, title, description, department, authority_id, official_website,
+             fees, processing_time, renewal_requirement, penalty_info, faq_json, ai_explanation,
+             frequency, renewal_interval_months, mandatory, is_active)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,true)
+          RETURNING id
+        `, [
+          g.code, g.country || 'IN', g.category, g.title, g.description || null,
+          g.department || null, authIdByShortName[g.authority_short] || null, g.official_website || null,
+          g.fees || null, g.processing_time || null, g.renewal_requirement || null, g.penalty_info || null,
+          g.faq ? JSON.stringify(g.faq) : null, g.ai_explanation || null,
+          g.frequency || 'one_time', g.renewal_interval_months || null,
+          g.mandatory != null ? !!g.mandatory : true,
+        ]);
+        const guidelineId = inserted.rows[0].id;
+        for (const c of (g.conditions || [])) {
+          await client.query(
+            'INSERT INTO trade_rule_conditions (guideline_id, attribute, operator, value) VALUES ($1,$2,$3,$4)',
+            [guidelineId, c.attribute, c.operator, c.value ?? null]
+          );
+        }
+        for (const d of (g.documents || [])) {
+          await client.query(
+            'INSERT INTO trade_documents (guideline_id, doc_name, is_required) VALUES ($1,$2,true)',
+            [guidelineId, d]
+          );
+        }
+      }
+
+      console.log(`[PG] Migration 5: seeded ${complianceRulesCreated}/${COMPLIANCE_RULES.length} compliance rules, ${COMPLIANCE_CATEGORIES.length} categories, ${TRADE_GUIDELINES.length} trade guidelines, ${TRADE_AUTHORITIES.length} authorities, ${TRADE_COUNTRIES.length} countries, 9 UQC codes.`);
     },
   },
 ];
