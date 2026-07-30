@@ -80,12 +80,18 @@ CREATE TABLE IF NOT EXISTS companies (
   email TEXT
 );
 
+-- company_id + the composite unique were added post-Phase-1 (PG migration 3,
+-- mirroring SQLite migration 31) -- this table predates multi-tenancy and was
+-- never retrofitted. See runPostgresMigrations() for how already-bootstrapped
+-- databases get existing groups split into one row per (company_id, name).
 CREATE TABLE IF NOT EXISTS product_groups (
   id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE,
+  company_id INTEGER REFERENCES companies(id),
+  name TEXT NOT NULL,
   description TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(company_id, name)
 );
 
 CREATE TABLE IF NOT EXISTS products (

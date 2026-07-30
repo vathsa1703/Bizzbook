@@ -215,6 +215,76 @@ const PG_MIGRATIONS = [
       `CREATE INDEX IF NOT EXISTS idx_investor_directory_type ON investor_directory(org_type, investment_stage)`,
     ],
   },
+  {
+    version: 3,
+    description: 'product_groups tenant scoping: company_id + UNIQUE(company_id, name) (mirrors SQLite migration 31)',
+    // JS-driven (`run`, not `statements`): splitting a group row that's shared
+    // across companies (found on the live SQLite data -- see migration 31's
+    // comment in config/db.js) needs a per-row conditional backfill, not a
+    // single SQL statement. Both forms are supported by runPostgresMigrations()
+    // below; static `statements` stays the simpler path for migration 2.
+    async run(client) {
+      await client.query('ALTER TABLE product_groups ADD COLUMN IF NOT EXISTS company_id INTEGER REFERENCES companies(id)');
+
+      // Drop the old global UNIQUE(name) if this database still has it (a
+      // fresh bootstrap on the CURRENT schema.postgres.sql never creates it --
+      // only a database bootstrapped before that file was updated would).
+      // Looked up by column signature rather than hardcoding the
+      // auto-generated constraint name, so this stays correct either way.
+      const oldUnique = await client.query(`
+        SELECT con.conname
+        FROM pg_constraint con JOIN pg_class rel ON rel.oid = con.conrelid
+        WHERE rel.relname = 'product_groups' AND con.contype = 'u'
+          AND (SELECT array_agg(attname ORDER BY attname) FROM pg_attribute
+               WHERE attrelid = con.conrelid AND attnum = ANY(con.conkey)) = ARRAY['name']::name[]
+      `);
+      for (const row of oldUnique.rows) {
+        await client.query(`ALTER TABLE product_groups DROP CONSTRAINT ${row.conname}`);
+      }
+
+      // Backfill / split -- identical logic to SQLite migration 31: zero
+      // companies using a group -> orphaned, delete; exactly one -> assign
+      // directly; more than one -> the row is shared, keep it for the lowest
+      // company_id and clone+repoint a new row for every other company.
+      const groups = (await client.query(
+        'SELECT id, name, description, created_at, updated_at FROM product_groups'
+      )).rows;
+      for (const g of groups) {
+        const companyIds = (await client.query(
+          'SELECT DISTINCT company_id FROM products WHERE group_id = $1 AND company_id IS NOT NULL', [g.id]
+        )).rows.map(r => r.company_id).sort((a, b) => a - b);
+
+        if (companyIds.length === 0) {
+          await client.query('DELETE FROM product_groups WHERE id = $1', [g.id]);
+        } else if (companyIds.length === 1) {
+          await client.query('UPDATE product_groups SET company_id = $1 WHERE id = $2', [companyIds[0], g.id]);
+        } else {
+          const [keepCompany, ...restCompanies] = companyIds;
+          await client.query('UPDATE product_groups SET company_id = $1 WHERE id = $2', [keepCompany, g.id]);
+          for (const cid of restCompanies) {
+            const inserted = await client.query(
+              'INSERT INTO product_groups (company_id, name, description, created_at, updated_at) VALUES ($1,$2,$3,$4,$5) RETURNING id',
+              [cid, g.name, g.description, g.created_at, g.updated_at]
+            );
+            await client.query('UPDATE products SET group_id = $1 WHERE group_id = $2 AND company_id = $3',
+              [inserted.rows[0].id, g.id, cid]);
+          }
+        }
+      }
+
+      // Add the composite unique unless a fresh-bootstrap database already
+      // has it inline from the current schema.postgres.sql.
+      const compositeExists = await client.query(`
+        SELECT 1 FROM pg_constraint con JOIN pg_class rel ON rel.oid = con.conrelid
+        WHERE rel.relname = 'product_groups' AND con.contype = 'u'
+          AND (SELECT array_agg(attname ORDER BY attname) FROM pg_attribute
+               WHERE attrelid = con.conrelid AND attnum = ANY(con.conkey)) = ARRAY['company_id','name']::name[]
+      `);
+      if (compositeExists.rowCount === 0) {
+        await client.query('ALTER TABLE product_groups ADD CONSTRAINT product_groups_company_id_name_key UNIQUE (company_id, name)');
+      }
+    },
+  },
 ];
 
 async function hasPgVersion(version) {
@@ -233,8 +303,12 @@ async function runPostgresMigrations() {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      for (const statement of migration.statements) {
-        await client.query(statement);
+      if (migration.run) {
+        await migration.run(client);
+      } else {
+        for (const statement of migration.statements) {
+          await client.query(statement);
+        }
       }
       await client.query(
         'INSERT INTO schema_versions (version, description) VALUES ($1, $2) ON CONFLICT (version) DO NOTHING',

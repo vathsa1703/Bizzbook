@@ -10,12 +10,19 @@ CREATE TABLE IF NOT EXISTS companies (
 );
 
 -- Product groups
+-- company_id + the composite unique below were added by migration 31 (this
+-- table originally predates multi-tenancy migration 11 and was never
+-- retrofitted). See migration 31 in runMigrations() for how existing
+-- databases -- including groups that were shared across companies under the
+-- old global UNIQUE(name) -- get split into one row per (company_id, name).
 CREATE TABLE IF NOT EXISTS product_groups (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL UNIQUE,
+  company_id INTEGER REFERENCES companies(id),
+  name TEXT NOT NULL,
   description TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(company_id, name)
 );
 
 -- Products catalog

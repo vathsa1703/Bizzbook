@@ -1238,6 +1238,96 @@ function runMigrations(db) {
       console.error('[DB] Migration 30 FAILED — rolled back:', e.message);
     }
   }
+
+  // Version 31: product_groups tenant scoping. This table predates migration
+  // 11 (multi-tenancy) and was never retrofitted -- it has no company_id and a
+  // GLOBAL UNIQUE(name), so every company's groups have been visible to every
+  // other company via GET /api/product-groups, and (confirmed against the live
+  // seeded data) at least one group ("Accessories") is a single row actually
+  // shared by two different companies' products. Splitting that kind of row is
+  // the part a bare ADD COLUMN can't do safely, hence the JS backfill below
+  // rather than a pure SQL UPDATE.
+  //
+  // This requires a full table rebuild (SQLite has no ALTER TABLE DROP
+  // CONSTRAINT / no way to change a UNIQUE constraint in place), so foreign_keys
+  // is turned off for the duration -- node:sqlite defaults it ON (see
+  // architecture_guidelines / Known Footguns), and PRAGMA foreign_keys is a
+  // documented no-op if toggled inside an active transaction, so it must be
+  // set before BEGIN and restored after COMMIT, not inside the try block.
+  if (!hasVersion(31)) {
+    console.log('[DB] Running Migration 31: product_groups tenant scoping (company_id + composite unique)');
+    db.exec('PRAGMA foreign_keys = OFF;');
+    db.exec('BEGIN TRANSACTION');
+    try {
+      // Rebuild FIRST, before any backfill: the old table's global UNIQUE(name)
+      // is still in effect until the table is actually replaced, so inserting a
+      // split-clone row with a duplicate name (see below) would fail against
+      // it. company_id starts NULL for every row here -- SQL UNIQUE treats
+      // NULL as distinct from any other value (including another NULL), so
+      // multiple NULL-company_id rows sharing a name is not a conflict at this
+      // intermediate point, only once real company_id values are assigned.
+      db.exec(`
+        CREATE TABLE product_groups_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          company_id INTEGER REFERENCES companies(id),
+          name TEXT NOT NULL,
+          description TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(company_id, name)
+        );
+      `);
+      db.exec(`
+        INSERT INTO product_groups_new (id, company_id, name, description, created_at, updated_at)
+        SELECT id, NULL, name, description, created_at, updated_at FROM product_groups;
+      `);
+      db.exec('DROP TABLE product_groups;');
+      db.exec('ALTER TABLE product_groups_new RENAME TO product_groups;');
+
+      // Backfill: for each existing group, find which companies actually use
+      // it (via products.group_id). Zero companies -> orphaned, safe to
+      // delete (nothing references it). Exactly one -> assign it directly.
+      // More than one -> the row is shared; keep it for the lowest company_id
+      // and clone a new row + repoint products for every other company, so
+      // each company ends up with its own row under the new composite unique.
+      const groups = db.prepare('SELECT id, name, description, created_at, updated_at FROM product_groups').all();
+      for (const g of groups) {
+        const companyIds = db.prepare(
+          'SELECT DISTINCT company_id FROM products WHERE group_id = ? AND company_id IS NOT NULL'
+        ).all(g.id).map(r => r.company_id).sort((a, b) => a - b);
+
+        if (companyIds.length === 0) {
+          db.prepare('DELETE FROM product_groups WHERE id = ?').run(g.id);
+        } else if (companyIds.length === 1) {
+          db.prepare('UPDATE product_groups SET company_id = ? WHERE id = ?').run(companyIds[0], g.id);
+        } else {
+          const [keepCompany, ...restCompanies] = companyIds;
+          db.prepare('UPDATE product_groups SET company_id = ? WHERE id = ?').run(keepCompany, g.id);
+          for (const cid of restCompanies) {
+            const info = db.prepare(
+              'INSERT INTO product_groups (company_id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+            ).run(cid, g.name, g.description, g.created_at, g.updated_at);
+            db.prepare('UPDATE products SET group_id = ? WHERE group_id = ? AND company_id = ?')
+              .run(info.lastInsertRowid, g.id, cid);
+          }
+        }
+      }
+
+      markVersion(31, 'product_groups tenant scoping: company_id + UNIQUE(company_id, name)');
+      db.exec('COMMIT');
+
+      const fkViolations = db.prepare('PRAGMA foreign_key_check(products)').all();
+      if (fkViolations.length > 0) {
+        console.error('[DB] Migration 31 WARNING: foreign_key_check found violations after commit:', JSON.stringify(fkViolations));
+      }
+      console.log('[DB] Migration 31 complete.');
+    } catch (e) {
+      db.exec('ROLLBACK');
+      console.error('[DB] Migration 31 FAILED — rolled back:', e.message);
+    } finally {
+      db.exec('PRAGMA foreign_keys = ON;');
+    }
+  }
 }
 
 // Finds or creates the per-company "Owner" system role (all permissions granted) and
