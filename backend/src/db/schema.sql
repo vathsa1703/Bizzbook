@@ -134,10 +134,16 @@ CREATE TABLE IF NOT EXISTS customers (
 );
 
 -- Invoices
+-- invoice_number's uniqueness is scoped to company_id below, not a bare
+-- column-level UNIQUE (was global UNIQUE(invoice_number); fixed by migration
+-- 32 for existing databases -- see runMigrations() for why the rebuild there
+-- reads column definitions from the live table via PRAGMA rather than
+-- copying this file, since the two have already drifted apart via earlier
+-- addColumnIfNotExists calls).
 CREATE TABLE IF NOT EXISTS invoices (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   company_id INTEGER REFERENCES companies(id),
-  invoice_number TEXT UNIQUE NOT NULL,
+  invoice_number TEXT NOT NULL,
   customer_id INTEGER REFERENCES customers(id),
   subtotal REAL DEFAULT 0,
   taxable_value REAL DEFAULT 0,
@@ -150,7 +156,8 @@ CREATE TABLE IF NOT EXISTS invoices (
   status TEXT DEFAULT 'paid', -- 'paid' | 'pending' | 'overdue'
   payment_status TEXT DEFAULT 'PAID',
   pdf_path TEXT,
-  snapshot TEXT
+  snapshot TEXT,
+  UNIQUE(company_id, invoice_number)
 );
 
 -- Invoice Items
