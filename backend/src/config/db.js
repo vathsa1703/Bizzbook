@@ -1328,6 +1328,82 @@ function runMigrations(db) {
       db.exec('PRAGMA foreign_keys = ON;');
     }
   }
+
+  // Version 32: invoices.invoice_number was a bare database-wide UNIQUE
+  // (flagged as a known deferred issue -- see backend memory note
+  // "invoice_number schema fix deferred"), which blocks sale creation outright
+  // for the second company to invoice in any given month: sales.js generates
+  // the candidate number as MAX+1 scoped to its own company, so two companies'
+  // first invoice of the same month independently compute the identical
+  // candidate ("INV-202607-0001") and the DB-wide constraint rejects the
+  // second company's attempt. A same-company-race retry loop already exists in
+  // sales.js for the Postgres/SQLite write paths and stays in place -- it now
+  // guards a real race (two concurrent sales for the SAME company), not this
+  // cross-tenant collision, which the composite constraint below eliminates
+  // structurally instead of retrying around it.
+  //
+  // No data backfill/split needed here (unlike migration 31): the OLD
+  // database-wide UNIQUE already guaranteed no two rows share an
+  // invoice_number today, so every existing row already satisfies the new,
+  // narrower UNIQUE(company_id, invoice_number) as-is. Still a table rebuild
+  // since SQLite has no ALTER TABLE DROP CONSTRAINT.
+  if (!hasVersion(32)) {
+    console.log('[DB] Running Migration 32: invoices.invoice_number scoped to UNIQUE(company_id, invoice_number)');
+    db.exec('PRAGMA foreign_keys = OFF;');
+    db.exec('BEGIN TRANSACTION');
+    try {
+      // The live table has drifted from schema.sql's base definition via
+      // migrations' addColumnIfNotExists calls (confirmed: it actually
+      // carries invoice_type/ecommerce_gstin, which schema.sql doesn't even
+      // declare, plus grand_total is live-nullable with a default despite
+      // schema.sql declaring it NOT NULL with none) -- so every column's
+      // full definition here is read from the live table via PRAGMA
+      // table_info rather than hand-copied from schema.sql. A hardcoded
+      // list would silently drop whichever actual columns it missed, or
+      // reintroduce a NOT NULL the live data doesn't actually satisfy.
+      const liveInfo = db.prepare('PRAGMA table_info(invoices)').all();
+      const liveFks = db.prepare('PRAGMA foreign_key_list(invoices)').all();
+      const fkByColumn = Object.fromEntries(liveFks.map(fk => [fk.from, fk.table]));
+      const otherCols = liveInfo.filter(c => c.name !== 'id' && c.name !== 'invoice_number');
+      const colList = liveInfo.map(c => c.name).join(', ');
+      const colDefs = otherCols
+        .map(c => {
+          const ref = fkByColumn[c.name] ? ` REFERENCES ${fkByColumn[c.name]}(id)` : '';
+          return `${c.name} ${c.type}${c.notnull ? ' NOT NULL' : ''}${c.dflt_value !== null ? ` DEFAULT ${c.dflt_value}` : ''}${ref}`;
+        })
+        .join(',\n          ');
+
+      db.exec(`
+        CREATE TABLE invoices_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          invoice_number TEXT NOT NULL,
+          ${colDefs},
+          UNIQUE(company_id, invoice_number)
+        );
+      `);
+      db.exec(`INSERT INTO invoices_new (${colList}) SELECT ${colList} FROM invoices;`);
+      db.exec('DROP TABLE invoices;');
+      db.exec('ALTER TABLE invoices_new RENAME TO invoices;');
+      // Indexes lost in the rebuild (none existed inline in schema.sql beyond
+      // the dropped UNIQUE; sales.js's number-generation LIKE query benefits
+      // from one on (company_id, invoice_number) going forward).
+      db.exec('CREATE INDEX IF NOT EXISTS idx_invoices_company_number ON invoices(company_id, invoice_number);');
+
+      markVersion(32, 'invoices tenant scoping: UNIQUE(company_id, invoice_number) replacing bare UNIQUE(invoice_number)');
+      db.exec('COMMIT');
+
+      const fkViolations = db.prepare('PRAGMA foreign_key_check(invoices)').all();
+      if (fkViolations.length > 0) {
+        console.error('[DB] Migration 32 WARNING: foreign_key_check found violations after commit:', JSON.stringify(fkViolations));
+      }
+      console.log('[DB] Migration 32 complete.');
+    } catch (e) {
+      db.exec('ROLLBACK');
+      console.error('[DB] Migration 32 FAILED — rolled back:', e.message);
+    } finally {
+      db.exec('PRAGMA foreign_keys = ON;');
+    }
+  }
 }
 
 // Finds or creates the per-company "Owner" system role (all permissions granted) and

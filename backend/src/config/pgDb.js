@@ -285,6 +285,43 @@ const PG_MIGRATIONS = [
       }
     },
   },
+  {
+    version: 4,
+    description: 'invoices tenant scoping: UNIQUE(company_id, invoice_number) replacing bare UNIQUE(invoice_number) (mirrors SQLite migration 32)',
+    // JS-driven for the same reason as migration 3: look up the actual
+    // constraint names by column signature rather than hardcode them, so
+    // this is correct whether the database still has the old bare UNIQUE (an
+    // already-bootstrapped database) or never did (fresh bootstrap on the
+    // current schema.postgres.sql, which already declares the composite
+    // UNIQUE inline -- this migration is then a no-op, still recorded).
+    //
+    // No data backfill needed (unlike migration 3): the OLD database-wide
+    // UNIQUE already guaranteed no two rows share an invoice_number, so every
+    // existing row already satisfies the new, narrower
+    // UNIQUE(company_id, invoice_number) as-is.
+    async run(client) {
+      const oldUnique = await client.query(`
+        SELECT con.conname
+        FROM pg_constraint con JOIN pg_class rel ON rel.oid = con.conrelid
+        WHERE rel.relname = 'invoices' AND con.contype = 'u'
+          AND (SELECT array_agg(attname ORDER BY attname) FROM pg_attribute
+               WHERE attrelid = con.conrelid AND attnum = ANY(con.conkey)) = ARRAY['invoice_number']::name[]
+      `);
+      for (const row of oldUnique.rows) {
+        await client.query(`ALTER TABLE invoices DROP CONSTRAINT ${row.conname}`);
+      }
+
+      const compositeExists = await client.query(`
+        SELECT 1 FROM pg_constraint con JOIN pg_class rel ON rel.oid = con.conrelid
+        WHERE rel.relname = 'invoices' AND con.contype = 'u'
+          AND (SELECT array_agg(attname ORDER BY attname) FROM pg_attribute
+               WHERE attrelid = con.conrelid AND attnum = ANY(con.conkey)) = ARRAY['company_id','invoice_number']::name[]
+      `);
+      if (compositeExists.rowCount === 0) {
+        await client.query('ALTER TABLE invoices ADD CONSTRAINT invoices_company_id_invoice_number_key UNIQUE (company_id, invoice_number)');
+      }
+    },
+  },
 ];
 
 async function hasPgVersion(version) {

@@ -239,7 +239,7 @@ CREATE TABLE IF NOT EXISTS customers (
 CREATE TABLE IF NOT EXISTS invoices (
   id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   company_id INTEGER,
-  invoice_number TEXT UNIQUE NOT NULL, -- pre-existing issue, not fixed here: this should be UNIQUE(company_id, invoice_number), not global UNIQUE — see backend memory note "invoice_number schema fix deferred"; preserved as-is per Phase 1 scope (translate, don't redesign)
+  invoice_number TEXT NOT NULL, -- UNIQUE(company_id, invoice_number) as a table constraint below, not a bare column-level UNIQUE (was global UNIQUE(invoice_number); fixed by PG migration 4 / SQLite migration 32 -- see runPostgresMigrations() for how already-bootstrapped databases pick this up)
   customer_id INTEGER,
   subtotal DOUBLE PRECISION DEFAULT 0,
   taxable_value DOUBLE PRECISION DEFAULT 0,
@@ -257,7 +257,8 @@ CREATE TABLE IF NOT EXISTS invoices (
   place_of_supply TEXT,
   reverse_charge TEXT DEFAULT 'N', -- 'Y'/'N' text flag, NOT an integer 0/1 — left as TEXT, not converted to boolean (different affinity pattern than the INTEGER 0/1 columns; would need value-mapping, not a straight type swap)
   invoice_type TEXT DEFAULT 'Regular',
-  ecommerce_gstin TEXT
+  ecommerce_gstin TEXT,
+  UNIQUE(company_id, invoice_number)
 );
 
 CREATE TABLE IF NOT EXISTS invoice_items (

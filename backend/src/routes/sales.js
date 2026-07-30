@@ -262,13 +262,16 @@ router.post('/', async (req, res, next) => {
 
     if (engine() === 'postgres') {
       const result = await withTransaction(async (tx) => {
-        // invoices.invoice_number carries a DATABASE-WIDE unique constraint (not
-        // scoped to company_id), but the number above was generated per-company
-        // (MAX+1 within this company's own invoices) — so two different companies'
-        // first invoice of a given month can independently compute the same
-        // candidate and collide here. Retry with the next sequence number rather
-        // than failing the sale; nothing else has been written yet in this
-        // transaction, so it's safe to just bump the candidate and re-attempt.
+        // invoices.invoice_number is now UNIQUE(company_id, invoice_number)
+        // (migration 32 / PG migration 4 -- it used to be a bare database-wide
+        // UNIQUE, which meant two different companies' first invoice of a
+        // month could independently compute the same MAX+1 candidate and
+        // collide here; that class of collision can no longer happen). This
+        // retry loop stays: it still guards a real same-company race -- two
+        // concurrent sales for the SAME company computing the same MAX+1
+        // before either has committed. Nothing else has been written yet in
+        // this transaction, so it's safe to just bump the candidate and
+        // re-attempt.
         let invoiceRow;
         let invoiceInsertAttempts = 0;
         const invoiceNumberPrefix = finalInvoiceNumber.slice(0, -4);
