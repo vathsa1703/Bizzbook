@@ -1,5 +1,38 @@
 const { withExecutor, dateSub } = require('../config/dbEngine');
 
+// Inventory collapsed to exactly one row per product, for the three
+// stock-vs-sales queries below (slow-moving, dead stock, overstock).
+//
+// Those queries need a per-product stock level alongside an aggregate over a
+// LEFT JOIN to sales. Selecting a bare `i.stock_quantity` under `GROUP BY p.id`
+// is rejected outright by Postgres ("must appear in the GROUP BY clause or be
+// used in an aggregate function") — SQLite silently picks an arbitrary row
+// instead, which is why this only surfaced when DB_ENGINE=postgres was first
+// exercised. Two seemingly-obvious fixes are both wrong here:
+//
+//   - SUM(i.stock_quantity) — the LEFT JOIN to sales fans the inventory row out
+//     once per matching sale, so the sum multiplies stock by the sale count.
+//   - adding i.stock_quantity to GROUP BY — legal, but leaves a product stocked
+//     in N branches as N separate result rows, each double-counting the whole
+//     product's sales.
+//
+// Pre-aggregating inventory before the join avoids both: one row per product
+// going in means nothing fans out, and SUM() across a product's branch/
+// warehouse rows is the company-wide stock level these metrics are asking
+// about. `inventory` has no unique constraint on product_id and migration 17
+// added branch_id/warehouse_id precisely so a product can be stocked in
+// several places, so multi-row-per-product is the schema's intent, not an
+// anomaly — even though current data happens to be 1:1 (47 rows / 47 products,
+// all branch_id NULL), which is why the arbitrary-row pick has looked correct.
+// Tenancy is unaffected: a product belongs to exactly one company, and the
+// p.company_id predicate stays on the outer query, so summing by product_id
+// cannot cross tenants.
+const INVENTORY_BY_PRODUCT = `(
+      SELECT product_id, SUM(stock_quantity) AS stock_quantity
+      FROM inventory
+      GROUP BY product_id
+    )`;
+
 // Uses the most recent sales transaction date to anchor relative dates like "-30 days".
 // This ensures that demo/seeded data remains usable regardless of the current physical date.
 async function getAnchorDate(x, companyId) {
@@ -22,11 +55,11 @@ async function getTopProducts(x, anchorDate, companyId, limit = 10) {
 async function getSlowMovingProducts(x, anchorDate, companyId) {
   return x.all(`
     SELECT p.id, p.name, i.stock_quantity, COALESCE(SUM(s.quantity), 0) AS units_sold_last_30d
-    FROM inventory i
+    FROM ${INVENTORY_BY_PRODUCT} i
     JOIN products p ON p.id = i.product_id
     LEFT JOIN sales s ON s.product_id = p.id AND s.sale_date >= ${dateSub(x, 30)} AND s.company_id = ?
     WHERE p.company_id = ?
-    GROUP BY p.id
+    GROUP BY p.id, i.stock_quantity
     HAVING COALESCE(SUM(s.quantity), 0) = 0 AND i.stock_quantity > 0
   `, [anchorDate, companyId, companyId]);
 }
@@ -34,11 +67,11 @@ async function getSlowMovingProducts(x, anchorDate, companyId) {
 async function getDeadStock(x, anchorDate, companyId) {
   return x.all(`
     SELECT p.id, p.name, i.stock_quantity, p.cost_price, (i.stock_quantity * p.cost_price) AS dead_stock_value
-    FROM inventory i
+    FROM ${INVENTORY_BY_PRODUCT} i
     JOIN products p ON p.id = i.product_id
     LEFT JOIN sales s ON s.product_id = p.id AND s.sale_date >= ${dateSub(x, 60)} AND s.company_id = ?
     WHERE p.company_id = ?
-    GROUP BY p.id
+    GROUP BY p.id, i.stock_quantity
     HAVING COALESCE(SUM(s.quantity), 0) = 0 AND i.stock_quantity > 0
   `, [anchorDate, companyId, companyId]);
 }
@@ -125,11 +158,11 @@ async function getReorderAlerts(x, companyId) {
 async function getOverstock(x, anchorDate, companyId) {
   return x.all(`
     SELECT p.id, p.name, i.stock_quantity, COALESCE(SUM(s.quantity)/3.0, 0) as avg_monthly_sales
-    FROM inventory i
+    FROM ${INVENTORY_BY_PRODUCT} i
     JOIN products p ON p.id = i.product_id
     LEFT JOIN sales s ON s.product_id = p.id AND s.sale_date >= ${dateSub(x, 90)} AND s.company_id = ?
     WHERE p.company_id = ?
-    GROUP BY p.id
+    GROUP BY p.id, i.stock_quantity
     HAVING i.stock_quantity > 0 AND (COALESCE(SUM(s.quantity)/3.0, 0) = 0 OR i.stock_quantity > (COALESCE(SUM(s.quantity)/3.0, 0) * 3))
   `, [anchorDate, companyId, companyId]);
 }
