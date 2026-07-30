@@ -40,13 +40,23 @@ async function calculateCampaignROI(campaignId, companyId) {
     // We bind the launched_at and optionally completed_at (or just current time)
     const endDate = campaign.completed_at || new Date().toISOString();
 
+    // company_id is scoped here explicitly rather than relying solely on
+    // targetIds already belonging to this company: targetIds comes from
+    // marketing_campaign_targets with no re-validation against the customer's
+    // own company_id, so a bad target row (bug elsewhere, manual DB edit) would
+    // otherwise pull that customer's revenue into this company's ROI with
+    // nothing here to catch it. customer_id is a global autoincrement PK, so
+    // there's no id-collision risk today, but the query still has no reason to
+    // trust the target list's scoping on its own — sales is the one place this
+    // ROI figure is actually computed from, and it must enforce tenancy itself.
     const sales = await x.all(`
       SELECT customer_id, SUM(revenue) as rev
       FROM sales
       WHERE customer_id IN (${placeholders})
+        AND company_id = ?
         AND sale_date >= ? AND sale_date <= ?
       GROUP BY customer_id
-    `, [...targetIds, campaign.launched_at, endDate]);
+    `, [...targetIds, companyId, campaign.launched_at, endDate]);
 
     const customers_converted = sales.length;
     const actual_revenue = sales.reduce((sum, row) => sum + row.rev, 0);
