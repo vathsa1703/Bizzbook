@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { HeroScene, AccentScene, shouldRenderScene } from '../components/landing/UnicornScenes';
 
 // Marketing landing page shown to unauthenticated visitors before
 // BusinessSelection/Login/Register. Pure presentational component — all
@@ -21,8 +22,8 @@ const FEATURES = [
         <path d="M9 2h6l1 4H8l1-4zM4 6h16l-1.5 14a2 2 0 01-2 2h-9a2 2 0 01-2-2L4 6z" />
       </svg>
     ),
-    title: 'Sales & GST Invoicing',
-    desc: 'Create GST-correct invoices in seconds — CGST, SGST, and IGST calculated automatically for every state.',
+    title: 'GST Invoicing',
+    desc: "CGST and SGST inside your state, IGST outside it — worked out from the HSN code and the buyer's state code. GSTR-1 exports as JSON, Excel or CSV when filing is due.",
     bars: [0.4, 0.55, 0.35, 0.7, 0.5, 0.9],
   },
   {
@@ -32,8 +33,8 @@ const FEATURES = [
         <path d="M3.27 6.96L12 12l8.73-5.04M12 22.08V12" />
       </svg>
     ),
-    title: 'Inventory Management',
-    desc: 'Real-time stock levels, reorder alerts before you run out, dead-stock flags before it costs you.',
+    title: 'Stock',
+    desc: 'Stock drops the moment you bill. Reorder alerts fire before a fast mover runs out, and anything that has not sold in 60 days gets flagged as dead stock.',
     bars: [0.8, 0.6, 0.7, 0.3, 0.2, 0.15],
   },
   {
@@ -44,8 +45,8 @@ const FEATURES = [
         <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
       </svg>
     ),
-    title: 'HR & Payroll',
-    desc: 'Attendance, leave, payroll runs, and employee records — without a spreadsheet in sight.',
+    title: 'Staff & Payroll',
+    desc: 'Attendance, leave, salary runs and employee records. Payroll goes out on the 1st without anyone rebuilding a spreadsheet.',
     bars: [0.5, 0.5, 0.6, 0.55, 0.65, 0.6],
   },
   {
@@ -56,7 +57,7 @@ const FEATURES = [
       </svg>
     ),
     title: 'AI Business Advisor',
-    desc: 'Ask it anything about your business. It answers from your real numbers — never a guess.',
+    desc: 'Ask in plain words. The answer is assembled from a query on your own sales, stock and payments — the model writes the sentence, not the number.',
     bars: [0.3, 0.45, 0.4, 0.7, 0.85, 0.95],
   },
   {
@@ -66,19 +67,20 @@ const FEATURES = [
         <path d="M18.7 8l-5.1 5.1-2.4-2.4L7 15" />
       </svg>
     ),
-    title: 'Marketing Intelligence',
-    desc: 'Finds revenue sitting in your own data — overdue payments, quiet customers, slow-moving stock.',
+    title: 'Marketing Opportunities',
+    desc: 'Scans for money already sitting in your data: overdue balances, customers who stopped coming, stock that will not move. Each one costed before you act on it.',
     bars: [0.6, 0.4, 0.75, 0.5, 0.8, 0.65],
   },
   {
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path d="M9 11l3 3L22 4" />
-        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+        <rect x="2" y="6" width="20" height="13" rx="2" />
+        <path d="M2 10h20" />
+        <path d="M6 15h4" />
       </svg>
     ),
-    title: 'Compliance Tracking',
-    desc: "Every GST filing, license renewal, and deadline — tracked automatically, flagged before it's late.",
+    title: 'Udhaar & Payments',
+    desc: "Every customer's khata in one list — what is outstanding, how long it has been outstanding, and a reminder you can send from the same screen.",
     bars: [0.9, 0.85, 0.8, 0.75, 0.7, 0.7],
   },
 ];
@@ -114,13 +116,14 @@ const LANDING_CSS = `
   --radius-sm: 6px;
   --radius-md: 14px;
   --radius-lg: 22px;
-  --mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  --sans: "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   color-scheme: light;
   display: block;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--sans);
+  font-family: var(--body);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
   position: relative;
@@ -144,6 +147,38 @@ const LANDING_CSS = `
 .bizbook-landing * { box-sizing: border-box; }
 .bizbook-landing { scroll-behavior: smooth; }
 .bizbook-landing h1, .bizbook-landing h2, .bizbook-landing h3, .bizbook-landing p { margin: 0; text-wrap: balance; }
+/* Geist carries the display voice; Inter stays on body copy so long
+   paragraphs keep the reading rhythm the rest of the app already has. */
+.bizbook-landing h1, .bizbook-landing h2, .bizbook-landing h3,
+.bizbook-landing .btn, .bizbook-landing .metric-value, .bizbook-landing .stat .v {
+  font-family: var(--sans);
+  font-feature-settings: "ss01" 1, "cv01" 1;
+}
+
+/* ── WebGL background layers ──────────────────────────────────────────
+   Always sits UNDER a static gradient painted by the section itself, so a
+   device with no WebGL / a blocked CDN / reduced-motion loses the motion
+   but never the composition. */
+.bizbook-landing .us-layer { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.bizbook-landing .us-canvas { position: absolute; inset: 0; transition: opacity 1.1s ease; }
+.bizbook-landing .us-canvas canvas { display: block; }
+.bizbook-landing .us-hero { mask-image: linear-gradient(to bottom, #000 55%, transparent 96%); -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 96%); }
+.bizbook-landing .us-accent { mask-image: radial-gradient(90% 70% at 50% 40%, #000 30%, transparent 78%); -webkit-mask-image: radial-gradient(90% 70% at 50% 40%, #000 30%, transparent 78%); }
+
+/* The never-blank floor. Painted whether or not WebGL ever comes up. */
+.bizbook-landing .bg-fallback {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(680px 420px at 22% 18%, color-mix(in srgb, var(--accent-1) 20%, transparent), transparent 68%),
+    radial-gradient(620px 400px at 80% 12%, color-mix(in srgb, var(--accent-2) 18%, transparent), transparent 66%),
+    radial-gradient(700px 460px at 50% 78%, color-mix(in srgb, var(--accent-1) 12%, transparent), transparent 70%);
+}
+.dark .bizbook-landing .bg-fallback {
+  background:
+    radial-gradient(680px 420px at 22% 18%, color-mix(in srgb, var(--accent-1) 34%, transparent), transparent 68%),
+    radial-gradient(620px 400px at 80% 12%, color-mix(in srgb, var(--accent-2) 30%, transparent), transparent 66%),
+    radial-gradient(700px 460px at 50% 78%, color-mix(in srgb, var(--accent-1) 20%, transparent), transparent 70%);
+}
 .bizbook-landing a { color: inherit; }
 .bizbook-landing button { font-family: inherit; cursor: pointer; }
 .bizbook-landing ::selection { background: var(--accent-1); color: #fff; }
@@ -239,8 +274,11 @@ const LANDING_CSS = `
 }
 .bizbook-landing .eyebrow .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-warm); box-shadow: 0 0 8px var(--accent-warm); animation: bbPulse 2s ease-in-out infinite; }
 
-.bizbook-landing h1.headline { font-size: clamp(38px, 6vw, 68px); font-weight: 700; letter-spacing: -.03em; line-height: 1.06; margin: 26px auto 0; max-width: 900px; opacity: 0; transform: translateY(18px); }
-.bizbook-landing .sub { font-size: clamp(16px, 2vw, 19px); color: var(--text-dim); max-width: 600px; margin: 22px auto 0; line-height: 1.55; opacity: 0; transform: translateY(16px); }
+/* Type scale is deliberately uneven down the page: the hero shouts (76px,
+   very tight), features speak (40px), the AI section leans in (52px, tightest
+   leading), the closer settles (44px). */
+.bizbook-landing h1.headline { font-size: clamp(37px, 6.6vw, 76px); font-weight: 700; letter-spacing: -.038em; line-height: 1.01; margin: 28px auto 0; max-width: 15ch; opacity: 0; transform: translateY(18px); }
+.bizbook-landing .sub { font-size: clamp(15.5px, 1.9vw, 18.5px); color: var(--text-dim); max-width: 58ch; margin: 24px auto 0; line-height: 1.6; opacity: 0; transform: translateY(16px); }
 .bizbook-landing .hero-ctas { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 34px; opacity: 0; transform: translateY(16px); }
 
 .bizbook-landing .fade-in-up { animation: bbFadeInUp .8s cubic-bezier(.2,.7,.3,1) forwards; }
@@ -301,12 +339,20 @@ const LANDING_CSS = `
 .bizbook-landing .reveal { opacity: 0; transform: translateY(20px); transition: opacity .7s cubic-bezier(.2,.7,.3,1), transform .7s cubic-bezier(.2,.7,.3,1); }
 .bizbook-landing .reveal.in { opacity: 1; transform: translateY(0); }
 
-/* Section shell */
-.bizbook-landing section.block { padding: 108px 0; }
+/* Section shell. Rhythm is intentionally not uniform — the AI section gets
+   more air than the feature grid, the stats strip gets much less. */
+.bizbook-landing section.block { padding: 104px 0; }
+.bizbook-landing .spotlight .block { padding: 128px 0; }
+.bizbook-landing section.block.tight { padding: 68px 0; }
+.bizbook-landing section.block.closer { padding: 92px 0 112px; }
 .bizbook-landing .head { max-width: 620px; margin-bottom: 56px; }
 .bizbook-landing .kicker { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-2); margin-bottom: 14px; }
-.bizbook-landing .head h2 { font-size: clamp(28px, 4vw, 42px); font-weight: 700; letter-spacing: -.02em; line-height: 1.14; }
-.bizbook-landing .head p { color: var(--text-dim); font-size: 16px; margin-top: 14px; line-height: 1.6; max-width: 520px; }
+.bizbook-landing .head h2 { font-size: clamp(27px, 3.8vw, 40px); font-weight: 700; letter-spacing: -.025em; line-height: 1.12; }
+.bizbook-landing .head p { color: var(--text-dim); font-size: 15.5px; margin-top: 16px; line-height: 1.65; max-width: 48ch; }
+/* AI section: biggest non-hero type, tightest leading, widest kicker tracking. */
+.bizbook-landing .spotlight .head h2 { font-size: clamp(30px, 4.6vw, 52px); letter-spacing: -.032em; line-height: 1.03; }
+.bizbook-landing .spotlight .kicker { letter-spacing: .16em; font-size: 11px; }
+.bizbook-landing .spotlight .head p { font-size: 16.5px; max-width: 42ch; margin-top: 20px; }
 
 /* Feature grid */
 .bizbook-landing .grid6 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
@@ -350,12 +396,18 @@ const LANDING_CSS = `
 @keyframes bbBar { to { transform: scaleY(var(--h)); opacity: .9; } }
 
 /* AI spotlight */
-.bizbook-landing .spotlight { background: var(--surface-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.bizbook-landing .spotlight { background: var(--surface-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); position: relative; overflow: hidden; isolation: isolate; }
+.bizbook-landing .spotlight .wrap { position: relative; z-index: 2; }
 .bizbook-landing .spot-grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: 56px; align-items: center; }
 @media (max-width: 860px) { .bizbook-landing .spot-grid { grid-template-columns: 1fr; gap: 40px; } }
 
 .bizbook-landing .chatcard {
-  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  /* Slightly translucent so the Droplets scene reads behind the card, but
+     opaque enough that the chat text never drops below AA contrast. */
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
   box-shadow: var(--shadow); overflow: hidden;
 }
 .bizbook-landing .chatcard .app-titlebar { border-radius: 0; }
@@ -431,6 +483,12 @@ const LANDING_CSS = `
 `;
 
 export default function LandingPage({ onGetStarted }) {
+  // Decided once, on the client, before first paint of the hero: does this
+  // device get WebGL scenes at all? (WebGL support, reduced-motion, saveData,
+  // 2g, <=2GB RAM, <=2 cores — see components/landing/UnicornScenes.jsx.)
+  // When false we fall back to the original 2D canvas gradient mesh, which
+  // costs a fraction of a full-screen fragment shader.
+  const [sceneOn] = useState(() => shouldRenderScene());
   const containerRef = useRef(null);
   const navRef = useRef(null);
   const scrollbarRef = useRef(null);
@@ -784,6 +842,11 @@ export default function LandingPage({ onGetStarted }) {
     let onMeshResize;
     if (canvas && hero) {
       const ctx = canvas.getContext('2d');
+      // Belt-and-braces: if the browser can't hand back a 2D context for any
+      // reason, skip the animated mesh entirely rather than let a null
+      // dereference bubble up and trip the app-wide error boundary — the
+      // static `.bg-fallback` gradient underneath is still there either way.
+      if (!ctx) return undefined;
       const blobs = [
         { x: 0.25, y: 0.3, r: 0.5, c: '99,79,239', p: 0 },
         { x: 0.75, y: 0.25, r: 0.45, c: '168,85,247', p: 2 },
@@ -942,7 +1005,10 @@ export default function LandingPage({ onGetStarted }) {
       </nav>
 
       <section className="hero" ref={heroRef}>
-        <canvas id="mesh" ref={meshCanvasRef} />
+        {/* z-0 static gradient, then WebGL over it, then hero-inner at z-2.
+            Losing the scene costs motion, never layout. */}
+        <div className="bg-fallback" />
+        {sceneOn ? <HeroScene /> : <canvas id="mesh" ref={meshCanvasRef} />}
         <div className="wrap hero-inner">
           <div className="eyebrow" ref={eyebrowRef}><span className="pulse" />Built for Indian MSMEs · GST-ready</div>
           <h1 className="headline" ref={headlineRef}>
@@ -1053,6 +1119,8 @@ export default function LandingPage({ onGetStarted }) {
       </section>
 
       <section className="spotlight" id="ai" ref={chatSectionRef}>
+        <div className="bg-fallback" />
+        {sceneOn && <AccentScene />}
         <div className="wrap block">
           <div className="spot-grid">
             <div className="head reveal" style={{ marginBottom: 0 }}>
@@ -1107,7 +1175,7 @@ export default function LandingPage({ onGetStarted }) {
         </div>
       </section>
 
-      <section className="block">
+      <section className="block tight">
         <div className="wrap">
           <div className="stats reveal">
             <div className="stat"><div className="v" data-count="24000000" data-prefix="₹" data-suffix="+" data-compact="cr">₹0</div><div className="l">GST-compliant invoices filed</div><div className="detail">Across GSTR-1 exports, every month</div></div>
@@ -1118,7 +1186,7 @@ export default function LandingPage({ onGetStarted }) {
         </div>
       </section>
 
-      <section className="block" id="pricing">
+      <section className="block closer" id="pricing">
         <div className="wrap">
           <div className="cta-card reveal">
             <h2>Start running your business<br />on one system.</h2>
