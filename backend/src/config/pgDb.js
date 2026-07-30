@@ -489,6 +489,75 @@ const PG_MIGRATIONS = [
       console.log(`[PG] Migration 5: seeded ${complianceRulesCreated}/${COMPLIANCE_RULES.length} compliance rules, ${COMPLIANCE_CATEGORIES.length} categories, ${TRADE_GUIDELINES.length} trade guidelines, ${TRADE_AUTHORITIES.length} authorities, ${TRADE_COUNTRIES.length} countries, 9 UQC codes.`);
     },
   },
+  {
+    version: 6,
+    description: 'RBAC reference-data seeding: permission_groups + permissions (mirrors SQLite migration 16)',
+    // Found during Checkpoint 1 (Phase 4) real-data migration prep, not
+    // during the earlier Checkpoint 0 audit -- the shared dev Postgres
+    // container had these two tables populated from an old manual scratch
+    // script (see commit b832db3), which masked the fact that there was no
+    // actual migration seeding them. Recreating the dev database from scratch
+    // for Checkpoint 1 exposed it: both tables read 0 with nothing else
+    // touching them.
+    //
+    // This is a real Postgres-path correctness bug independent of any data
+    // migration: ensureOwnerRoleAsync (config/dbEngine.js-driven, called from
+    // routes/auth.js signup) assigns a brand-new company's Owner role EVERY
+    // row currently in `permissions` -- with an empty table, every fresh
+    // company signup on Postgres silently gets an Owner with zero
+    // permissions. Same data complianceSeed.js/tradeSeed.js pattern doesn't
+    // apply here (this data was only ever inline in config/db.js's migration
+    // 16, never exported), so it's reproduced directly rather than imported.
+    async run(client) {
+      const GROUPS = [
+        'Employees', 'Attendance', 'Leaves', 'Payroll', 'Reports', 'Settings',
+        'Notifications', 'Audit Logs', 'Branches', 'Departments', 'Sales',
+        'Inventory', 'Products', 'Customers', 'Suppliers', 'GST', 'Marketing', 'AI',
+      ];
+      const PERMISSIONS = [
+        { group: 'Employees', actions: ['employees.view', 'employees.create', 'employees.edit', 'employees.delete'] },
+        { group: 'Attendance', actions: ['attendance.view', 'attendance.manage'] },
+        { group: 'Leaves', actions: ['leaves.view', 'leaves.manage'] },
+        { group: 'Payroll', actions: ['payroll.view', 'payroll.run'] },
+        { group: 'Branches', actions: ['branches.view', 'branches.manage'] },
+        { group: 'Departments', actions: ['departments.view', 'departments.manage'] },
+        { group: 'Settings', actions: ['settings.view', 'settings.manage'] },
+        { group: 'Audit Logs', actions: ['audit_logs.view'] },
+        { group: 'Sales', actions: ['sales.view', 'sales.create', 'sales.edit', 'sales.delete'] },
+        { group: 'Inventory', actions: ['inventory.view', 'inventory.manage'] },
+        { group: 'Products', actions: ['products.view', 'products.manage'] },
+        { group: 'Customers', actions: ['customers.view', 'customers.manage'] },
+        { group: 'Suppliers', actions: ['suppliers.view', 'suppliers.manage'] },
+      ];
+
+      const groupIdByName = {};
+      for (const name of GROUPS) {
+        const existing = await client.query('SELECT id FROM permission_groups WHERE name = $1', [name]);
+        if (existing.rowCount > 0) {
+          groupIdByName[name] = existing.rows[0].id;
+        } else {
+          const inserted = await client.query('INSERT INTO permission_groups (name) VALUES ($1) RETURNING id', [name]);
+          groupIdByName[name] = inserted.rows[0].id;
+        }
+      }
+
+      let permissionsCreated = 0;
+      for (const block of PERMISSIONS) {
+        const groupId = groupIdByName[block.group];
+        for (const action of block.actions) {
+          const existing = await client.query('SELECT id FROM permissions WHERE action = $1', [action]);
+          if (existing.rowCount > 0) continue;
+          await client.query(
+            'INSERT INTO permissions (group_id, action, description, is_system) VALUES ($1,$2,$3,true)',
+            [groupId, action, `Allows ${action.replace('.', ' ')}`]
+          );
+          permissionsCreated++;
+        }
+      }
+
+      console.log(`[PG] Migration 6: seeded ${GROUPS.length} permission groups, ${permissionsCreated} permissions.`);
+    },
+  },
 ];
 
 async function hasPgVersion(version) {
