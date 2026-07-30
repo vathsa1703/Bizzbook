@@ -52,7 +52,15 @@ async function runLicenseExpiryCheck() {
         ON CONFLICT(company_id, license_id) DO UPDATE SET
           days_until_expiry = excluded.days_until_expiry,
           expiry_date       = excluded.expiry_date,
-          is_dismissed      = CASE WHEN excluded.days_until_expiry <= 0 THEN ${dismissedCaseElse} ELSE is_dismissed END
+          -- The ELSE branch must be table-qualified: inside ON CONFLICT DO
+          -- UPDATE SET, both the existing row and the proposed 'excluded' row
+          -- are in scope, so a bare is_dismissed is an ambiguous reference
+          -- under Postgres and the whole upsert errors out. Qualifying with
+          -- the table name pins it to the EXISTING row, which is the intent:
+          -- a still-valid license keeps whatever dismissal state the user
+          -- already chose, and only an expired one (days <= 0) resets it so
+          -- the banner comes back. SQLite accepts the qualified form too.
+          is_dismissed      = CASE WHEN excluded.days_until_expiry <= 0 THEN ${dismissedCaseElse} ELSE license_expiry_alerts.is_dismissed END
       `, [lic.company_id, lic.license_id, lic.license_type, lic.license_number, lic.expiry_date, lic.days_until_expiry, notDismissedVal]);
       upserted++;
     }
