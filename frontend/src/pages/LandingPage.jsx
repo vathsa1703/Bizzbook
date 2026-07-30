@@ -842,6 +842,11 @@ export default function LandingPage({ onGetStarted }) {
     let onMeshResize;
     if (canvas && hero) {
       const ctx = canvas.getContext('2d');
+      // Belt-and-braces: if the browser can't hand back a 2D context for any
+      // reason, skip the animated mesh entirely rather than let a null
+      // dereference bubble up and trip the app-wide error boundary — the
+      // static `.bg-fallback` gradient underneath is still there either way.
+      if (!ctx) return undefined;
       const blobs = [
         { x: 0.25, y: 0.3, r: 0.5, c: '99,79,239', p: 0 },
         { x: 0.75, y: 0.25, r: 0.45, c: '168,85,247', p: 2 },
