@@ -1,4 +1,4 @@
-const { withExecutor, dateSub } = require('../config/dbEngine');
+const { withExecutor, dateSub, INVENTORY_BY_PRODUCT } = require('../config/dbEngine');
 const { getAnchorDate } = require('./metricsService');
 
 let cachedOpportunities = null;
@@ -162,11 +162,11 @@ async function getDeadStockOpportunities(x, anchorDate, companyId) {
       p.cost_price,
       p.selling_price,
       (i.stock_quantity * p.cost_price) AS locked_capital
-    FROM inventory i
+    FROM ${INVENTORY_BY_PRODUCT} i
     JOIN products p ON p.id = i.product_id
     LEFT JOIN sales s ON s.product_id = p.id AND s.sale_date >= ${dateSub(x, 60)}
     WHERE p.company_id = ?
-    GROUP BY p.id
+    GROUP BY p.id, i.stock_quantity
     HAVING COALESCE(SUM(s.quantity), 0) = 0 AND i.stock_quantity > 0 AND (i.stock_quantity * p.cost_price) > 2000
     ORDER BY locked_capital DESC
   `, [anchorDate, companyId]);

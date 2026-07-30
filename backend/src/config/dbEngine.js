@@ -144,4 +144,46 @@ function dateSub(x, days) {
   return x.engine === 'postgres' ? `(?::date - interval '${days} days')` : `date(?, '-${days} days')`;
 }
 
-module.exports = { dbGet, dbAll, engine, isOn, sqliteExecutor, pgExecutor, withExecutor, withTxExecutor, dateSub };
+// Inventory collapsed to exactly one row per product, for use as a FROM-clause
+// subquery in the stock-vs-sales queries (slow-moving / dead stock / overstock
+// in metricsService.js, dead-stock opportunities in marketingEngine.js,
+// overstock in dataService.js).
+//
+// Those queries need a per-product stock level alongside an aggregate over a
+// LEFT JOIN to sales. Selecting a bare `i.stock_quantity` under `GROUP BY p.id`
+// is rejected outright by Postgres ("must appear in the GROUP BY clause or be
+// used in an aggregate function") — SQLite silently picks an arbitrary row
+// instead, which is why this only surfaced when DB_ENGINE=postgres was first
+// exercised. Two seemingly-obvious fixes are both wrong here:
+//
+//   - SUM(i.stock_quantity) — the LEFT JOIN to sales fans the inventory row out
+//     once per matching sale, so the sum multiplies stock by the sale count.
+//   - adding i.stock_quantity to GROUP BY on its own — legal, but leaves a
+//     product stocked in N branches as N separate result rows, each
+//     double-counting that product's sales.
+//
+// Pre-aggregating inventory before the join avoids both: one row per product
+// going in means nothing fans out, and SUM() across a product's branch/
+// warehouse rows is the company-wide stock level these metrics are asking
+// about. `inventory` has no unique constraint on product_id and migration 17
+// added branch_id/warehouse_id precisely so a product can be stocked in several
+// places, so multi-row-per-product is the schema's intent, not an anomaly —
+// even though current data happens to be 1:1 (47 rows / 47 products, all
+// branch_id NULL), which is why the arbitrary-row pick has looked correct.
+//
+// Tenancy is unaffected and deliberately NOT filtered here: a product belongs
+// to exactly one company, and every caller keeps its own p.company_id predicate
+// on the outer query, so summing by product_id cannot cross tenants. Adding a
+// company_id filter inside this subquery would instead risk dropping rows where
+// inventory.company_id is NULL (it is nullable, and older rows predate it).
+//
+// Callers must use `GROUP BY p.id, i.stock_quantity` — grouping by the
+// pre-aggregated value is what makes it a legal non-aggregated selection.
+// Engine-agnostic: identical text is valid on both SQLite and Postgres.
+const INVENTORY_BY_PRODUCT = `(
+      SELECT product_id, SUM(stock_quantity) AS stock_quantity
+      FROM inventory
+      GROUP BY product_id
+    )`;
+
+module.exports = { dbGet, dbAll, engine, isOn, sqliteExecutor, pgExecutor, withExecutor, withTxExecutor, dateSub, INVENTORY_BY_PRODUCT };

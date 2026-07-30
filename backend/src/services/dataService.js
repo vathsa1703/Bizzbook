@@ -163,7 +163,25 @@ async function getSlowMovingInventory({ days = 30, companyId, scopeContext } = {
     WHERE p.company_id = ?
   `, [cutoffStr, companyId, companyId], scopeContext, 'i.branch_id');
 
-  q.sql += ` GROUP BY p.id HAVING units_sold_recently < 5 AND i.stock_quantity > 20 ORDER BY i.stock_quantity DESC`;
+  // Two Postgres-only rejections fixed here, both of which SQLite tolerates:
+  //   1. i.stock_quantity was selected/filtered/ordered while GROUP BY listed
+  //      only p.id — Postgres requires it to be grouped or aggregated. It is
+  //      added to GROUP BY rather than pre-aggregated the way metricsService.js
+  //      and marketingEngine.js do it (INVENTORY_BY_PRODUCT), because this
+  //      query is branch-scoped: withBranchScope appends a predicate on
+  //      i.branch_id, and a subquery that pre-aggregates away branch_id would
+  //      break that filter.
+  //   2. HAVING referenced the output alias `units_sold_recently`. Postgres
+  //      allows output aliases in GROUP BY and ORDER BY but never in HAVING
+  //      ("column units_sold_recently does not exist"), so the aggregate is
+  //      spelled out instead.
+  // NOTE: this leaves the pre-existing multi-branch counting question untouched
+  // (a product stocked in N branches yields N groups, each seeing that
+  // product's full sales total, because the sales join is on product_id only
+  // and is not branch-filtered). That is unchanged from the previous behavior
+  // and needs a product decision about whether sales should be branch-scoped
+  // too — deliberately not resolved as a drive-by here.
+  q.sql += ` GROUP BY p.id, i.stock_quantity HAVING COALESCE(SUM(s.quantity), 0) < 5 AND i.stock_quantity > 20 ORDER BY i.stock_quantity DESC`;
 
   return dbAll(q.sql, q.params);
 }
