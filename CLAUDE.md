@@ -438,3 +438,12 @@ in `localStorage` — be aware of this when a page "shows data" against a fresh/
   rename the SQL alias to `group_name` and add a units-sold `SUM(s.quantity)` join in `getTopGroups`, or
   change both consumers to read `name`/drop the units-sold display — not fixed yet, pick an approach
   before touching it.
+- **`ai_insights_cache` has no `company_id` column, despite being per-tenant cache data.** It only carries
+  `user_id INTEGER REFERENCES users(id)` (see `schema.sql`/`schema.postgres.sql`) — same class of gap as
+  `product_groups` (migration 31) and the `invoices` global-unique constraint (migration 32), all tables
+  that predate proper multi-tenant scoping and were never retrofitted. Only surfaced by accident: cleaning
+  up a disposable test signup on the live Postgres database during the Phase 4 migration needed a
+  company-scoped delete across every table referencing that company/user, and this table couldn't be
+  targeted by `company_id` at all — had to delete by `user_id` instead, and only after the FK violation on
+  `users` pointed at it, since it isn't in the generic "find every table with a `company_id` column" sweep.
+  Not fixed — flagged for whoever does the next tenant-scoping pass alongside `product_groups`/`invoices`.
