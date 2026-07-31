@@ -22,9 +22,8 @@ const {
 } = require('../data/growthSeedData');
 
 // ── Shared DB helper: each function runs via withExecutor (plain connection)
-// or withTxExecutor (atomic transaction), on whichever engine DB_ENGINE
-// selects. See config/dbEngine.js for the executor shape ({engine, get, all,
-// run, insert}).
+// or withTxExecutor (atomic transaction) against Postgres. See
+// config/dbEngine.js for the executor shape ({engine, get, all, run, insert}).
 
 // INSERT OR IGNORE has no direct Postgres equivalent (ON CONFLICT DO NOTHING
 // instead) — this is the one upsert pattern this file needs twice

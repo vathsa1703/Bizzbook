@@ -46,10 +46,6 @@ router.post('/', async (req, res, next) => {
 
     // Calculate GST fields using gstEngine — scoped by company
     // Canonical source: companies + company_gst_settings (company_settings is deprecated).
-    // Uses the async twins (getCompanyGstProfileAsync/enrichItemsAsync) so this
-    // module works on both engines -- the original sync getCompanyGstProfile/
-    // enrichItems still exist and are still used by gstFilingService.js, which
-    // hasn't been converted yet (see Phase 2 report for when those get deleted).
     const companySetting = await getCompanyGstProfileAsync(companyId);
     const companyStateCode = companySetting.state_code;
 

@@ -9,10 +9,8 @@ const { getPgPool } = require('./pgPool');
 const { CATEGORIES: COMPLIANCE_CATEGORIES, RULES: COMPLIANCE_RULES, RESOURCES: COMPLIANCE_RESOURCES } = require('../db/complianceSeed');
 const { GUIDELINES: TRADE_GUIDELINES, AUTHORITIES: TRADE_AUTHORITIES, COUNTRIES: TRADE_COUNTRIES } = require('../db/tradeSeed');
 
-// Phase 2 foundation: the Postgres-side equivalent of config/db.js's getDb().
-// Nothing in services/ or routes/ calls this yet — modules are rewritten one at
-// a time in later Phase 2 steps, gated behind process.env.DB_ENGINE. SQLite's
-// getDb() is untouched and remains the default path.
+// The Postgres data access layer -- the only engine now that SQLite's
+// config/db.js has been removed.
 //
 // db.prepare(sql).run(...params)  -> query(sql, params)
 // db.prepare(sql).get(...params)  -> getOne(sql, params)
