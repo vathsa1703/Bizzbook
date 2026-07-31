@@ -1433,7 +1433,23 @@ function assignUserToRole(db, userId, roleId, companyId) {
 function getDb() {
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
   const db = new DatabaseSync(DB_PATH);
-  
+
+  // node:sqlite defaults busy_timeout to 0 -- any other connection holding
+  // even a brief write lock (another getDb() call mid schema.exec()/
+  // runMigrations(), which every dbGet/dbAll/withExecutor call on the SQLite
+  // path triggers) causes an IMMEDIATE "database is locked" throw instead of
+  // a short retry. This app opens a fresh connection per call by design (see
+  // dbEngine.js), including several fired concurrently at server startup
+  // (insightCache/licenseExpiryChecker/complianceReminders/AutomationEngine
+  // all call getDb()-backed queries the moment the server starts listening),
+  // so overlapping connections are an expected, not exceptional, condition --
+  // they just need to wait their turn instead of failing outright. Confirmed
+  // reproducible: 2 of 3 concurrent getDb() calls against the same file threw
+  // "database is locked" without this pragma, 0 of 3 with it (busy_timeout
+  // makes SQLite retry acquiring the lock for up to this many ms before
+  // giving up, rather than failing on the first attempt).
+  db.exec('PRAGMA busy_timeout = 5000');
+
   // 1. Always execute base schema (IF NOT EXISTS prevents overrides)
   try {
     const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
