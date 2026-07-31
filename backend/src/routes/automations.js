@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { dbGet, dbAll, engine, isOn } = require('../config/dbEngine');
+const { dbGet, dbAll, isOn } = require('../config/dbEngine');
 const { authenticate } = require('../middleware/auth');
 const automationEngine = require('../services/AutomationEngine');
 
@@ -80,10 +80,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Name, event_type, and action_type are required.' });
     }
 
-    // is_active is BOOLEAN on Postgres, INTEGER 0/1 on SQLite (see
-    // schema.postgres.sql's marketing_automations.is_active) — the "active on
-    // create" literal has to match the column type per engine.
-    const activeLiteral = engine() === 'postgres' ? 'true' : '1';
+    const activeLiteral = 'true';
 
     const row = await dbGet(`
       INSERT INTO marketing_automations (company_id, name, event_type, conditions, delay_minutes, action_type, action_payload, is_active)
@@ -127,7 +124,7 @@ router.put('/:id/toggle', async (req, res) => {
     }
 
     const currentlyActive = isOn(existing.is_active);
-    const newValue = engine() === 'postgres' ? !currentlyActive : (currentlyActive ? 0 : 1);
+    const newValue = !currentlyActive;
 
     await dbGet(
       'UPDATE marketing_automations SET is_active = ? WHERE id = ? AND company_id = ?',

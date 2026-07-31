@@ -1,6 +1,6 @@
 const { verifyToken } = require('../services/authService');
 const crypto = require('crypto');
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 
 // Simple in-memory cache for permissions (5 min TTL). Cache key includes
 // companyId, not just userId -- see queryUserPermissions below: this matters
@@ -45,11 +45,7 @@ async function authenticate(req, res, next) {
 
     // Update last activity periodically (e.g. 10% chance to avoid heavy writes on every request)
     if (session && Math.random() < 0.1) {
-      if (engine() === 'postgres') {
-        await dbGet('UPDATE sessions SET last_activity = now() WHERE id = ?', [session.id]);
-      } else {
-        await dbGet("UPDATE sessions SET last_activity = datetime('now') WHERE id = ?", [session.id]);
-      }
+      await dbGet('UPDATE sessions SET last_activity = now() WHERE id = ?', [session.id]);
     }
   } catch (err) {
     console.error('Session check error:', err);

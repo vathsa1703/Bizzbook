@@ -1,17 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { getDb } = require('../config/db');
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 const { withTransaction } = require('../config/pgDb');
 const { requirePermission, clearPermissionCache } = require('../middleware/auth');
 
-// is_system is BOOLEAN on Postgres, INTEGER 0/1 on SQLite. The original code
-// wrote/compared it as a literal `0` in the SQL text -- fine as a literal
-// integer against SQLite's INTEGER column, but Postgres has no implicit
-// integer/boolean comparison ("operator does not exist: boolean = integer").
-// Binding it as a parameter (rather than a literal in the query string) lets
-// the value itself match the column's real type per engine.
-const NOT_SYSTEM = engine() === 'postgres' ? false : 0;
+const NOT_SYSTEM = false;
 
 // 1. List all roles and permissions
 router.get('/', requirePermission('settings.view'), async (req, res, next) => {
@@ -47,47 +40,19 @@ router.post('/', requirePermission('settings.manage'), async (req, res, next) =>
     const { name, description, color, permissions } = req.body;
     if (!name) return res.status(400).json({ error: 'Role name is required' });
 
-    let newRoleId;
-    if (engine() === 'postgres') {
-      newRoleId = await withTransaction(async (tx) => {
-        const row = await tx.getOne(`
-          INSERT INTO roles (company_id, name, description, color, is_system)
-          VALUES (?, ?, ?, ?, ?) RETURNING id
-        `, [req.user.companyId, name, description, color, NOT_SYSTEM]);
+    const newRoleId = await withTransaction(async (tx) => {
+      const row = await tx.getOne(`
+        INSERT INTO roles (company_id, name, description, color, is_system)
+        VALUES (?, ?, ?, ?, ?) RETURNING id
+      `, [req.user.companyId, name, description, color, NOT_SYSTEM]);
 
-        if (permissions && Array.isArray(permissions)) {
-          for (const permId of permissions) {
-            await tx.query('INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)', [row.id, permId]);
-          }
+      if (permissions && Array.isArray(permissions)) {
+        for (const permId of permissions) {
+          await tx.query('INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)', [row.id, permId]);
         }
-        return row.id;
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.exec('BEGIN TRANSACTION');
-        try {
-          const info = db.prepare(`
-            INSERT INTO roles (company_id, name, description, color, is_system)
-            VALUES (?, ?, ?, ?, ?)
-          `).run(req.user.companyId, name, description, color, NOT_SYSTEM);
-
-          newRoleId = info.lastInsertRowid;
-
-          if (permissions && Array.isArray(permissions)) {
-            const insertPerm = db.prepare('INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)');
-            for (const permId of permissions) {
-              insertPerm.run(newRoleId, permId);
-            }
-          }
-
-          db.exec('COMMIT');
-        } catch (innerErr) {
-          db.exec('ROLLBACK');
-          throw innerErr;
-        }
-      } finally { db.close(); }
-    }
+      }
+      return row.id;
+    });
 
     const newRole = await dbGet('SELECT * FROM roles WHERE id = ?', [newRoleId]);
     res.status(201).json(newRole);
@@ -121,51 +86,22 @@ router.put('/:id', requirePermission('settings.manage'), async (req, res, next) 
     const role = await dbGet('SELECT * FROM roles WHERE id = ? AND company_id = ? AND is_system = ?', [roleId, req.user.companyId, NOT_SYSTEM]);
     if (!role) return res.status(404).json({ error: 'Custom role not found or cannot be modified' });
 
-    if (engine() === 'postgres') {
-      await withTransaction(async (tx) => {
-        await tx.query(`
-          UPDATE roles SET
-            name = COALESCE(?, name),
-            description = COALESCE(?, description),
-            color = COALESCE(?, color)
-          WHERE id = ?
-        `, [name, description, color, roleId]);
+    await withTransaction(async (tx) => {
+      await tx.query(`
+        UPDATE roles SET
+          name = COALESCE(?, name),
+          description = COALESCE(?, description),
+          color = COALESCE(?, color)
+        WHERE id = ?
+      `, [name, description, color, roleId]);
 
-        if (permissions && Array.isArray(permissions)) {
-          await tx.query('DELETE FROM role_permissions WHERE role_id = ?', [roleId]);
-          for (const permId of permissions) {
-            await tx.query('INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)', [roleId, permId]);
-          }
+      if (permissions && Array.isArray(permissions)) {
+        await tx.query('DELETE FROM role_permissions WHERE role_id = ?', [roleId]);
+        for (const permId of permissions) {
+          await tx.query('INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)', [roleId, permId]);
         }
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.exec('BEGIN TRANSACTION');
-        try {
-          db.prepare(`
-            UPDATE roles SET
-              name = COALESCE(?, name),
-              description = COALESCE(?, description),
-              color = COALESCE(?, color)
-            WHERE id = ?
-          `).run(name, description, color, roleId);
-
-          if (permissions && Array.isArray(permissions)) {
-            db.prepare('DELETE FROM role_permissions WHERE role_id = ?').run(roleId);
-            const insertPerm = db.prepare('INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)');
-            for (const permId of permissions) {
-              insertPerm.run(roleId, permId);
-            }
-          }
-
-          db.exec('COMMIT');
-        } catch (innerErr) {
-          db.exec('ROLLBACK');
-          throw innerErr;
-        }
-      } finally { db.close(); }
-    }
+      }
+    });
 
     // We should really clear caches for users who have this role. For simplicity we don't know who has it here,
     // but if the current user modifies their own role, we should clear it.
@@ -187,25 +123,10 @@ router.delete('/:id', requirePermission('settings.manage'), async (req, res, nex
     const assigned = await dbGet('SELECT count(*) as count FROM user_roles WHERE role_id = ?', [roleId]);
     if (assigned.count > 0) return res.status(400).json({ error: 'Cannot delete role: Assigned to active users' });
 
-    if (engine() === 'postgres') {
-      await withTransaction(async (tx) => {
-        await tx.query('DELETE FROM role_permissions WHERE role_id = ?', [roleId]);
-        await tx.query('DELETE FROM roles WHERE id = ?', [roleId]);
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.exec('BEGIN TRANSACTION');
-        try {
-          db.prepare('DELETE FROM role_permissions WHERE role_id = ?').run(roleId);
-          db.prepare('DELETE FROM roles WHERE id = ?').run(roleId);
-          db.exec('COMMIT');
-        } catch (innerErr) {
-          db.exec('ROLLBACK');
-          throw innerErr;
-        }
-      } finally { db.close(); }
-    }
+    await withTransaction(async (tx) => {
+      await tx.query('DELETE FROM role_permissions WHERE role_id = ?', [roleId]);
+      await tx.query('DELETE FROM roles WHERE id = ?', [roleId]);
+    });
 
     res.status(204).end();
   } catch (err) {

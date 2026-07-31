@@ -6,8 +6,7 @@
 // OWNER/MANAGER/admin. Additive; mirrors the teams route conventions.
 // ============================================================================
 const express = require('express');
-const { getDb } = require('../config/db');
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 const { withTransaction } = require('../config/pgDb');
 
 const router = express.Router();
@@ -69,36 +68,17 @@ router.post('/', async (req, res, next) => {
     const { name, description, color, avatar, group_type, branch_id, member_ids } = req.body || {};
     if (!name) return res.status(400).json({ error: 'Group name is required' });
 
-    let groupId;
-    if (engine() === 'postgres') {
-      groupId = await withTransaction(async (tx) => {
-        const row = await tx.getOne(`
-          INSERT INTO employee_groups (company_id, branch_id, name, description, color, avatar, group_type, created_by)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
-        `, [companyId, branch_id || null, name, description || null, color || null, avatar || null, group_type || 'custom', req.user.userId]);
-        const ids = await validEmployeeIds(tx.getAll, companyId, member_ids || []);
-        for (const eid of ids) {
-          await tx.query('INSERT INTO employee_group_members (group_id, employee_id) VALUES (?, ?) ON CONFLICT (group_id, employee_id) DO NOTHING', [row.id, eid]);
-        }
-        return row.id;
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.exec('BEGIN TRANSACTION');
-        try {
-          const info = db.prepare(`
-            INSERT INTO employee_groups (company_id, branch_id, name, description, color, avatar, group_type, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `).run(companyId, branch_id || null, name, description || null, color || null, avatar || null, group_type || 'custom', req.user.userId);
-          groupId = info.lastInsertRowid;
-          const ids = await validEmployeeIds(async (sql, params) => db.prepare(sql).all(...params), companyId, member_ids || []);
-          const addMember = db.prepare('INSERT OR IGNORE INTO employee_group_members (group_id, employee_id) VALUES (?, ?)');
-          for (const eid of ids) addMember.run(groupId, eid);
-          db.exec('COMMIT');
-        } catch (e) { db.exec('ROLLBACK'); throw e; }
-      } finally { db.close(); }
-    }
+    const groupId = await withTransaction(async (tx) => {
+      const row = await tx.getOne(`
+        INSERT INTO employee_groups (company_id, branch_id, name, description, color, avatar, group_type, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+      `, [companyId, branch_id || null, name, description || null, color || null, avatar || null, group_type || 'custom', req.user.userId]);
+      const ids = await validEmployeeIds(tx.getAll, companyId, member_ids || []);
+      for (const eid of ids) {
+        await tx.query('INSERT INTO employee_group_members (group_id, employee_id) VALUES (?, ?) ON CONFLICT (group_id, employee_id) DO NOTHING', [row.id, eid]);
+      }
+      return row.id;
+    });
 
     res.status(201).json({ id: groupId, message: 'Group created successfully' });
   } catch (err) { next(err); }
@@ -127,7 +107,7 @@ router.delete('/:id', async (req, res, next) => {
   try {
     if (!canManage(req)) return res.status(403).json({ error: 'Only owners/managers can manage groups' });
     const companyId = req.user.companyId;
-    const nowExpr = engine() === 'postgres' ? 'now()' : "datetime('now')";
+    const nowExpr = 'now()';
     const r = await dbGet(`UPDATE employee_groups SET deleted_at = ${nowExpr}, status = 'Archived' WHERE id = ? AND company_id = ? AND deleted_at IS NULL RETURNING id`, [req.params.id, companyId]);
     if (!r) return res.status(404).json({ error: 'Group not found' });
     res.json({ message: 'Group archived successfully' });
@@ -183,31 +163,15 @@ router.post('/transfer', async (req, res, next) => {
     const ids = await validEmployeeIds(dbAll, companyId, employee_ids || []);
     if (!ids.length) return res.status(400).json({ error: 'No valid employees to transfer' });
 
-    let moved;
-    if (engine() === 'postgres') {
-      moved = await withTransaction(async (tx) => {
-        let n = 0;
-        for (const eid of ids) {
-          await tx.query('INSERT INTO employee_group_members (group_id, employee_id) VALUES (?, ?) ON CONFLICT (group_id, employee_id) DO NOTHING', [to_group_id, eid]);
-          const delResult = await tx.query('DELETE FROM employee_group_members WHERE group_id = ? AND employee_id = ?', [from_group_id, eid]);
-          n += delResult.rowCount;
-        }
-        return n;
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.exec('BEGIN TRANSACTION');
-        try {
-          const add = db.prepare('INSERT OR IGNORE INTO employee_group_members (group_id, employee_id) VALUES (?, ?)');
-          const del = db.prepare('DELETE FROM employee_group_members WHERE group_id = ? AND employee_id = ?');
-          let n = 0;
-          for (const eid of ids) { add.run(to_group_id, eid); n += del.run(from_group_id, eid).changes; }
-          moved = n;
-          db.exec('COMMIT');
-        } catch (e) { db.exec('ROLLBACK'); throw e; }
-      } finally { db.close(); }
-    }
+    const moved = await withTransaction(async (tx) => {
+      let n = 0;
+      for (const eid of ids) {
+        await tx.query('INSERT INTO employee_group_members (group_id, employee_id) VALUES (?, ?) ON CONFLICT (group_id, employee_id) DO NOTHING', [to_group_id, eid]);
+        const delResult = await tx.query('DELETE FROM employee_group_members WHERE group_id = ? AND employee_id = ?', [from_group_id, eid]);
+        n += delResult.rowCount;
+      }
+      return n;
+    });
 
     res.json({ transferred: moved, message: `${moved} member(s) transferred` });
   } catch (err) { next(err); }

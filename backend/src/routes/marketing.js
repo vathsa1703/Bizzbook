@@ -4,8 +4,7 @@ const { generateCampaign } = require('../services/marketingAI');
 const { getAllSegmentSummaries, getSegmentCustomers } = require('../services/segmentationEngine');
 const { calculateCampaignROI } = require('../services/roiEngine');
 const { calculateStoreHealthScore, getChannelROIRanking, getSuggestedBudgetSplit, getSegmentSpendPriority, getBreakEvenCalculator, getWeeklyRecommendation, getPostSpendReportCards, getDoNotSpendFlags } = require('../services/spendIntelligenceEngine');
-const { getDb } = require('../config/db');
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 const { withTransaction } = require('../config/pgDb');
 const { withBranchScope } = require('../utils/BranchScopedQuery');
 const { marketingAiRateLimit } = require('../middleware/aiRateLimit');
@@ -166,80 +165,38 @@ router.post('/campaigns/generate', marketingAiRateLimit, async (req, res) => {
     let campaignId;
 
     // Save Campaign + Targets atomically
-    if (engine() === 'postgres') {
-      campaignId = await withTransaction(async (tx) => {
-        const row = await tx.getOne(`
-          INSERT INTO marketing_campaigns
-          (name, type, segment, objective, target_count, expected_impact, status, campaign_snapshot, ai_content, opportunity_id, company_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
-        `, [
-          aiContent.campaignName || `Campaign for ${objective}`,
-          campaignType,
-          targetSegment,
-          objective,
-          customers.length,
-          expectedImpact,
-          'draft',
-          JSON.stringify(snapshot),
-          JSON.stringify(aiContent),
-          opportunityId || null,
-          companyId
-        ]);
-        const id = row.id;
+    campaignId = await withTransaction(async (tx) => {
+      const row = await tx.getOne(`
+        INSERT INTO marketing_campaigns
+        (name, type, segment, objective, target_count, expected_impact, status, campaign_snapshot, ai_content, opportunity_id, company_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+      `, [
+        aiContent.campaignName || `Campaign for ${objective}`,
+        campaignType,
+        targetSegment,
+        objective,
+        customers.length,
+        expectedImpact,
+        'draft',
+        JSON.stringify(snapshot),
+        JSON.stringify(aiContent),
+        opportunityId || null,
+        companyId
+      ]);
+      const id = row.id;
 
-        if (coupon_id) {
-          await tx.query('UPDATE coupons SET campaign_id = ? WHERE id = ? AND company_id = ?', [id, coupon_id, companyId]);
-        }
-
-        if (customers.length > 0) {
-          for (const c of customers) {
-            await tx.query('INSERT INTO marketing_campaign_targets (campaign_id, customer_id, company_id) VALUES (?, ?, ?)', [id, c.customer_id, companyId]);
-          }
-        }
-
-        return id;
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.prepare('BEGIN').run();
-        const result = db.prepare(`
-          INSERT INTO marketing_campaigns
-          (name, type, segment, objective, target_count, expected_impact, status, campaign_snapshot, ai_content, opportunity_id, company_id)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-          aiContent.campaignName || `Campaign for ${objective}`,
-          campaignType,
-          targetSegment,
-          objective,
-          customers.length,
-          expectedImpact,
-          'draft',
-          JSON.stringify(snapshot),
-          JSON.stringify(aiContent),
-          opportunityId || null,
-          companyId
-        );
-        campaignId = result.lastInsertRowid;
-
-        if (coupon_id) {
-          db.prepare('UPDATE coupons SET campaign_id = ? WHERE id = ? AND company_id = ?').run(campaignId, coupon_id, companyId);
-        }
-
-        // Save Targets
-        if (customers.length > 0) {
-          const insertTarget = db.prepare('INSERT INTO marketing_campaign_targets (campaign_id, customer_id, company_id) VALUES (?, ?, ?)');
-          customers.forEach(c => insertTarget.run(campaignId, c.customer_id, companyId));
-        }
-
-        db.prepare('COMMIT').run();
-      } catch (txErr) {
-        if (db.inTransaction) db.prepare('ROLLBACK').run();
-        throw txErr;
-      } finally {
-        db.close();
+      if (coupon_id) {
+        await tx.query('UPDATE coupons SET campaign_id = ? WHERE id = ? AND company_id = ?', [id, coupon_id, companyId]);
       }
-    }
+
+      if (customers.length > 0) {
+        for (const c of customers) {
+          await tx.query('INSERT INTO marketing_campaign_targets (campaign_id, customer_id, company_id) VALUES (?, ?, ?)', [id, c.customer_id, companyId]);
+        }
+      }
+
+      return id;
+    });
 
     const campaign = await dbGet('SELECT * FROM marketing_campaigns WHERE id = ?', [campaignId]);
     campaign.campaign_snapshot = JSON.parse(campaign.campaign_snapshot);
@@ -421,25 +378,10 @@ router.delete('/campaigns/:id', async (req, res) => {
     const existing = await dbGet('SELECT id FROM marketing_campaigns WHERE id = ? AND company_id = ?', [req.params.id, req.user.companyId]);
     if (!existing) return res.status(404).json({ error: 'Campaign not found' });
 
-    if (engine() === 'postgres') {
-      await withTransaction(async (tx) => {
-        await tx.query('DELETE FROM marketing_campaign_targets WHERE campaign_id = ?', [req.params.id]);
-        await tx.query('DELETE FROM marketing_campaigns WHERE id = ?', [req.params.id]);
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.prepare('BEGIN').run();
-        db.prepare('DELETE FROM marketing_campaign_targets WHERE campaign_id = ?').run(req.params.id);
-        db.prepare('DELETE FROM marketing_campaigns WHERE id = ?').run(req.params.id);
-        db.prepare('COMMIT').run();
-      } catch (txErr) {
-        if (db.inTransaction) db.prepare('ROLLBACK').run();
-        throw txErr;
-      } finally {
-        db.close();
-      }
-    }
+    await withTransaction(async (tx) => {
+      await tx.query('DELETE FROM marketing_campaign_targets WHERE campaign_id = ?', [req.params.id]);
+      await tx.query('DELETE FROM marketing_campaigns WHERE id = ?', [req.params.id]);
+    });
     res.status(204).end();
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -470,61 +412,28 @@ router.post('/wallet/adjust', async (req, res) => {
 
     let newBalance;
 
-    if (engine() === 'postgres') {
-      newBalance = await withTransaction(async (tx) => {
-        // Ensure wallet exists
-        let wallet = await tx.getOne('SELECT id, balance FROM customer_wallets WHERE customer_id = ? AND balance_type = ?', [customer_id, balance_type || 'store_credit']);
-        if (!wallet) {
-          const row = await tx.getOne('INSERT INTO customer_wallets (company_id, customer_id, balance_type, balance) VALUES (?, ?, ?, 0) RETURNING id', [companyId, customer_id, balance_type || 'store_credit']);
-          wallet = { id: row.id, balance: 0 };
-        }
-
-        const nb = wallet.balance + amount;
-        await tx.query(`UPDATE customer_wallets SET balance = ?, updated_at = now() WHERE id = ?`, [nb, wallet.id]);
-
-        await tx.query('INSERT INTO wallet_transactions (company_id, wallet_id, amount, transaction_type, reference_id, description) VALUES (?, ?, ?, ?, ?, ?)',
-          [companyId, wallet.id, amount, transaction_type, reference_id || null, description || null]);
-
-        await tx.query('INSERT INTO marketing_signals (company_id, engine_type, entity_type, entity_id, signal_name, signal_value, confidence_score, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          [companyId, 'wallet', 'customer', customer_id, `Wallet Adjustment: ${transaction_type}`, amount, 100, JSON.stringify({ balance_type })]);
-
-        await tx.query('INSERT INTO knowledge_graph_edges (company_id, node_a_type, node_a_id, relationship_type, node_b_type, node_b_id, weight) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [companyId, 'customer', customer_id, relType, 'wallet', wallet.id, Math.abs(amount)]);
-
-        return nb;
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.prepare('BEGIN').run();
-
-        // Ensure wallet exists
-        let wallet = db.prepare('SELECT id, balance FROM customer_wallets WHERE customer_id = ? AND balance_type = ?').get(customer_id, balance_type || 'store_credit');
-        if (!wallet) {
-          const result = db.prepare('INSERT INTO customer_wallets (company_id, customer_id, balance_type, balance) VALUES (?, ?, ?, 0)').run(companyId, customer_id, balance_type || 'store_credit');
-          wallet = { id: result.lastInsertRowid, balance: 0 };
-        }
-
-        newBalance = wallet.balance + amount;
-        db.prepare(`UPDATE customer_wallets SET balance = ?, updated_at = datetime('now') WHERE id = ?`).run(newBalance, wallet.id);
-
-        db.prepare('INSERT INTO wallet_transactions (company_id, wallet_id, amount, transaction_type, reference_id, description) VALUES (?, ?, ?, ?, ?, ?)')
-          .run(companyId, wallet.id, amount, transaction_type, reference_id || null, description || null);
-
-        db.prepare('INSERT INTO marketing_signals (company_id, engine_type, entity_type, entity_id, signal_name, signal_value, confidence_score, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-          .run(companyId, 'wallet', 'customer', customer_id, `Wallet Adjustment: ${transaction_type}`, amount, 100, JSON.stringify({ balance_type }));
-
-        db.prepare('INSERT INTO knowledge_graph_edges (company_id, node_a_type, node_a_id, relationship_type, node_b_type, node_b_id, weight) VALUES (?, ?, ?, ?, ?, ?, ?)')
-          .run(companyId, 'customer', customer_id, relType, 'wallet', wallet.id, Math.abs(amount));
-
-        db.prepare('COMMIT').run();
-      } catch (txErr) {
-        if (db.inTransaction) db.prepare('ROLLBACK').run();
-        throw txErr;
-      } finally {
-        db.close();
+    newBalance = await withTransaction(async (tx) => {
+      // Ensure wallet exists
+      let wallet = await tx.getOne('SELECT id, balance FROM customer_wallets WHERE customer_id = ? AND balance_type = ?', [customer_id, balance_type || 'store_credit']);
+      if (!wallet) {
+        const row = await tx.getOne('INSERT INTO customer_wallets (company_id, customer_id, balance_type, balance) VALUES (?, ?, ?, 0) RETURNING id', [companyId, customer_id, balance_type || 'store_credit']);
+        wallet = { id: row.id, balance: 0 };
       }
-    }
+
+      const nb = wallet.balance + amount;
+      await tx.query(`UPDATE customer_wallets SET balance = ?, updated_at = now() WHERE id = ?`, [nb, wallet.id]);
+
+      await tx.query('INSERT INTO wallet_transactions (company_id, wallet_id, amount, transaction_type, reference_id, description) VALUES (?, ?, ?, ?, ?, ?)',
+        [companyId, wallet.id, amount, transaction_type, reference_id || null, description || null]);
+
+      await tx.query('INSERT INTO marketing_signals (company_id, engine_type, entity_type, entity_id, signal_name, signal_value, confidence_score, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [companyId, 'wallet', 'customer', customer_id, `Wallet Adjustment: ${transaction_type}`, amount, 100, JSON.stringify({ balance_type })]);
+
+      await tx.query('INSERT INTO knowledge_graph_edges (company_id, node_a_type, node_a_id, relationship_type, node_b_type, node_b_id, weight) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [companyId, 'customer', customer_id, relType, 'wallet', wallet.id, Math.abs(amount)]);
+
+      return nb;
+    });
 
     res.json({ success: true, newBalance });
   } catch (err) {
@@ -540,38 +449,17 @@ router.post('/segments', async (req, res) => {
     const companyId = req.user.companyId;
     let segmentId;
 
-    if (engine() === 'postgres') {
-      segmentId = await withTransaction(async (tx) => {
-        const row = await tx.getOne('INSERT INTO custom_segments (company_id, name, description, segment_type, logic_type) VALUES (?, ?, ?, ?, ?) RETURNING id',
-          [companyId, name, description, 'rule_based', logic_type || 'AND']);
-        const id = row.id;
+    segmentId = await withTransaction(async (tx) => {
+      const row = await tx.getOne('INSERT INTO custom_segments (company_id, name, description, segment_type, logic_type) VALUES (?, ?, ?, ?, ?) RETURNING id',
+        [companyId, name, description, 'rule_based', logic_type || 'AND']);
+      const id = row.id;
 
-        for (const r of rules || []) {
-          await tx.query('INSERT INTO segment_rules (segment_id, rule_type, operator, value) VALUES (?, ?, ?, ?)', [id, r.rule_type, r.operator, r.value]);
-        }
-
-        return id;
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.prepare('BEGIN').run();
-        const result = db.prepare('INSERT INTO custom_segments (company_id, name, description, segment_type, logic_type) VALUES (?, ?, ?, ?, ?)')
-          .run(companyId, name, description, 'rule_based', logic_type || 'AND');
-
-        segmentId = result.lastInsertRowid;
-        const insertRule = db.prepare('INSERT INTO segment_rules (segment_id, rule_type, operator, value) VALUES (?, ?, ?, ?)');
-        for (const r of rules || []) {
-          insertRule.run(segmentId, r.rule_type, r.operator, r.value);
-        }
-        db.prepare('COMMIT').run();
-      } catch (txErr) {
-        if (db.inTransaction) db.prepare('ROLLBACK').run();
-        throw txErr;
-      } finally {
-        db.close();
+      for (const r of rules || []) {
+        await tx.query('INSERT INTO segment_rules (segment_id, rule_type, operator, value) VALUES (?, ?, ?, ?)', [id, r.rule_type, r.operator, r.value]);
       }
-    }
+
+      return id;
+    });
 
     res.json({ success: true, segmentId });
   } catch (err) {
@@ -625,36 +513,15 @@ router.post('/coupons/redeem', async (req, res) => {
     const { coupon_id, customer_id, invoice_id, discount_applied } = req.body;
     const companyId = req.user.companyId;
 
-    if (engine() === 'postgres') {
-      await withTransaction(async (tx) => {
-        await tx.query('INSERT INTO coupon_redemptions (company_id, coupon_id, customer_id, invoice_id, discount_applied) VALUES (?, ?, ?, ?, ?)',
-          [companyId, coupon_id, customer_id, invoice_id || null, discount_applied]);
-        await tx.query('UPDATE coupons SET times_used = times_used + 1 WHERE id = ?', [coupon_id]);
+    await withTransaction(async (tx) => {
+      await tx.query('INSERT INTO coupon_redemptions (company_id, coupon_id, customer_id, invoice_id, discount_applied) VALUES (?, ?, ?, ?, ?)',
+        [companyId, coupon_id, customer_id, invoice_id || null, discount_applied]);
+      await tx.query('UPDATE coupons SET times_used = times_used + 1 WHERE id = ?', [coupon_id]);
 
-        // Knowledge Graph
-        await tx.query('INSERT INTO knowledge_graph_edges (company_id, node_a_type, node_a_id, relationship_type, node_b_type, node_b_id, weight) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [companyId, 'customer', customer_id, 'redeemed_coupon', 'coupon', coupon_id, discount_applied]);
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.prepare('BEGIN').run();
-        db.prepare('INSERT INTO coupon_redemptions (company_id, coupon_id, customer_id, invoice_id, discount_applied) VALUES (?, ?, ?, ?, ?)')
-          .run(companyId, coupon_id, customer_id, invoice_id || null, discount_applied);
-        db.prepare('UPDATE coupons SET times_used = times_used + 1 WHERE id = ?').run(coupon_id);
-
-        // Knowledge Graph
-        db.prepare('INSERT INTO knowledge_graph_edges (company_id, node_a_type, node_a_id, relationship_type, node_b_type, node_b_id, weight) VALUES (?, ?, ?, ?, ?, ?, ?)')
-          .run(companyId, 'customer', customer_id, 'redeemed_coupon', 'coupon', coupon_id, discount_applied);
-
-        db.prepare('COMMIT').run();
-      } catch (txErr) {
-        if (db.inTransaction) db.prepare('ROLLBACK').run();
-        throw txErr;
-      } finally {
-        db.close();
-      }
-    }
+      // Knowledge Graph
+      await tx.query('INSERT INTO knowledge_graph_edges (company_id, node_a_type, node_a_id, relationship_type, node_b_type, node_b_id, weight) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [companyId, 'customer', customer_id, 'redeemed_coupon', 'coupon', coupon_id, discount_applied]);
+    });
 
     res.json({ success: true });
   } catch (err) {
@@ -687,55 +554,25 @@ router.post('/referrals/redeem', async (req, res) => {
     if (!referral) return res.status(404).json({ error: 'Invalid referral code.' });
     if (referral.customer_id === new_customer_id) return res.status(400).json({ error: 'Cannot refer yourself.' });
 
-    if (engine() === 'postgres') {
-      await withTransaction(async (tx) => {
-        await tx.query('INSERT INTO referral_uses (company_id, referral_id, new_customer_id) VALUES (?, ?, ?)',
-          [companyId, referral.id, new_customer_id]);
+    await withTransaction(async (tx) => {
+      await tx.query('INSERT INTO referral_uses (company_id, referral_id, new_customer_id) VALUES (?, ?, ?)',
+        [companyId, referral.id, new_customer_id]);
 
-        // Credit Referrer
-        let rWallet = await tx.getOne('SELECT id, balance FROM customer_wallets WHERE customer_id = ? AND balance_type = ?', [referral.customer_id, 'reward_points']);
-        if (!rWallet) {
-          const row = await tx.getOne('INSERT INTO customer_wallets (company_id, customer_id, balance_type, balance) VALUES (?, ?, ?, 0) RETURNING id',
-            [companyId, referral.customer_id, 'reward_points']);
-          rWallet = { id: row.id, balance: 0 };
-        }
-        await tx.query('UPDATE customer_wallets SET balance = balance + ? WHERE id = ?', [referral.reward_referrer, rWallet.id]);
-        await tx.query('INSERT INTO wallet_transactions (company_id, wallet_id, amount, transaction_type, description) VALUES (?, ?, ?, ?, ?)',
-          [companyId, rWallet.id, referral.reward_referrer, 'earn', 'Referral reward']);
-
-        // Knowledge Graph
-        await tx.query('INSERT INTO knowledge_graph_edges (company_id, node_a_type, node_a_id, relationship_type, node_b_type, node_b_id, weight) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [companyId, 'customer', referral.customer_id, 'referred', 'customer', new_customer_id, referral.reward_referrer]);
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.prepare('BEGIN').run();
-        db.prepare('INSERT INTO referral_uses (company_id, referral_id, new_customer_id) VALUES (?, ?, ?)')
-          .run(companyId, referral.id, new_customer_id);
-
-        // Credit Referrer
-        let rWallet = db.prepare('SELECT id, balance FROM customer_wallets WHERE customer_id = ? AND balance_type = ?').get(referral.customer_id, 'reward_points');
-        if (!rWallet) {
-          const rId = db.prepare('INSERT INTO customer_wallets (company_id, customer_id, balance_type, balance) VALUES (?, ?, ?, 0)').run(companyId, referral.customer_id, 'reward_points');
-          rWallet = { id: rId.lastInsertRowid, balance: 0 };
-        }
-        db.prepare('UPDATE customer_wallets SET balance = balance + ? WHERE id = ?').run(referral.reward_referrer, rWallet.id);
-        db.prepare('INSERT INTO wallet_transactions (company_id, wallet_id, amount, transaction_type, description) VALUES (?, ?, ?, ?, ?)')
-          .run(companyId, rWallet.id, referral.reward_referrer, 'earn', 'Referral reward');
-
-        // Knowledge Graph
-        db.prepare('INSERT INTO knowledge_graph_edges (company_id, node_a_type, node_a_id, relationship_type, node_b_type, node_b_id, weight) VALUES (?, ?, ?, ?, ?, ?, ?)')
-          .run(companyId, 'customer', referral.customer_id, 'referred', 'customer', new_customer_id, referral.reward_referrer);
-
-        db.prepare('COMMIT').run();
-      } catch (txErr) {
-        if (db.inTransaction) db.prepare('ROLLBACK').run();
-        throw txErr;
-      } finally {
-        db.close();
+      // Credit Referrer
+      let rWallet = await tx.getOne('SELECT id, balance FROM customer_wallets WHERE customer_id = ? AND balance_type = ?', [referral.customer_id, 'reward_points']);
+      if (!rWallet) {
+        const row = await tx.getOne('INSERT INTO customer_wallets (company_id, customer_id, balance_type, balance) VALUES (?, ?, ?, 0) RETURNING id',
+          [companyId, referral.customer_id, 'reward_points']);
+        rWallet = { id: row.id, balance: 0 };
       }
-    }
+      await tx.query('UPDATE customer_wallets SET balance = balance + ? WHERE id = ?', [referral.reward_referrer, rWallet.id]);
+      await tx.query('INSERT INTO wallet_transactions (company_id, wallet_id, amount, transaction_type, description) VALUES (?, ?, ?, ?, ?)',
+        [companyId, rWallet.id, referral.reward_referrer, 'earn', 'Referral reward']);
+
+      // Knowledge Graph
+      await tx.query('INSERT INTO knowledge_graph_edges (company_id, node_a_type, node_a_id, relationship_type, node_b_type, node_b_id, weight) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [companyId, 'customer', referral.customer_id, 'referred', 'customer', new_customer_id, referral.reward_referrer]);
+    });
 
     res.json({ success: true, reward_referee: referral.reward_referee });
   } catch (err) {
@@ -761,40 +598,17 @@ router.post('/surveys/submit', async (req, res) => {
     const { survey_id, customer_id, rating, feedback_text } = req.body;
     const companyId = req.user.companyId;
 
-    if (engine() === 'postgres') {
-      await withTransaction(async (tx) => {
-        await tx.query('INSERT INTO survey_responses (company_id, survey_id, customer_id, rating, feedback_text) VALUES (?, ?, ?, ?, ?)',
-          [companyId, survey_id, customer_id, rating, feedback_text]);
+    await withTransaction(async (tx) => {
+      await tx.query('INSERT INTO survey_responses (company_id, survey_id, customer_id, rating, feedback_text) VALUES (?, ?, ?, ?, ?)',
+        [companyId, survey_id, customer_id, rating, feedback_text]);
 
-        // Knowledge Graph
-        await tx.query('INSERT INTO knowledge_graph_edges (company_id, node_a_type, node_a_id, relationship_type, node_b_type, node_b_id, weight) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [companyId, 'customer', customer_id, 'left_rating', 'survey', survey_id, rating]);
+      // Knowledge Graph
+      await tx.query('INSERT INTO knowledge_graph_edges (company_id, node_a_type, node_a_id, relationship_type, node_b_type, node_b_id, weight) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [companyId, 'customer', customer_id, 'left_rating', 'survey', survey_id, rating]);
 
-        await tx.query('INSERT INTO marketing_signals (company_id, engine_type, entity_type, entity_id, signal_name, signal_value, confidence_score) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [companyId, 'feedback', 'customer', customer_id, `Customer Satisfaction Rating`, rating, 100]);
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.prepare('BEGIN').run();
-        db.prepare('INSERT INTO survey_responses (company_id, survey_id, customer_id, rating, feedback_text) VALUES (?, ?, ?, ?, ?)')
-          .run(companyId, survey_id, customer_id, rating, feedback_text);
-
-        // Knowledge Graph
-        db.prepare('INSERT INTO knowledge_graph_edges (company_id, node_a_type, node_a_id, relationship_type, node_b_type, node_b_id, weight) VALUES (?, ?, ?, ?, ?, ?, ?)')
-          .run(companyId, 'customer', customer_id, 'left_rating', 'survey', survey_id, rating);
-
-        db.prepare('INSERT INTO marketing_signals (company_id, engine_type, entity_type, entity_id, signal_name, signal_value, confidence_score) VALUES (?, ?, ?, ?, ?, ?, ?)')
-          .run(companyId, 'feedback', 'customer', customer_id, `Customer Satisfaction Rating`, rating, 100);
-
-        db.prepare('COMMIT').run();
-      } catch (txErr) {
-        if (db.inTransaction) db.prepare('ROLLBACK').run();
-        throw txErr;
-      } finally {
-        db.close();
-      }
-    }
+      await tx.query('INSERT INTO marketing_signals (company_id, engine_type, entity_type, entity_id, signal_name, signal_value, confidence_score) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [companyId, 'feedback', 'customer', customer_id, `Customer Satisfaction Rating`, rating, 100]);
+    });
 
     res.json({ success: true });
   } catch (err) {
@@ -813,42 +627,17 @@ router.post('/communications/send', async (req, res) => {
     // In Phase 1, we just mock the send and insert into DB.
     console.log(`[Omnichannel Mock] Sending ${channel} to customer ${customer_id}: ${message_payload}`);
 
-    let logId;
+    const logId = await withTransaction(async (tx) => {
+      const row = await tx.getOne('INSERT INTO communication_logs (company_id, customer_id, campaign_id, channel, status, message_payload) VALUES (?, ?, ?, ?, ?, ?) RETURNING id',
+        [companyId, customer_id, campaign_id || null, channel, 'sent', message_payload]);
 
-    if (engine() === 'postgres') {
-      logId = await withTransaction(async (tx) => {
-        const row = await tx.getOne('INSERT INTO communication_logs (company_id, customer_id, campaign_id, channel, status, message_payload) VALUES (?, ?, ?, ?, ?, ?) RETURNING id',
-          [companyId, customer_id, campaign_id || null, channel, 'sent', message_payload]);
-
-        if (campaign_id) {
-          await tx.query('INSERT INTO knowledge_graph_edges (company_id, node_a_type, node_a_id, relationship_type, node_b_type, node_b_id, weight) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [companyId, 'campaign', campaign_id, 'sent_message_to', 'customer', customer_id, 1.0]);
-        }
-
-        return row.id;
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.prepare('BEGIN').run();
-
-        const result = db.prepare('INSERT INTO communication_logs (company_id, customer_id, campaign_id, channel, status, message_payload) VALUES (?, ?, ?, ?, ?, ?)')
-          .run(companyId, customer_id, campaign_id || null, channel, 'sent', message_payload);
-
-        if (campaign_id) {
-          db.prepare('INSERT INTO knowledge_graph_edges (company_id, node_a_type, node_a_id, relationship_type, node_b_type, node_b_id, weight) VALUES (?, ?, ?, ?, ?, ?, ?)')
-            .run(companyId, 'campaign', campaign_id, 'sent_message_to', 'customer', customer_id, 1.0);
-        }
-
-        db.prepare('COMMIT').run();
-        logId = result.lastInsertRowid;
-      } catch (txErr) {
-        if (db.inTransaction) db.prepare('ROLLBACK').run();
-        throw txErr;
-      } finally {
-        db.close();
+      if (campaign_id) {
+        await tx.query('INSERT INTO knowledge_graph_edges (company_id, node_a_type, node_a_id, relationship_type, node_b_type, node_b_id, weight) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [companyId, 'campaign', campaign_id, 'sent_message_to', 'customer', customer_id, 1.0]);
       }
-    }
+
+      return row.id;
+    });
 
     res.json({ success: true, logId });
   } catch (err) {

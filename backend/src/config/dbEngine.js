@@ -1,63 +1,38 @@
-const { getDb } = require('./db');
 const pgDb = require('./pgDb');
 
-// Shared SQLite/Postgres dispatch for services being rewritten in Phase 2.
-// Query text stays written in SQLite's plain '?' placeholder style everywhere,
-// including in utils/BranchScopedQuery.js, which is unchanged by Phase 2: it
-// always appends '... AND col = ?' / '... AND col IN (?,?,...)' regardless of
-// engine. The '?' -> '$1,$2,...' conversion lives in pgDb.js's query() (and is
-// therefore shared by dbGet/dbAll here, withTransaction()'s tx.query/getOne/
-// getAll, and any other pgDb.js caller) — NOT duplicated here. It used to be
-// duplicated here, which is exactly how a real bug happened: sales.js's
-// Phase 2 rewrite called withTransaction()'s tx.query() with '?' SQL,
-// assuming it converted like dbGet/dbAll do, but withTransaction() never ran
-// through this file at all, so Postgres received literal '?' characters and
-// rejected them as a syntax error. Converting once, at the lowest layer
-// (pgDb.js's query()), means every Postgres access path — plain reads here,
-// and every transaction — converts through the same code with no way for a
+// Postgres-only data access layer. This file used to dispatch between SQLite
+// and Postgres during the migration (see git history / CLAUDE.md's Phase 4
+// notes for that era) -- the SQLite path and the DB_ENGINE flag that selected
+// it have been removed now that the cutover is complete and confirmed stable.
+// Query text stays written in the original SQLite-style '?' placeholder
+// convention everywhere (including utils/BranchScopedQuery.js), converted to
+// Postgres's '$1, $2, ...' once, at the lowest layer (pgDb.js's query()), so
+// every access path here converts through the same code with no way for a
 // caller to forget it.
-function engine() {
-  return (process.env.DB_ENGINE || 'sqlite').toLowerCase();
-}
 
-// Phase 1 converted ~55 INTEGER 0/1 columns to real Postgres BOOLEAN. Reading
-// one back with a strict `col !== 0` check breaks silently under Postgres:
-// `false !== 0` is `true` in JS, so a genuinely-off flag reads as on — no
-// error, just a wrong answer (found in sales.js's is_gst_registered/
-// inclusive_pricing reads; the identical pattern was in purchases.js too).
-// The safe test is a strict inequality against a literal 0/1 -- a plain
-// truthy ternary (`col ? a : b`) or `col ?? fallback` is fine as-is, since 0
-// and false are both falsy and neither operator distinguishes them. Use this
-// helper wherever a boolean column is read with `!== 0`/`=== 1` semantics
-// ("NULL/1/true all count as on, only explicit 0/false count as off").
+// Reading a boolean column with a strict `col !== 0` / `col === 1` check
+// breaks silently on Postgres BOOLEAN: `false !== 0` is `true` in JS, so a
+// genuinely-off flag reads as on -- no error, just a wrong answer (found in
+// sales.js's is_gst_registered/inclusive_pricing reads, and the identical
+// pattern in purchases.js). The safe test is a strict inequality against a
+// literal 0/1 -- a plain truthy ternary (`col ? a : b`) or `col ?? fallback`
+// is fine as-is, since 0 and false are both falsy and neither operator
+// distinguishes them. Use this helper wherever a boolean column is read with
+// `!== 0`/`=== 1` semantics ("NULL/1/true all count as on, only explicit
+// 0/false count as off").
 function isOn(v) {
   return !(v === 0 || v === false);
 }
 
-// Single-row fetch. sql/params are always written SQLite-style ('?').
+// Single-row fetch. sql/params are written SQLite-style ('?'); pgDb.js
+// converts placeholders before sending the query.
 async function dbGet(sql, params = []) {
-  if (engine() === 'postgres') {
-    return pgDb.getOne(sql, params);
-  }
-  const db = getDb();
-  try {
-    return db.prepare(sql).get(...params) || null;
-  } finally {
-    db.close();
-  }
+  return pgDb.getOne(sql, params);
 }
 
-// Multi-row fetch. sql/params are always written SQLite-style ('?').
+// Multi-row fetch. sql/params are written SQLite-style ('?').
 async function dbAll(sql, params = []) {
-  if (engine() === 'postgres') {
-    return pgDb.getAll(sql, params);
-  }
-  const db = getDb();
-  try {
-    return db.prepare(sql).all(...params);
-  } finally {
-    db.close();
-  }
+  return pgDb.getAll(sql, params);
 }
 
 // ── Shared query-executor abstraction ───────────────────────────────────────
@@ -66,27 +41,13 @@ async function dbAll(sql, params = []) {
 // marketingMetricsService.js, taskService.js) are structured as a public
 // entry point plus a set of internal helpers that all take a `db`-like
 // handle as a plain parameter (dependency injection) rather than opening
-// their own connection — this lets one helper's query build on another's
-// result without each managing its own connection lifecycle. `x` below
-// gives every one of those helpers the same {engine, get, all, run, insert}
-// shape regardless of what's underneath, so a helper written once against
-// `x` works whether it's wrapping a SQLite db, the shared Postgres pool, or
-// (via withTxExecutor) a single transaction's pinned client — the same
-// guarantee against the transaction-escaping bug class (companySettings.js)
-// that taskService.js's inline version of this pattern already established.
-function sqliteExecutor(db) {
-  return {
-    engine: 'sqlite',
-    get: async (sql, params = []) => db.prepare(sql).get(...params) ?? null,
-    all: async (sql, params = []) => db.prepare(sql).all(...params),
-    run: async (sql, params = []) => {
-      const info = db.prepare(sql).run(...params);
-      return { id: info.lastInsertRowid, changes: info.changes };
-    },
-    insert: async (sql, params = []) => db.prepare(sql).run(...params).lastInsertRowid,
-  };
-}
-
+// their own connection -- this lets one helper's query build on another's
+// result without each managing its own connection lifecycle. `x` below gives
+// every one of those helpers the same {engine, get, all, run, insert} shape,
+// whether it's the shared pool (withExecutor) or a single transaction's
+// pinned client (withTxExecutor) -- the same guarantee against the
+// transaction-escaping bug class (companySettings.js) that taskService.js's
+// inline version of this pattern already established.
 function pgExecutor(client) {
   return {
     engine: 'postgres',
@@ -103,45 +64,26 @@ function pgExecutor(client) {
   };
 }
 
-// Runs fn(x) against a plain (non-transactional) connection: a fresh SQLite
-// handle (closed after) or the shared Postgres pool.
+// Runs fn(x) against the shared (non-transactional) Postgres pool.
 async function withExecutor(fn) {
-  if (engine() === 'postgres') {
-    return fn(pgExecutor({ query: pgDb.query, getOne: pgDb.getOne, getAll: pgDb.getAll }));
-  }
-  const db = getDb();
-  try { return await fn(sqliteExecutor(db)); }
-  finally { db.close(); }
+  return fn(pgExecutor({ query: pgDb.query, getOne: pgDb.getOne, getAll: pgDb.getAll }));
 }
 
-// Runs fn(x) as a single atomic transaction, on both engines.
+// Runs fn(x) as a single atomic transaction.
 async function withTxExecutor(fn) {
-  if (engine() === 'postgres') {
-    return pgDb.withTransaction((tx) => fn(pgExecutor(tx)));
-  }
-  const db = getDb();
-  try {
-    db.exec('BEGIN TRANSACTION');
-    try {
-      const result = await fn(sqliteExecutor(db));
-      db.exec('COMMIT');
-      return result;
-    } catch (e) { db.exec('ROLLBACK'); throw e; }
-  } finally { db.close(); }
+  return pgDb.withTransaction((tx) => fn(pgExecutor(tx)));
 }
 
-// SQLite's date(?, '-N days') takes the anchor date as a bound '?' param and
-// subtracts N days; Postgres has no two-arg date() function (its date() is a
-// one-arg type cast), so the equivalent is a typed date minus an interval.
-// Both forms consume the exact same single '?'/anchor-date param, so callers
-// only swap the SQL fragment in — the params array is unchanged. This is the
-// single source of truth for this pattern: it recurs across marketingEngine.js,
-// metricsService.js, segmentationEngine.js, and productOpportunityService.js
-// and was previously copy-pasted as raw SQLite-only date() calls in all of
-// them, which is exactly the kind of duplication that goes stale on one
-// engine while looking fine on the other.
+// SQLite's date(?, '-N days') took the anchor date as a bound '?' param and
+// subtracted N days; Postgres has no two-arg date() function (its date() is
+// a one-arg type cast), so this is a typed date minus an interval. Consumes
+// the exact same single '?'/anchor-date param. Recurs across
+// marketingEngine.js, metricsService.js, segmentationEngine.js, and
+// productOpportunityService.js -- kept as one shared helper rather than
+// copy-pasted per file, which is exactly the kind of duplication that goes
+// stale when only some copies get updated.
 function dateSub(x, days) {
-  return x.engine === 'postgres' ? `(?::date - interval '${days} days')` : `date(?, '-${days} days')`;
+  return `(?::date - interval '${days} days')`;
 }
 
 // Inventory collapsed to exactly one row per product, for use as a FROM-clause
@@ -152,9 +94,8 @@ function dateSub(x, days) {
 // Those queries need a per-product stock level alongside an aggregate over a
 // LEFT JOIN to sales. Selecting a bare `i.stock_quantity` under `GROUP BY p.id`
 // is rejected outright by Postgres ("must appear in the GROUP BY clause or be
-// used in an aggregate function") — SQLite silently picks an arbitrary row
-// instead, which is why this only surfaced when DB_ENGINE=postgres was first
-// exercised. Two seemingly-obvious fixes are both wrong here:
+// used in an aggregate function"). Two seemingly-obvious fixes are both wrong
+// here:
 //
 //   - SUM(i.stock_quantity) — the LEFT JOIN to sales fans the inventory row out
 //     once per matching sale, so the sum multiplies stock by the sale count.
@@ -167,9 +108,7 @@ function dateSub(x, days) {
 // warehouse rows is the company-wide stock level these metrics are asking
 // about. `inventory` has no unique constraint on product_id and migration 17
 // added branch_id/warehouse_id precisely so a product can be stocked in several
-// places, so multi-row-per-product is the schema's intent, not an anomaly —
-// even though current data happens to be 1:1 (47 rows / 47 products, all
-// branch_id NULL), which is why the arbitrary-row pick has looked correct.
+// places, so multi-row-per-product is the schema's intent, not an anomaly.
 //
 // Tenancy is unaffected and deliberately NOT filtered here: a product belongs
 // to exactly one company, and every caller keeps its own p.company_id predicate
@@ -179,11 +118,10 @@ function dateSub(x, days) {
 //
 // Callers must use `GROUP BY p.id, i.stock_quantity` — grouping by the
 // pre-aggregated value is what makes it a legal non-aggregated selection.
-// Engine-agnostic: identical text is valid on both SQLite and Postgres.
 const INVENTORY_BY_PRODUCT = `(
       SELECT product_id, SUM(stock_quantity) AS stock_quantity
       FROM inventory
       GROUP BY product_id
     )`;
 
-module.exports = { dbGet, dbAll, engine, isOn, sqliteExecutor, pgExecutor, withExecutor, withTxExecutor, dateSub, INVENTORY_BY_PRODUCT };
+module.exports = { dbGet, dbAll, isOn, pgExecutor, withExecutor, withTxExecutor, dateSub, INVENTORY_BY_PRODUCT };

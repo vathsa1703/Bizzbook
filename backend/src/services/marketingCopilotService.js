@@ -1,5 +1,4 @@
-const { getDb } = require('../config/db');
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 const { withTransaction } = require('../config/pgDb');
 const { getMarketingOpportunities } = require('./marketingEngine');
 
@@ -92,64 +91,28 @@ async function approveGeneratedCampaign(companyId, generatedId) {
   // roi get computed post-launch by calculateCampaignROI() same as any
   // other campaign, once real sales come in against it.
   const expectedImpact = Math.round((draftRow.budget || 0) * 3);
-  const now = engine() === 'postgres' ? 'now()' : "datetime('now')";
 
-  let campaignId;
+  const campaignId = await withTransaction(async (tx) => {
+    const row = await tx.getOne(`
+      INSERT INTO marketing_campaigns
+        (name, type, segment, objective, target_count, expected_impact, status, campaign_snapshot, ai_content, company_id, campaign_cost, launched_at)
+      VALUES (?, 'ai_copilot', ?, ?, 0, ?, 'active', ?, ?, ?, ?, now()) RETURNING id
+    `, [
+      draftRow.name,
+      draftRow.target_audience,
+      draftRow.description,
+      expectedImpact,
+      JSON.stringify({ source: 'ai_copilot', generatedCampaignId: draftRow.id, generatedAt: draftRow.created_at }),
+      JSON.stringify({ offer: draftRow.offer_details, audience: draftRow.target_audience }),
+      companyId,
+      draftRow.budget
+    ]);
+    const id = row.id;
 
-  if (engine() === 'postgres') {
-    campaignId = await withTransaction(async (tx) => {
-      const row = await tx.getOne(`
-        INSERT INTO marketing_campaigns
-          (name, type, segment, objective, target_count, expected_impact, status, campaign_snapshot, ai_content, company_id, campaign_cost, launched_at)
-        VALUES (?, 'ai_copilot', ?, ?, 0, ?, 'active', ?, ?, ?, ?, ${now}) RETURNING id
-      `, [
-        draftRow.name,
-        draftRow.target_audience,
-        draftRow.description,
-        expectedImpact,
-        JSON.stringify({ source: 'ai_copilot', generatedCampaignId: draftRow.id, generatedAt: draftRow.created_at }),
-        JSON.stringify({ offer: draftRow.offer_details, audience: draftRow.target_audience }),
-        companyId,
-        draftRow.budget
-      ]);
-      const id = row.id;
+    await tx.query(`UPDATE generated_campaigns SET status = 'approved' WHERE id = ?`, [draftRow.id]);
 
-      await tx.query(`UPDATE generated_campaigns SET status = 'approved' WHERE id = ?`, [draftRow.id]);
-
-      return id;
-    });
-  } else {
-    const db = getDb();
-    try {
-      db.exec('BEGIN TRANSACTION');
-      try {
-        const info = db.prepare(`
-          INSERT INTO marketing_campaigns
-            (name, type, segment, objective, target_count, expected_impact, status, campaign_snapshot, ai_content, company_id, campaign_cost, launched_at)
-          VALUES (?, 'ai_copilot', ?, ?, 0, ?, 'active', ?, ?, ?, ?, datetime('now'))
-        `).run(
-          draftRow.name,
-          draftRow.target_audience,
-          draftRow.description,
-          expectedImpact,
-          JSON.stringify({ source: 'ai_copilot', generatedCampaignId: draftRow.id, generatedAt: draftRow.created_at }),
-          JSON.stringify({ offer: draftRow.offer_details, audience: draftRow.target_audience }),
-          companyId,
-          draftRow.budget
-        );
-        campaignId = info.lastInsertRowid;
-
-        db.prepare(`UPDATE generated_campaigns SET status = 'approved' WHERE id = ?`).run(draftRow.id);
-
-        db.exec('COMMIT');
-      } catch (e) {
-        db.exec('ROLLBACK');
-        throw e;
-      }
-    } finally {
-      db.close();
-    }
-  }
+    return id;
+  });
 
   return dbGet('SELECT * FROM marketing_campaigns WHERE id = ?', [campaignId]);
 }

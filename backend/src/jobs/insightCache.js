@@ -1,4 +1,4 @@
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 const { getDashboardInsights } = require('../services/insightEngine');
 
 async function runInsightCacheJob() {
@@ -7,9 +7,8 @@ async function runInsightCacheJob() {
 
     const companies = await dbAll('SELECT id FROM companies');
 
-    const pg = engine() === 'postgres';
-    const now = pg ? 'now()' : `datetime('now')`;
-    const expiresAt = pg ? `(now() + interval '1 hour')` : `datetime('now', '+1 hour')`;
+    const now = 'now()';
+    const expiresAt = `(now() + interval '1 hour')`;
 
     let cachedCount = 0;
     for (const company of companies) {

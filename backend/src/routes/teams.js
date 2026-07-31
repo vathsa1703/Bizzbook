@@ -6,8 +6,7 @@
 // (mirrors the compliance route's isAdmin gate — no privilege escalation).
 // ============================================================================
 const express = require('express');
-const { getDb } = require('../config/db');
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 const { withTransaction } = require('../config/pgDb');
 
 const router = express.Router();
@@ -78,44 +77,20 @@ router.post('/', async (req, res, next) => {
     const { name, description, color, icon, department_id, branch_id, lead_id, member_ids } = req.body || {};
     if (!name) return res.status(400).json({ error: 'Team name is required' });
 
-    let teamId;
-    if (engine() === 'postgres') {
-      teamId = await withTransaction(async (tx) => {
-        const row = await tx.getOne(`
-          INSERT INTO teams (company_id, branch_id, department_id, name, description, color, icon, lead_id, created_by)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
-        `, [companyId, branch_id || null, department_id || null, name, description || null,
-            color || null, icon || null, lead_id || null, req.user.userId]);
-        const wanted = new Set(await validEmployeeIds(tx.getAll, companyId, member_ids || []));
-        if (lead_id && (await validEmployeeIds(tx.getAll, companyId, [lead_id])).length) wanted.add(Number(lead_id));
-        for (const eid of wanted) {
-          await tx.query('INSERT INTO team_members (team_id, employee_id, role_in_team) VALUES (?, ?, ?) ON CONFLICT (team_id, employee_id) DO NOTHING',
-            [row.id, eid, eid === Number(lead_id) ? 'Lead' : 'Member']);
-        }
-        return row.id;
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.exec('BEGIN TRANSACTION');
-        try {
-          const info = db.prepare(`
-            INSERT INTO teams (company_id, branch_id, department_id, name, description, color, icon, lead_id, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).run(companyId, branch_id || null, department_id || null, name, description || null,
-                 color || null, icon || null, lead_id || null, req.user.userId);
-          teamId = info.lastInsertRowid;
-
-          const all = async (sql, params) => db.prepare(sql).all(...params);
-          const wanted = new Set(await validEmployeeIds(all, companyId, member_ids || []));
-          if (lead_id && (await validEmployeeIds(all, companyId, [lead_id])).length) wanted.add(Number(lead_id));
-          const addMember = db.prepare('INSERT OR IGNORE INTO team_members (team_id, employee_id, role_in_team) VALUES (?, ?, ?)');
-          for (const eid of wanted) addMember.run(teamId, eid, eid === Number(lead_id) ? 'Lead' : 'Member');
-
-          db.exec('COMMIT');
-        } catch (e) { db.exec('ROLLBACK'); throw e; }
-      } finally { db.close(); }
-    }
+    const teamId = await withTransaction(async (tx) => {
+      const row = await tx.getOne(`
+        INSERT INTO teams (company_id, branch_id, department_id, name, description, color, icon, lead_id, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+      `, [companyId, branch_id || null, department_id || null, name, description || null,
+          color || null, icon || null, lead_id || null, req.user.userId]);
+      const wanted = new Set(await validEmployeeIds(tx.getAll, companyId, member_ids || []));
+      if (lead_id && (await validEmployeeIds(tx.getAll, companyId, [lead_id])).length) wanted.add(Number(lead_id));
+      for (const eid of wanted) {
+        await tx.query('INSERT INTO team_members (team_id, employee_id, role_in_team) VALUES (?, ?, ?) ON CONFLICT (team_id, employee_id) DO NOTHING',
+          [row.id, eid, eid === Number(lead_id) ? 'Lead' : 'Member']);
+      }
+      return row.id;
+    });
 
     res.status(201).json({ id: teamId, message: 'Team created successfully' });
   } catch (err) { next(err); }
@@ -149,7 +124,7 @@ router.delete('/:id', async (req, res, next) => {
   try {
     if (!canManage(req)) return res.status(403).json({ error: 'Only owners/managers can manage teams' });
     const companyId = req.user.companyId;
-    const nowExpr = engine() === 'postgres' ? 'now()' : "datetime('now')";
+    const nowExpr = 'now()';
     const r = await dbGet(`UPDATE teams SET deleted_at = ${nowExpr}, status = 'Archived' WHERE id = ? AND company_id = ? AND deleted_at IS NULL RETURNING id`, [req.params.id, companyId]);
     if (!r) return res.status(404).json({ error: 'Team not found' });
     res.json({ message: 'Team archived successfully' });

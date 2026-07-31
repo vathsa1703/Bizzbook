@@ -1,4 +1,4 @@
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 const exceljs = require('exceljs');
 
 class ReportsService {
@@ -6,33 +6,20 @@ class ReportsService {
 
   _getDateFilter(tablePrefix, field, filter, customStart, customEnd) {
     const column = tablePrefix ? `${tablePrefix}.${field}` : field;
-    const pg = engine() === 'postgres';
     switch (filter) {
       case 'today':
-        return pg
-          ? `AND ${column}::date = CURRENT_DATE`
-          : `AND date(${column}) = date('now', 'localtime')`;
+        return `AND ${column}::date = CURRENT_DATE`;
       case '7days':
-        return pg
-          ? `AND ${column}::date >= (CURRENT_DATE - interval '7 days')`
-          : `AND date(${column}) >= date('now', '-7 days', 'localtime')`;
+        return `AND ${column}::date >= (CURRENT_DATE - interval '7 days')`;
       case '30days':
-        return pg
-          ? `AND ${column}::date >= (CURRENT_DATE - interval '30 days')`
-          : `AND date(${column}) >= date('now', '-30 days', 'localtime')`;
+        return `AND ${column}::date >= (CURRENT_DATE - interval '30 days')`;
       case '90days':
-        return pg
-          ? `AND ${column}::date >= (CURRENT_DATE - interval '90 days')`
-          : `AND date(${column}) >= date('now', '-90 days', 'localtime')`;
+        return `AND ${column}::date >= (CURRENT_DATE - interval '90 days')`;
       case 'month':
-        return pg
-          ? `AND TO_CHAR(${column}, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')`
-          : `AND strftime('%Y-%m', ${column}, 'localtime') = strftime('%Y-%m', 'now', 'localtime')`;
+        return `AND TO_CHAR(${column}, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')`;
       case 'custom':
         if (customStart && customEnd) {
-          return pg
-            ? `AND ${column}::date >= '${customStart}'::date AND ${column}::date <= '${customEnd}'::date`
-            : `AND date(${column}) >= date('${customStart}') AND date(${column}) <= date('${customEnd}')`;
+          return `AND ${column}::date >= '${customStart}'::date AND ${column}::date <= '${customEnd}'::date`;
         }
         return '';
       default:
@@ -75,11 +62,8 @@ class ReportsService {
     // ROI Estimation placeholder (or from channel_roi_history)
 
     // Revenue Trend Chart (daily/monthly based on range)
-    const trendFormat = (filters.range === 'today' || filters.range === '7days' || filters.range === '30days') ? '%Y-%m-%d' : '%Y-%m';
-    const pg = engine() === 'postgres';
-    const trendExpr = pg
-      ? `TO_CHAR(invoice_date, '${trendFormat === '%Y-%m-%d' ? 'YYYY-MM-DD' : 'YYYY-MM'}')`
-      : `strftime('${trendFormat}', invoice_date)`;
+    const trendFormat = (filters.range === 'today' || filters.range === '7days' || filters.range === '30days') ? 'YYYY-MM-DD' : 'YYYY-MM';
+    const trendExpr = `TO_CHAR(invoice_date, '${trendFormat}')`;
     const revenueTrend = await dbAll(`
       SELECT ${trendExpr} as label, SUM(grand_total) as value
       FROM invoices
@@ -132,8 +116,7 @@ class ReportsService {
 
   async getCustomerAnalytics(companyId, filters) {
     const dateFilter = this._getDateFilter(null, 'created_at', filters.range, filters.start, filters.end);
-    const pg = engine() === 'postgres';
-    const dailyExpr = pg ? `TO_CHAR(created_at, 'YYYY-MM-DD')` : `strftime('%Y-%m-%d', created_at)`;
+    const dailyExpr = `TO_CHAR(created_at, 'YYYY-MM-DD')`;
 
     const acquisitionTrend = await dbAll(`
       SELECT ${dailyExpr} as label, COUNT(id) as value
@@ -242,8 +225,7 @@ class ReportsService {
 
   async getCommunicationAnalytics(companyId, filters) {
     const dateFilter = this._getDateFilter(null, 'created_at', filters.range, filters.start, filters.end);
-    const pg = engine() === 'postgres';
-    const dailyExpr = pg ? `TO_CHAR(created_at, 'YYYY-MM-DD')` : `strftime('%Y-%m-%d', created_at)`;
+    const dailyExpr = `TO_CHAR(created_at, 'YYYY-MM-DD')`;
 
     const stats = await dbGet(`
       SELECT

@@ -1,6 +1,5 @@
 const express = require('express');
-const { getDb } = require('../config/db');
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 const { withTransaction } = require('../config/pgDb');
 
 const router = express.Router();
@@ -9,9 +8,7 @@ const router = express.Router();
 router.get('/summary', async (req, res, next) => {
   try {
     const companyId = req.user.companyId;
-    // date('now') is SQLite-only; Postgres's due_date is a native DATE
-    // column, so CURRENT_DATE is the direct equivalent.
-    const today = engine() === 'postgres' ? 'CURRENT_DATE' : "date('now')";
+    const today = 'CURRENT_DATE';
     const summary = await dbGet(`
       SELECT
         COALESCE(SUM(total_amount - paid_amount), 0) as outstanding_amount,
@@ -33,7 +30,7 @@ router.get('/', async (req, res, next) => {
     const companyId = req.user.companyId;
     const status = req.query.status || '';
     const search = req.query.search || '';
-    const today = engine() === 'postgres' ? 'CURRENT_DATE' : "date('now')";
+    const today = 'CURRENT_DATE';
 
     let query = `
       SELECT cr.*, c.name as customer_name, s.invoice_number
@@ -108,60 +105,29 @@ router.put('/:id/pay', async (req, res, next) => {
     const newPaidAmount = Math.min(credit.total_amount, credit.paid_amount + amount);
     const newStatus = newPaidAmount >= credit.total_amount ? 'paid' : 'pending';
 
-    if (engine() === 'postgres') {
-      await withTransaction(async (tx) => {
-        await tx.query(`
-          UPDATE credits
-          SET paid_amount = ?,
-              status = ?
-          WHERE id = ? AND company_id = ?
-        `, [newPaidAmount, newStatus, creditId, companyId]);
+    await withTransaction(async (tx) => {
+      await tx.query(`
+        UPDATE credits
+        SET paid_amount = ?,
+            status = ?
+        WHERE id = ? AND company_id = ?
+      `, [newPaidAmount, newStatus, creditId, companyId]);
 
-        // If this is linked to a sale, update sale payment status to 'paid' if fully paid.
-        // Update every sales row on the same invoice (not just credit.sale_id) so
-        // multi-item sales are flipped consistently. tx.query/tx.getOne stay on
-        // the same pinned client as the credits UPDATE above -- no pool-level
-        // helper is called here, so nothing can silently escape this transaction
-        // (see companySettings.js's fix for the bug class this guards against).
-        if (credit.sale_id && newStatus === 'paid') {
-          const linkedSale = await tx.getOne('SELECT invoice_id FROM sales WHERE id = ? AND company_id = ?', [credit.sale_id, companyId]);
-          if (linkedSale && linkedSale.invoice_id) {
-            await tx.query("UPDATE sales SET payment_status = 'paid' WHERE invoice_id = ? AND company_id = ?", [linkedSale.invoice_id, companyId]);
-          } else {
-            await tx.query("UPDATE sales SET payment_status = 'paid' WHERE id = ? AND company_id = ?", [credit.sale_id, companyId]);
-          }
+      // If this is linked to a sale, update sale payment status to 'paid' if fully paid.
+      // Update every sales row on the same invoice (not just credit.sale_id) so
+      // multi-item sales are flipped consistently. tx.query/tx.getOne stay on
+      // the same pinned client as the credits UPDATE above -- no pool-level
+      // helper is called here, so nothing can silently escape this transaction
+      // (see companySettings.js's fix for the bug class this guards against).
+      if (credit.sale_id && newStatus === 'paid') {
+        const linkedSale = await tx.getOne('SELECT invoice_id FROM sales WHERE id = ? AND company_id = ?', [credit.sale_id, companyId]);
+        if (linkedSale && linkedSale.invoice_id) {
+          await tx.query("UPDATE sales SET payment_status = 'paid' WHERE invoice_id = ? AND company_id = ?", [linkedSale.invoice_id, companyId]);
+        } else {
+          await tx.query("UPDATE sales SET payment_status = 'paid' WHERE id = ? AND company_id = ?", [credit.sale_id, companyId]);
         }
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.exec('BEGIN TRANSACTION');
-
-        db.prepare(`
-          UPDATE credits
-          SET paid_amount = ?,
-              status = ?
-          WHERE id = ? AND company_id = ?
-        `).run(newPaidAmount, newStatus, creditId, companyId);
-
-        if (credit.sale_id && newStatus === 'paid') {
-          const linkedSale = db.prepare('SELECT invoice_id FROM sales WHERE id = ? AND company_id = ?').get(credit.sale_id, companyId);
-          if (linkedSale && linkedSale.invoice_id) {
-            db.prepare("UPDATE sales SET payment_status = 'paid' WHERE invoice_id = ? AND company_id = ?")
-              .run(linkedSale.invoice_id, companyId);
-          } else {
-            db.prepare("UPDATE sales SET payment_status = 'paid' WHERE id = ? AND company_id = ?").run(credit.sale_id, companyId);
-          }
-        }
-
-        db.exec('COMMIT');
-      } catch (txErr) {
-        try { db.exec('ROLLBACK'); } catch (_) {}
-        throw txErr;
-      } finally {
-        db.close();
       }
-    }
+    });
 
     res.json({ message: 'Payment recorded successfully', outstanding: credit.total_amount - newPaidAmount, status: newStatus });
   } catch (err) {

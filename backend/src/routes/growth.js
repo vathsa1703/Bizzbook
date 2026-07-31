@@ -14,13 +14,12 @@ const router = express.Router();
 const svc = require('../services/growthService');
 const aiService = require('../services/aiService');
 const { growthAdvisorRateLimit } = require('../middleware/aiRateLimit');
-const { engine } = require('../config/dbEngine');
 
 const isAdmin = (req) => ['admin', 'OWNER', 'MANAGER'].includes(req.user.role);
 
 // datetime('now') is SQLite-only; Postgres's *_at columns are TIMESTAMPTZ, so
 // now() is the direct equivalent (same pattern as routes/credits.js's `today`).
-const nowExpr = () => (engine() === 'postgres' ? 'now()' : "datetime('now')");
+const nowExpr = () => 'now()';
 
 // ── Multer upload factory ─────────────────────────────────────────────────────
 const ALLOWED_MIME = new Set([

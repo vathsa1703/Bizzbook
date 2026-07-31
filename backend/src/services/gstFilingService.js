@@ -7,7 +7,7 @@
 
 'use strict';
 
-const { dbAll, engine } = require('../config/dbEngine');
+const { dbAll } = require('../config/dbEngine');
 const {
   resolveStateCode,
   isValidGSTIN,
@@ -69,16 +69,13 @@ async function getCompanyInfo(companyId) {
 async function fetchInvoices({ month, year, companyId } = {}) {
   let dateFilter = '';
   const params = [];
-  const isPg = engine() === 'postgres';
 
-  // strftime() is SQLite-only; Postgres's invoice_date is a native DATE
-  // column, so TO_CHAR(...) does the equivalent YYYY-MM/YYYY string format.
   if (year && month) {
     const mm = String(month).padStart(2, '0');
-    dateFilter = isPg ? `AND TO_CHAR(i.invoice_date, 'YYYY-MM') = ?` : `AND strftime('%Y-%m', i.invoice_date) = ?`;
+    dateFilter = `AND TO_CHAR(i.invoice_date, 'YYYY-MM') = ?`;
     params.push(`${year}-${mm}`);
   } else if (year) {
-    dateFilter = isPg ? `AND TO_CHAR(i.invoice_date, 'YYYY') = ?` : `AND strftime('%Y', i.invoice_date) = ?`;
+    dateFilter = `AND TO_CHAR(i.invoice_date, 'YYYY') = ?`;
     params.push(String(year));
   }
 

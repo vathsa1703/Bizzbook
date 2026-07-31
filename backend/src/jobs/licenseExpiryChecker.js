@@ -4,17 +4,13 @@
  * Company Profile's Licenses tab queries and displays dismissible banners.
  * Runs once on startup and then every 24 hours.
  */
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 
 async function runLicenseExpiryCheck() {
   try {
     console.log('[LicenseExpiry] Running daily license expiry check...');
 
-    const pg = engine() === 'postgres';
-    // julianday() is SQLite-only; expiry_date is a real DATE column on
-    // Postgres, so a plain date subtraction against CURRENT_DATE gives the
-    // day-count integer directly.
-    const daysUntilExpr = pg ? `(cl.expiry_date::date - CURRENT_DATE)` : `CAST(julianday(cl.expiry_date) - julianday('now') AS INTEGER)`;
+    const daysUntilExpr = `(cl.expiry_date::date - CURRENT_DATE)`;
 
     // Find all licenses expiring within 30 days (across all companies)
     const expiringLicenses = await dbAll(`
@@ -35,14 +31,10 @@ async function runLicenseExpiryCheck() {
     let upserted = 0;
     let alreadyExpired = 0;
 
-    const notDismissedVal = pg ? false : 0;
-    const dismissedCaseElse = pg ? 'false' : '0';
-
     for (const lic of expiringLicenses) {
       if (lic.days_until_expiry < 0) {
         // Already expired: update status
-        const expiredExpr = pg ? `expiry_date::date < CURRENT_DATE` : `julianday(expiry_date) < julianday('now')`;
-        await dbGet(`UPDATE company_licenses SET status = 'expired' WHERE id = ? AND ${expiredExpr}`, [lic.license_id]);
+        await dbGet(`UPDATE company_licenses SET status = 'expired' WHERE id = ? AND expiry_date::date < CURRENT_DATE`, [lic.license_id]);
         alreadyExpired++;
       }
       await dbGet(`
@@ -54,14 +46,14 @@ async function runLicenseExpiryCheck() {
           expiry_date       = excluded.expiry_date,
           -- The ELSE branch must be table-qualified: inside ON CONFLICT DO
           -- UPDATE SET, both the existing row and the proposed 'excluded' row
-          -- are in scope, so a bare is_dismissed is an ambiguous reference
-          -- under Postgres and the whole upsert errors out. Qualifying with
-          -- the table name pins it to the EXISTING row, which is the intent:
-          -- a still-valid license keeps whatever dismissal state the user
-          -- already chose, and only an expired one (days <= 0) resets it so
-          -- the banner comes back. SQLite accepts the qualified form too.
-          is_dismissed      = CASE WHEN excluded.days_until_expiry <= 0 THEN ${dismissedCaseElse} ELSE license_expiry_alerts.is_dismissed END
-      `, [lic.company_id, lic.license_id, lic.license_type, lic.license_number, lic.expiry_date, lic.days_until_expiry, notDismissedVal]);
+          -- are in scope, so a bare is_dismissed is an ambiguous reference and
+          -- the whole upsert errors out. Qualifying with the table name pins
+          -- it to the EXISTING row, which is the intent: a still-valid
+          -- license keeps whatever dismissal state the user already chose,
+          -- and only an expired one (days <= 0) resets it so the banner
+          -- comes back.
+          is_dismissed      = CASE WHEN excluded.days_until_expiry <= 0 THEN false ELSE license_expiry_alerts.is_dismissed END
+      `, [lic.company_id, lic.license_id, lic.license_type, lic.license_number, lic.expiry_date, lic.days_until_expiry, false]);
       upserted++;
     }
 

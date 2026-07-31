@@ -1,5 +1,4 @@
 const express = require('express');
-const { getDb } = require('../config/db');
 const {
   resolveStateCode,
   determineTransactionType,
@@ -7,7 +6,7 @@ const {
   getCompanyGstProfileAsync,
   enrichItemsAsync,
 } = require('../services/gstEngine');
-const { dbGet, dbAll, engine, isOn } = require('../config/dbEngine');
+const { dbGet, dbAll, isOn } = require('../config/dbEngine');
 const { withTransaction } = require('../config/pgDb');
 
 const router = express.Router();
@@ -88,69 +87,36 @@ router.post('/', async (req, res, next) => {
       taxData.itc_eligible, taxData.itc_amount, purchase_date, invoice_number, companyId,
     ];
 
-    let purchaseId;
+    const purchaseId = await withTransaction(async (tx) => {
+      const purchaseRow = await tx.getOne(`
+        INSERT INTO purchases (
+          product_id, supplier_id, quantity, cost_price,
+          taxable_value, gst_amount, cgst, sgst, igst,
+          itc_eligible, itc_amount, purchase_date, invoice_number, company_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        RETURNING id
+      `, insertParams);
+      const txPurchaseId = purchaseRow.id;
 
-    if (engine() === 'postgres') {
-      purchaseId = await withTransaction(async (tx) => {
-        const purchaseRow = await tx.getOne(`
-          INSERT INTO purchases (
-            product_id, supplier_id, quantity, cost_price,
-            taxable_value, gst_amount, cgst, sgst, igst,
-            itc_eligible, itc_amount, purchase_date, invoice_number, company_id
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          RETURNING id
-        `, insertParams);
-        const txPurchaseId = purchaseRow.id;
-
-        // Increment received stock into inventory — scoped to company.
-        // tx.query() returns the raw pg Result here (not routed through
-        // getOne/getAll) specifically so rowCount is available -- dbGet/dbAll
-        // abstract that away, but we need to know whether the UPDATE actually
-        // matched a row to decide whether to fall back to an INSERT.
-        const invResult = await tx.query(
-          'UPDATE inventory SET stock_quantity = stock_quantity + ?, last_restocked = ? WHERE product_id = ? AND company_id = ?',
-          [Number(quantity), purchase_date, product_id, companyId]
+      // Increment received stock into inventory — scoped to company.
+      // tx.query() returns the raw pg Result here (not routed through
+      // getOne/getAll) specifically so rowCount is available -- dbGet/dbAll
+      // abstract that away, but we need to know whether the UPDATE actually
+      // matched a row to decide whether to fall back to an INSERT.
+      const invResult = await tx.query(
+        'UPDATE inventory SET stock_quantity = stock_quantity + ?, last_restocked = ? WHERE product_id = ? AND company_id = ?',
+        [Number(quantity), purchase_date, product_id, companyId]
+      );
+      if (invResult.rowCount === 0) {
+        // Product had no inventory row yet (shouldn't normally happen — products always get one on create)
+        await tx.query(
+          'INSERT INTO inventory (product_id, stock_quantity, reorder_level, last_restocked, company_id) VALUES (?, ?, 10, ?, ?)',
+          [product_id, Number(quantity), purchase_date, companyId]
         );
-        if (invResult.rowCount === 0) {
-          // Product had no inventory row yet (shouldn't normally happen — products always get one on create)
-          await tx.query(
-            'INSERT INTO inventory (product_id, stock_quantity, reorder_level, last_restocked, company_id) VALUES (?, ?, 10, ?, ?)',
-            [product_id, Number(quantity), purchase_date, companyId]
-          );
-        }
-
-        return txPurchaseId;
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.exec('BEGIN TRANSACTION');
-        const result = db.prepare(`
-          INSERT INTO purchases (
-            product_id, supplier_id, quantity, cost_price,
-            taxable_value, gst_amount, cgst, sgst, igst,
-            itc_eligible, itc_amount, purchase_date, invoice_number, company_id
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(...insertParams);
-        purchaseId = result.lastInsertRowid;
-
-        const invUpdate = db.prepare(
-          'UPDATE inventory SET stock_quantity = stock_quantity + ?, last_restocked = ? WHERE product_id = ? AND company_id = ?'
-        ).run(Number(quantity), purchase_date, product_id, companyId);
-        if (invUpdate.changes === 0) {
-          db.prepare(
-            'INSERT INTO inventory (product_id, stock_quantity, reorder_level, last_restocked, company_id) VALUES (?, ?, 10, ?, ?)'
-          ).run(product_id, Number(quantity), purchase_date, companyId);
-        }
-
-        db.exec('COMMIT');
-      } catch (err) {
-        try { db.exec('ROLLBACK'); } catch (_) {}
-        throw err;
-      } finally {
-        db.close();
       }
-    }
+
+      return txPurchaseId;
+    });
 
     res.status(201).json({ id: purchaseId });
   } catch (err) {

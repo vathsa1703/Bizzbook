@@ -1,4 +1,4 @@
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 
 // HR AI is intentionally rule-based/deterministic in this build — there is no
 // LLM call in this file. It previously attempted a Google Gemini call, but
@@ -58,9 +58,7 @@ async function generateInsights(companyId) {
     const today = new Date().toISOString().split('T')[0];
     const thisMonth = today.substring(0, 7);
 
-    // strftime('%Y','now') is SQLite-only; Postgres equivalent uses
-    // EXTRACT(YEAR FROM ...) against the native INTEGER year column.
-    const yearExpr = engine() === 'postgres' ? 'EXTRACT(YEAR FROM CURRENT_DATE)::int' : "strftime('%Y','now')";
+    const yearExpr = 'EXTRACT(YEAR FROM CURRENT_DATE)::int';
 
     // Late employees today
     data.lateToday = await dbAll("SELECT e.name, e.job_title FROM attendance_records ar JOIN employees e ON ar.employee_id = e.id WHERE ar.company_id = ? AND ar.date = ? AND ar.status = 'late'", [companyId, today]);

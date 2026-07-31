@@ -1,4 +1,4 @@
-const { dbGet, engine } = require('../../config/dbEngine');
+const { dbGet } = require('../../config/dbEngine');
 const jobQueueService = require('../JobQueueService');
 const { JobTypes } = require('../../constants/jobs');
 const MockProvider = require('./providers/MockProvider');
@@ -90,7 +90,7 @@ class CommunicationService {
       throw new Error(`Unsupported channel: ${channel}`);
     }
 
-    const now = engine() === 'postgres' ? 'now()' : `datetime('now')`;
+    const now = 'now()';
     let successful = 0;
     let failed = 0;
 
