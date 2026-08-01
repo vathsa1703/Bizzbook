@@ -44,6 +44,14 @@ export default function SegmentsView() {
           ))}
         </div>
       )}
+      <div className="p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 rounded-xl">
+        <p className="text-xs font-bold text-amber-800 dark:text-amber-400">Not yet active — coming soon</p>
+        <p className="text-xs text-amber-700 dark:text-amber-500 mt-1">
+          A segment created here can't be viewed (its member list can't be
+          opened yet) or picked as a campaign's Target Segment. Use the
+          built-in segments above for real campaigns until this is wired up.
+        </p>
+      </div>
       <form onSubmit={handleCreate} className="pt-4 border-t space-y-3">
         <h4 className="font-bold text-sm text-inkA dark:text-inkA-dark">Create New Segment</h4>
         <input required type="text" placeholder="Name" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} className="w-full border rounded px-3 py-1.5 text-sm" />
