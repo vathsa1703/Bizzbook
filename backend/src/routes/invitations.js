@@ -11,6 +11,18 @@ const publicRouter = express.Router();
 const crypto = require('crypto');
 const { dbGet, dbAll } = require('../config/dbEngine');
 const { withTransaction } = require('../config/pgDb');
+const { requirePermission } = require('../middleware/auth');
+
+// Invitations grant company access (and, via role_id, whatever permissions
+// that role carries) to a brand-new account -- gated the same as role
+// management itself (routes/roles.js), not left open to any authenticated
+// user. Found ungated during the final client-readiness audit: any employee
+// could POST an invitation with role_id set to the company's Owner role and
+// have it accepted, landing a new account with full Owner-level granular
+// permissions despite users.role staying 'EMPLOYEE' -- confirmed exploitable
+// end-to-end before this fix.
+const requireSettingsManage = requirePermission('settings.manage');
+const requireSettingsView = requirePermission('settings.view');
 
 // Validate token (public - for accept invite page)
 publicRouter.get('/validate/:token', async (req, res, next) => {
@@ -86,7 +98,7 @@ publicRouter.post('/accept', async (req, res, next) => {
 
 // All routes below require auth (mounted after app-level authenticate middleware)
 // List invitations
-router.get('/', async (req, res, next) => {
+router.get('/', requireSettingsView, async (req, res, next) => {
   try {
     // i.rowid was SQLite's implicit rowid alias -- Postgres has no such
     // column. id is the auto-increment PK and matches insertion order on
@@ -108,7 +120,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // Create invitation
-router.post('/', async (req, res, next) => {
+router.post('/', requireSettingsManage, async (req, res, next) => {
   try {
     const { email, role_id, department_id, branch_id, expires_in_days = 7 } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required' });
@@ -118,6 +130,14 @@ router.post('/', async (req, res, next) => {
 
     const pending = await dbGet(`SELECT id FROM invitations WHERE email = ? AND company_id = ? AND status = 'pending'`, [email, req.user.companyId]);
     if (pending) return res.status(409).json({ error: 'An active invitation already exists for this email' });
+
+    // role_id must belong to this company -- otherwise an inviter could
+    // reference another tenant's role row (same class of check routes/roles.js
+    // already does for /assign).
+    if (role_id) {
+      const role = await dbGet('SELECT id FROM roles WHERE id = ? AND company_id = ?', [role_id, req.user.companyId]);
+      if (!role) return res.status(400).json({ error: 'Invalid role_id for this company' });
+    }
 
     const token = crypto.randomBytes(32).toString('hex');
     // make_interval takes the day count as a real bound parameter, so a
@@ -135,7 +155,7 @@ router.post('/', async (req, res, next) => {
 });
 
 // Revoke invitation
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', requireSettingsManage, async (req, res, next) => {
   try {
     const inv = await dbGet('SELECT id FROM invitations WHERE id = ? AND company_id = ?', [req.params.id, req.user.companyId]);
     if (!inv) return res.status(404).json({ error: 'Invitation not found' });
