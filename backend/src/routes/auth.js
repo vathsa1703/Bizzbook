@@ -1,23 +1,12 @@
 const express = require('express');
 const crypto = require('crypto');
-const { getDb, ensureOwnerRole, assignUserToRole } = require('../config/db');
 const { hashPassword, comparePassword, generateToken } = require('../services/authService');
 const { authenticate } = require('../middleware/auth');
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 const { withTransaction } = require('../config/pgDb');
 
 const router = express.Router();
 
-// Postgres-only twins of config/db.js's ensureOwnerRole/assignUserToRole, used
-// solely by signup's transaction below. The originals take a raw synchronous
-// SQLite `db` handle and are also called from runMigrations() (migrations 16
-// and 28) -- migrations never replay against Postgres (bootstrapPostgresSchema
-// loads schema.postgres.sql directly, see pgDb.js), so the sync versions'
-// only other caller is unaffected by this. Not merged into one function: the
-// SQLite version uses `.get()/.run()`/lastInsertRowid and `INSERT OR IGNORE`;
-// Postgres needs `RETURNING id` and `ON CONFLICT ... DO NOTHING` (no
-// equivalent to `OR IGNORE` exists in Postgres SQL at all, this isn't just a
-// placeholder difference).
 async function ensureOwnerRoleAsync(tx, companyId) {
   let ownerRole = await tx.getOne("SELECT id FROM roles WHERE company_id = ? AND name = 'Owner'", [companyId]);
   if (!ownerRole) {
@@ -66,104 +55,54 @@ router.post('/signup', async (req, res, next) => {
     // Resolution 3: company_code is generated inside the transaction using the
     // auto-generated PK. The UNIQUE constraint on company_code is the final
     // collision backstop.
-    if (engine() === 'postgres') {
-      const ids = await withTransaction(async (tx) => {
-        const companyRow = await tx.getOne(
-          'INSERT INTO companies (name, business_type, phone) VALUES (?, ?, ?) RETURNING id',
-          [businessName, businessType, phone || null]
+    const ids = await withTransaction(async (tx) => {
+      const companyRow = await tx.getOne(
+        'INSERT INTO companies (name, business_type, phone) VALUES (?, ?, ?) RETURNING id',
+        [businessName, businessType, phone || null]
+      );
+      const txCompanyId = companyRow.id;
+
+      const companyCode = `BIZ${String(txCompanyId).padStart(5, '0')}`;
+      // setup_completed must be a bound parameter, not a literal `0` in the
+      // SQL text: Postgres parses a literal integer against a boolean column
+      // more strictly than a bound parameter of the same value (the literal
+      // form throws "column is of type boolean but expression is of type
+      // integer"; the exact same 0, sent as a $n parameter, is accepted and
+      // coerced -- confirmed directly, see products.js's commit for the
+      // general case).
+      await tx.query('UPDATE companies SET company_code = ?, setup_completed = ? WHERE id = ?', [companyCode, 0, txCompanyId]);
+
+      const userRow = await tx.getOne(
+        'INSERT INTO users (company_id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?) RETURNING id',
+        [txCompanyId, ownerName, email, hashedPassword, 'OWNER']
+      );
+      const txUserId = userRow.id;
+
+      await tx.query('UPDATE companies SET owner_user_id = ? WHERE id = ?', [txUserId, txCompanyId]);
+
+      const ownerRoleId = await ensureOwnerRoleAsync(tx, txCompanyId);
+      await assignUserToRoleAsync(tx, txUserId, ownerRoleId, txCompanyId);
+
+      for (let step = 1; step <= 6; step++) {
+        await tx.query(
+          "INSERT INTO company_setup_progress (company_id, step_number, status) VALUES (?, ?, 'pending') ON CONFLICT (company_id, step_number) DO NOTHING",
+          [txCompanyId, step]
         );
-        const txCompanyId = companyRow.id;
-
-        const companyCode = `BIZ${String(txCompanyId).padStart(5, '0')}`;
-        // setup_completed must be a bound parameter, not a literal `0` in the
-        // SQL text: Postgres parses a literal integer against a boolean
-        // column more strictly than a bound parameter of the same value (the
-        // literal form throws "column is of type boolean but expression is
-        // of type integer"; the exact same 0, sent as a $n parameter, is
-        // accepted and coerced -- confirmed directly, see products.js's
-        // commit for the general case). SQLite has no such distinction, so
-        // its branch below keeps the literal `0` unchanged.
-        await tx.query('UPDATE companies SET company_code = ?, setup_completed = ? WHERE id = ?', [companyCode, 0, txCompanyId]);
-
-        const userRow = await tx.getOne(
-          'INSERT INTO users (company_id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?) RETURNING id',
-          [txCompanyId, ownerName, email, hashedPassword, 'OWNER']
-        );
-        const txUserId = userRow.id;
-
-        await tx.query('UPDATE companies SET owner_user_id = ? WHERE id = ?', [txUserId, txCompanyId]);
-
-        const ownerRoleId = await ensureOwnerRoleAsync(tx, txCompanyId);
-        await assignUserToRoleAsync(tx, txUserId, ownerRoleId, txCompanyId);
-
-        for (let step = 1; step <= 6; step++) {
-          await tx.query(
-            "INSERT INTO company_setup_progress (company_id, step_number, status) VALUES (?, ?, 'pending') ON CONFLICT (company_id, step_number) DO NOTHING",
-            [txCompanyId, step]
-          );
-        }
-
-        await tx.query('INSERT INTO company_gst_settings (company_id) VALUES (?) ON CONFLICT (company_id) DO NOTHING', [txCompanyId]);
-        await tx.query('INSERT INTO company_financial_settings (company_id) VALUES (?) ON CONFLICT (company_id) DO NOTHING', [txCompanyId]);
-        await tx.query('INSERT INTO company_branding (company_id) VALUES (?) ON CONFLICT (company_id) DO NOTHING', [txCompanyId]);
-        await tx.query(`
-          INSERT INTO company_subscriptions (company_id, plan_id, status, trial_ends_at, current_period_end)
-          VALUES (?, 'free', 'trialing', now() + interval '14 days', now() + interval '14 days')
-          ON CONFLICT (company_id) DO NOTHING
-        `, [txCompanyId]);
-
-        return { companyId: txCompanyId, userId: txUserId };
-      });
-      companyId = ids.companyId;
-      userId = ids.userId;
-    } else {
-      const db = getDb();
-      try {
-        db.exec('BEGIN TRANSACTION');
-
-        const company = db.prepare(
-          'INSERT INTO companies (name, business_type, phone) VALUES (?, ?, ?)'
-        ).run(businessName, businessType, phone || null);
-        companyId = company.lastInsertRowid;
-
-        const companyCode = `BIZ${String(companyId).padStart(5, '0')}`;
-        db.prepare('UPDATE companies SET company_code = ?, setup_completed = 0 WHERE id = ?')
-          .run(companyCode, companyId);
-
-        const user = db.prepare(
-          'INSERT INTO users (company_id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)'
-        ).run(companyId, ownerName, email, hashedPassword, 'OWNER');
-        userId = user.lastInsertRowid;
-
-        db.prepare('UPDATE companies SET owner_user_id = ? WHERE id = ?').run(userId, companyId);
-
-        const ownerRoleId = ensureOwnerRole(db, companyId);
-        assignUserToRole(db, userId, ownerRoleId, companyId);
-
-        const insertProgress = db.prepare(`
-          INSERT OR IGNORE INTO company_setup_progress (company_id, step_number, status)
-          VALUES (?, ?, 'pending')
-        `);
-        for (let step = 1; step <= 6; step++) {
-          insertProgress.run(companyId, step);
-        }
-
-        db.prepare('INSERT OR IGNORE INTO company_gst_settings (company_id) VALUES (?)').run(companyId);
-        db.prepare('INSERT OR IGNORE INTO company_financial_settings (company_id) VALUES (?)').run(companyId);
-        db.prepare('INSERT OR IGNORE INTO company_branding (company_id) VALUES (?)').run(companyId);
-        db.prepare(`
-          INSERT OR IGNORE INTO company_subscriptions (company_id, plan_id, status, trial_ends_at, current_period_end)
-          VALUES (?, 'free', 'trialing', datetime('now', '+14 days'), datetime('now', '+14 days'))
-        `).run(companyId);
-
-        db.exec('COMMIT');
-      } catch (txErr) {
-        try { db.exec('ROLLBACK'); } catch (_) {}
-        throw txErr;
-      } finally {
-        db.close();
       }
-    }
+
+      await tx.query('INSERT INTO company_gst_settings (company_id) VALUES (?) ON CONFLICT (company_id) DO NOTHING', [txCompanyId]);
+      await tx.query('INSERT INTO company_financial_settings (company_id) VALUES (?) ON CONFLICT (company_id) DO NOTHING', [txCompanyId]);
+      await tx.query('INSERT INTO company_branding (company_id) VALUES (?) ON CONFLICT (company_id) DO NOTHING', [txCompanyId]);
+      await tx.query(`
+        INSERT INTO company_subscriptions (company_id, plan_id, status, trial_ends_at, current_period_end)
+        VALUES (?, 'free', 'trialing', now() + interval '14 days', now() + interval '14 days')
+        ON CONFLICT (company_id) DO NOTHING
+      `, [txCompanyId]);
+
+      return { companyId: txCompanyId, userId: txUserId };
+    });
+    companyId = ids.companyId;
+    userId = ids.userId;
 
     const userPayload = {
       id: userId,
@@ -237,24 +176,11 @@ router.post('/login', async (req, res, next) => {
       const ip = req.headers['x-forwarded-for'] || req.ip || '';
       const os = ua.includes('Windows') ? 'Windows' : ua.includes('Mac') ? 'macOS' : ua.includes('Linux') ? 'Linux' : 'Unknown';
 
-      if (engine() === 'postgres') {
-        await dbGet(`
-          INSERT INTO sessions (user_id, company_id, token_hash, browser, os, ip_address, device_name, expires_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, now() + interval '7 days')
-        `, [user.id, user.company_id, tokenHash, ua.substring(0, 200), os, ip.toString().substring(0, 100), 'Web Browser']);
-        await dbGet("UPDATE users SET last_login = now(), login_count = COALESCE(login_count, 0) + 1 WHERE id = ?", [user.id]);
-      } else {
-        const db = getDb();
-        try {
-          db.prepare(`
-            INSERT INTO sessions (user_id, company_id, token_hash, browser, os, ip_address, device_name, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '+7 days'))
-          `).run(user.id, user.company_id, tokenHash, ua.substring(0, 200), os, ip.toString().substring(0, 100), 'Web Browser');
-          db.prepare("UPDATE users SET last_login = datetime('now'), login_count = COALESCE(login_count, 0) + 1 WHERE id = ?").run(user.id);
-        } finally {
-          db.close();
-        }
-      }
+      await dbGet(`
+        INSERT INTO sessions (user_id, company_id, token_hash, browser, os, ip_address, device_name, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, now() + interval '7 days')
+      `, [user.id, user.company_id, tokenHash, ua.substring(0, 200), os, ip.toString().substring(0, 100), 'Web Browser']);
+      await dbGet("UPDATE users SET last_login = now(), login_count = COALESCE(login_count, 0) + 1 WHERE id = ?", [user.id]);
     } catch (sessionErr) {
       console.error('[Auth] Session creation failed (non-fatal):', sessionErr.message);
     }

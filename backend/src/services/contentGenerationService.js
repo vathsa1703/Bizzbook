@@ -1,4 +1,3 @@
-const { getDb } = require('../config/db');
 const { getClient, safeParseJSON } = require('./marketingAI');
 
 /**

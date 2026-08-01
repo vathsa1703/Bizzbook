@@ -1,4 +1,4 @@
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 const { JobTypes } = require('../constants/jobs');
 
 // True for a duplicate-primary-key/unique-constraint violation on either
@@ -26,13 +26,7 @@ class JobQueueService {
    * @param {Object} params - { companyId, type, payload, priority = 5, correlationId = null, idempotencyKey = null, delayMinutes = 0 }
    */
   async enqueue({ companyId, type, payload, priority = 5, correlationId = null, idempotencyKey = null, delayMinutes = 0 }) {
-    const pg = engine() === 'postgres';
-    let runAt;
-    if (delayMinutes > 0) {
-      runAt = pg ? `(now() + interval '${delayMinutes} minutes')` : `datetime('now', '+${delayMinutes} minutes')`;
-    } else {
-      runAt = pg ? 'now()' : `datetime('now')`;
-    }
+    const runAt = delayMinutes > 0 ? `(now() + interval '${delayMinutes} minutes')` : 'now()';
 
     try {
       const row = await dbGet(`
@@ -55,10 +49,8 @@ class JobQueueService {
    * @param {number} limit
    */
   async claimJobs(limit = 10) {
-    const pg = engine() === 'postgres';
-    const now = pg ? 'now()' : `datetime('now')`;
+    const now = 'now()';
 
-    // SQLite doesn't have SKIP LOCKED, but we can do a standard claim pattern
     // Find pending jobs that are ready to run, ordered by priority.
     // SELECT * (not an explicit column list) -- an earlier explicit list
     // omitted company_id entirely, so every handler's `job.company_id` was
@@ -92,7 +84,7 @@ class JobQueueService {
   }
 
   async completeJob(jobId) {
-    const now = engine() === 'postgres' ? 'now()' : `datetime('now')`;
+    const now = 'now()';
     await dbGet(`UPDATE background_jobs SET status = 'completed', updated_at = ${now} WHERE id = ?`, [jobId]);
   }
 
@@ -104,9 +96,8 @@ class JobQueueService {
     } else {
       // Exponential backoff: minutes = attempts^2 * 5
       const delayMins = Math.pow(newAttempts, 2) * 5;
-      const pg = engine() === 'postgres';
-      const now = pg ? 'now()' : `datetime('now')`;
-      const runAt = pg ? `(now() + interval '${delayMins} minutes')` : `datetime('now', '+${delayMins} minutes')`;
+      const now = 'now()';
+      const runAt = `(now() + interval '${delayMins} minutes')`;
       await dbGet(`
         UPDATE background_jobs
         SET status = 'pending',
@@ -120,12 +111,12 @@ class JobQueueService {
   }
 
   async failJob(jobId, errorLog) {
-    const now = engine() === 'postgres' ? 'now()' : `datetime('now')`;
+    const now = 'now()';
     await dbGet(`UPDATE background_jobs SET status = 'failed', error_log = ?, updated_at = ${now} WHERE id = ?`, [errorLog, jobId]);
   }
 
   async markDead(jobId, errorLog) {
-    const now = engine() === 'postgres' ? 'now()' : `datetime('now')`;
+    const now = 'now()';
     await dbGet(`UPDATE background_jobs SET status = 'dead', error_log = ?, updated_at = ${now} WHERE id = ?`, [errorLog, jobId]);
     console.error(`[JobQueueService] Job ${jobId} moved to DEAD LETTER QUEUE.`);
   }

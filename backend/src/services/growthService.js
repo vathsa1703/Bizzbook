@@ -10,8 +10,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const { getDb } = require('../config/db');
-const { dbGet, dbAll, engine, withExecutor, withTxExecutor } = require('../config/dbEngine');
+const { dbGet, dbAll, withExecutor, withTxExecutor } = require('../config/dbEngine');
 const pgDb = require('../config/pgDb');
 const {
   FUNDING_TYPES,
@@ -23,18 +22,15 @@ const {
 } = require('../data/growthSeedData');
 
 // ── Shared DB helper: each function runs via withExecutor (plain connection)
-// or withTxExecutor (atomic transaction), on whichever engine DB_ENGINE
-// selects. See config/dbEngine.js for the executor shape ({engine, get, all,
-// run, insert}).
+// or withTxExecutor (atomic transaction) against Postgres. See
+// config/dbEngine.js for the executor shape ({engine, get, all, run, insert}).
 
 // INSERT OR IGNORE has no direct Postgres equivalent (ON CONFLICT DO NOTHING
 // instead) — this is the one upsert pattern this file needs twice
 // (getOrCreateProfileWithDb / updateProfile), both against growth_profiles's
 // UNIQUE(company_id).
 function insertIgnoreProfileSql(x) {
-  return x.engine === 'postgres'
-    ? 'INSERT INTO growth_profiles (company_id) VALUES (?) ON CONFLICT (company_id) DO NOTHING'
-    : 'INSERT OR IGNORE INTO growth_profiles (company_id) VALUES (?)';
+  return 'INSERT INTO growth_profiles (company_id) VALUES (?) ON CONFLICT (company_id) DO NOTHING';
 }
 
 // ── 1. Reference Data Seeding ─────────────────────────────────────────────────
@@ -157,7 +153,7 @@ async function updateProfile(companyId, data) {
     }
     if (Object.keys(allowed).length > 0) {
       const setClause = Object.keys(allowed).map(k => `${k} = ?`).join(', ');
-      const nowExpr = x.engine === 'postgres' ? 'now()' : "datetime('now')";
+      const nowExpr = 'now()';
       await x.run(
         `UPDATE growth_profiles SET ${setClause}, updated_at = ${nowExpr} WHERE company_id = ?`,
         [...Object.values(allowed), companyId]
@@ -321,9 +317,7 @@ async function getRevenueFromSales(companyId) {
       // strftime('%Y', ...) is SQLite-only; Postgres equivalent is
       // TO_CHAR(date_col, 'YYYY') over the real DATE column (see
       // metricsService.js's getRevenueTrends for the same pattern).
-      const yearMatch = x.engine === 'postgres'
-        ? "TO_CHAR(sale_date, 'YYYY') = TO_CHAR(now(), 'YYYY')"
-        : "strftime('%Y', sale_date) = strftime('%Y', 'now')";
+      const yearMatch = "TO_CHAR(sale_date, 'YYYY') = TO_CHAR(now(), 'YYYY')";
       const result = await x.get(
         `SELECT COALESCE(SUM(revenue), 0) as total_revenue FROM sales WHERE company_id = ? AND ${yearMatch}`,
         [companyId]
@@ -525,15 +519,10 @@ function getUploadDir(companyId, subfolder) {
 // back onto `.lastInsertRowid`, mirroring dbEngine.js's own sqliteExecutor/
 // pgExecutor.run() field mapping.
 async function dbRun(sql, params = []) {
-  if (engine() === 'postgres') {
-    const isInsert = /^\s*insert\b/i.test(sql);
-    const text = isInsert && !/returning/i.test(sql) ? `${sql} RETURNING id` : sql;
-    const result = await pgDb.query(text, params);
-    return { lastInsertRowid: result.rows[0]?.id ?? null, changes: result.rowCount };
-  }
-  const db = getDb();
-  try { return db.prepare(sql).run(...params); }
-  finally { db.close(); }
+  const isInsert = /^\s*insert\b/i.test(sql);
+  const text = isInsert && !/returning/i.test(sql) ? `${sql} RETURNING id` : sql;
+  const result = await pgDb.query(text, params);
+  return { lastInsertRowid: result.rows[0]?.id ?? null, changes: result.rowCount };
 }
 
 module.exports = {

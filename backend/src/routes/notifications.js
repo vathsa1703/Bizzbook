@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -19,7 +19,7 @@ router.get('/unread-count', async (req, res, next) => {
     // is_read is BOOLEAN on Postgres, INTEGER 0/1 on SQLite (see
     // schema.postgres.sql's notifications.is_read) — the literal has to
     // match the column type per engine.
-    const unreadLiteral = engine() === 'postgres' ? 'false' : '0';
+    const unreadLiteral = 'false';
     const result = await dbGet(
       `SELECT count(*) as cnt FROM notifications WHERE user_id = ? AND company_id = ? AND is_read = ${unreadLiteral}`,
       [req.user.userId, req.user.companyId]
@@ -30,8 +30,8 @@ router.get('/unread-count', async (req, res, next) => {
 
 router.put('/:id/read', async (req, res, next) => {
   try {
-    const activeLiteral = engine() === 'postgres' ? 'true' : '1';
-    const now = engine() === 'postgres' ? 'now()' : "datetime('now')";
+    const activeLiteral = 'true';
+    const now = 'now()';
     await dbGet(
       `UPDATE notifications SET is_read = ${activeLiteral}, read_at = ${now} WHERE id = ? AND user_id = ?`,
       [req.params.id, req.user.userId]
@@ -42,9 +42,9 @@ router.put('/:id/read', async (req, res, next) => {
 
 router.put('/read-all', async (req, res, next) => {
   try {
-    const activeLiteral = engine() === 'postgres' ? 'true' : '1';
-    const now = engine() === 'postgres' ? 'now()' : "datetime('now')";
-    const unreadLiteral = engine() === 'postgres' ? 'false' : '0';
+    const activeLiteral = 'true';
+    const now = 'now()';
+    const unreadLiteral = 'false';
     await dbGet(
       `UPDATE notifications SET is_read = ${activeLiteral}, read_at = ${now} WHERE user_id = ? AND company_id = ? AND is_read = ${unreadLiteral}`,
       [req.user.userId, req.user.companyId]

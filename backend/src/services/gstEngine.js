@@ -91,7 +91,6 @@ function getAllStates() {
  * companies / company_gst_settings / company_branding / company_addresses
  * directly for this purpose.
  *
- * @param {object} db
  * @param {number} companyId
  * @returns {{
  *   gstin: string, state_code: string|null,
@@ -101,60 +100,6 @@ function getAllStates() {
  *   phone: string, email: string, logo: string,
  * }}
  */
-function getCompanyGstProfile(db, companyId) {
-  const company = db.prepare(
-    'SELECT name, gstin, pan, legal_business_name, trade_name, phone, email FROM companies WHERE id = ?'
-  ).get(companyId) || {};
-  const gstSettings = db.prepare(
-    'SELECT state_code, is_gst_registered, inclusive_pricing FROM company_gst_settings WHERE company_id = ?'
-  ).get(companyId) || {};
-  const branding = db.prepare(
-    'SELECT logo_url FROM company_branding WHERE company_id = ?'
-  ).get(companyId) || {};
-  const address = db.prepare(`
-    SELECT * FROM company_addresses WHERE company_id = ?
-    ORDER BY (address_type = 'registered') DESC, is_primary DESC, id ASC
-    LIMIT 1
-  `).get(companyId) || {};
-
-  const stateCode = resolveStateCode(gstSettings.state_code) || resolveStateCode(address.state);
-  const stateEntry = stateCode ? getStateByCode(stateCode) : null;
-  const addressLine = [address.address_line1, address.address_line2, address.city, address.district]
-    .filter(Boolean)
-    .join(', ');
-
-  return {
-    // Tax-calculation fields
-    gstin: (company.gstin || '').trim().toUpperCase(),
-    state_code: stateCode,
-    is_gst_registered: gstSettings.is_gst_registered,
-    inclusive_pricing: gstSettings.inclusive_pricing,
-    // Display / filing fields
-    name: company.name || '',
-    legal_name: company.legal_business_name || company.name || '',
-    trade_name: company.trade_name || company.name || '',
-    pan: company.pan || (company.gstin ? company.gstin.slice(2, 12) : ''),
-    state_name: stateEntry ? stateEntry.name : (address.state || ''),
-    address: addressLine,
-    pincode: address.pincode || '',
-    phone: company.phone || '',
-    email: company.email || '',
-    logo: branding.logo_url || '',
-  };
-}
-
-// Phase 2: async twin of getCompanyGstProfile, for callers that need to run on
-// either SQLite or Postgres (currently only sales.js). Uses dbEngine.js's
-// dbGet, which already dispatches per DB_ENGINE — so this one function works
-// correctly against both engines with no branching of its own. The original
-// sync getCompanyGstProfile(db, companyId) above is UNCHANGED and still used
-// as-is by purchases.js and gstFilingService.js, which remain SQLite-only
-// until their own Phase 2 module commits; forcing this function to be async
-// would have made it a Promise for every caller, and gstFilingService.js's
-// buildGstrData() (routes/gstFiling.js's entry point) is not async today —
-// rippling that change now would reach into a module not scheduled yet.
-// Once purchases.js and gstFilingService.js are migrated, the sync version
-// above can be deleted and every caller unified onto this one.
 async function getCompanyGstProfileAsync(companyId) {
   const company = await dbGet(
     'SELECT name, gstin, pan, legal_business_name, trade_name, phone, email FROM companies WHERE id = ?',
@@ -293,55 +238,11 @@ function calculateLineGST({ taxableValue, gstRate = 0, cessRate = 0, isInterstat
  *   - Else, use HSN master's fields.
  *   - If HSN is missing in master, values fall back to null/0 (caught by validator later).
  *
- * @param {object} db - Database connection
  * @param {Array} items - Array of { product_id, quantity, revenue } (or similar raw data)
  * @returns {Array} - Array of enriched items ready for buildInvoiceTotals
  */
-function enrichItems(db, items) {
-  const prodStmt = db.prepare(
-    'SELECT id, name, hsn_code, use_custom_gst, gst_rate, uqc, cess_rate FROM products WHERE id = ?'
-  );
-  const hsnStmt = db.prepare(
-    'SELECT hsn_code, gst_rate, uqc, cess_rate FROM gst_hsn_master WHERE hsn_code = ?'
-  );
-
-  return items.map(item => {
-    const prod = prodStmt.get(item.product_id) || {};
-    const hsnMaster = prod.hsn_code ? hsnStmt.get(prod.hsn_code) || {} : {};
-    
-    const qty = Number(item.quantity) || 0;
-    const rate = qty > 0 ? (Number(item.revenue) || 0) / qty : 0;
-
-    let finalGstRate = 0;
-    let finalUqc = 'NOS';
-    let finalCessRate = 0;
-
-    if (prod.use_custom_gst) {
-      finalGstRate = prod.gst_rate != null ? Number(prod.gst_rate) : 0;
-      finalUqc = prod.uqc || 'NOS';
-      finalCessRate = prod.cess_rate != null ? Number(prod.cess_rate) : 0;
-    } else {
-      finalGstRate = hsnMaster.gst_rate != null ? Number(hsnMaster.gst_rate) : 0;
-      finalUqc = hsnMaster.uqc || 'NOS';
-      finalCessRate = hsnMaster.cess_rate != null ? Number(hsnMaster.cess_rate) : 0;
-    }
-
-    return {
-      product_id   : item.product_id,
-      product_name : prod.name || '',
-      hsn_code     : prod.hsn_code || '',
-      gst_rate     : finalGstRate,
-      cess_rate    : finalCessRate,
-      uqc          : finalUqc,
-      quantity     : qty,
-      rate         : rate,
-    };
-  });
-}
-
-// Phase 2: async twin of enrichItems, same reasoning as getCompanyGstProfileAsync
-// above — used only by sales.js so far. Sequential (not Promise.all) to match
-// the original's per-item ordering exactly; item count per sale is small.
+// Sequential (not Promise.all) so ordering matches the input array exactly;
+// item count per sale/purchase is small.
 async function enrichItemsAsync(items) {
   const enriched = [];
   for (const item of items) {
@@ -599,7 +500,6 @@ module.exports = {
   getAllStates,
   resolveStateCode,
   getStateByCode,
-  getCompanyGstProfile,
   getCompanyGstProfileAsync,
 
   // Classification
@@ -607,7 +507,6 @@ module.exports = {
 
   // Calculation
   calculateLineGST,
-  enrichItems,
   enrichItemsAsync,
   buildInvoiceTotals,
 

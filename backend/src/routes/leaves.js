@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 
 // Helper: send notification on leave events
 async function notifyUser(userId, companyId, type, title, body, relatedId) {
@@ -19,7 +19,7 @@ async function notifyUser(userId, companyId, type, title, body, relatedId) {
 // old value instead of wiping it.
 function boolParam(v) {
   if (v === undefined) return null;
-  return engine() === 'postgres' ? !!v : (v ? 1 : 0);
+  return !!v;
 }
 
 // ── Leave Types ────────────────────────────────────────────────────────────────
@@ -77,7 +77,6 @@ router.get('/balance/:employeeId', async (req, res, next) => {
 router.get('/', async (req, res, next) => {
   try {
     const { status, employee_id, leave_type_id, month, year } = req.query;
-    const isPg = engine() === 'postgres';
     let sql = `
       SELECT lr.*, e.name as employee_name, e.employee_code, e.avatar, e.job_title,
              lt.name as leave_type_name, lt.color, lt.is_paid,
@@ -93,15 +92,8 @@ router.get('/', async (req, res, next) => {
     if (employee_id) { sql += ' AND lr.employee_id = ?'; params.push(employee_id); }
     if (leave_type_id) { sql += ' AND lr.leave_type_id = ?'; params.push(leave_type_id); }
     if (month && year) {
-      // strftime() is SQLite-only; start_date is a real DATE column on
-      // Postgres, so EXTRACT gives the equivalent month/year parts.
-      if (isPg) {
-        sql += ' AND EXTRACT(MONTH FROM lr.start_date) = ? AND EXTRACT(YEAR FROM lr.start_date) = ?';
-        params.push(Number(month), Number(year));
-      } else {
-        sql += " AND strftime('%m',lr.start_date) = ? AND strftime('%Y',lr.start_date) = ?";
-        params.push(String(month).padStart(2,'0'), String(year));
-      }
+      sql += ' AND EXTRACT(MONTH FROM lr.start_date) = ? AND EXTRACT(YEAR FROM lr.start_date) = ?';
+      params.push(Number(month), Number(year));
     }
     sql += ' ORDER BY lr.created_at DESC LIMIT 200';
     res.json(await dbAll(sql, params));
@@ -112,31 +104,16 @@ router.get('/calendar', async (req, res, next) => {
   try {
     const { month, year } = req.query;
     if (!month || !year) return res.status(400).json({ error: 'month and year required' });
-    const isPg = engine() === 'postgres';
 
-    let leaves;
-    if (isPg) {
-      leaves = await dbAll(`
-        SELECT lr.*, e.name as employee_name, e.avatar, lt.name as leave_type_name, lt.color
-        FROM leave_requests lr
-        JOIN employees e ON lr.employee_id = e.id
-        JOIN leave_types lt ON lr.leave_type_id = lt.id
-        WHERE lr.company_id = ? AND lr.status = 'approved'
-          AND (EXTRACT(MONTH FROM lr.start_date) = ? OR EXTRACT(MONTH FROM lr.end_date) = ?)
-          AND (EXTRACT(YEAR FROM lr.start_date) = ? OR EXTRACT(YEAR FROM lr.end_date) = ?)
-      `, [req.user.companyId, Number(month), Number(month), Number(year), Number(year)]);
-    } else {
-      const monthStr = String(month).padStart(2, '0');
-      leaves = await dbAll(`
-        SELECT lr.*, e.name as employee_name, e.avatar, lt.name as leave_type_name, lt.color
-        FROM leave_requests lr
-        JOIN employees e ON lr.employee_id = e.id
-        JOIN leave_types lt ON lr.leave_type_id = lt.id
-        WHERE lr.company_id = ? AND lr.status = 'approved'
-          AND (strftime('%m', lr.start_date) = ? OR strftime('%m', lr.end_date) = ?)
-          AND (strftime('%Y', lr.start_date) = ? OR strftime('%Y', lr.end_date) = ?)
-      `, [req.user.companyId, monthStr, monthStr, String(year), String(year)]);
-    }
+    const leaves = await dbAll(`
+      SELECT lr.*, e.name as employee_name, e.avatar, lt.name as leave_type_name, lt.color
+      FROM leave_requests lr
+      JOIN employees e ON lr.employee_id = e.id
+      JOIN leave_types lt ON lr.leave_type_id = lt.id
+      WHERE lr.company_id = ? AND lr.status = 'approved'
+        AND (EXTRACT(MONTH FROM lr.start_date) = ? OR EXTRACT(MONTH FROM lr.end_date) = ?)
+        AND (EXTRACT(YEAR FROM lr.start_date) = ? OR EXTRACT(YEAR FROM lr.end_date) = ?)
+    `, [req.user.companyId, Number(month), Number(month), Number(year), Number(year)]);
     res.json(leaves);
   } catch (err) { next(err); }
 });
@@ -166,14 +143,8 @@ router.post('/', async (req, res, next) => {
     `, [employee_id, start_date, end_date]);
     if (overlap) return res.status(409).json({ error: 'Employee already has a leave request for this period' });
 
-    // AI Risk Analysis. Note: hrAIService.js still calls the SQLite-only
-    // getDb() internally (it's deferred to the Phase 2 AI subsystem step,
-    // not part of this file's conversion) -- under DB_ENGINE=postgres its
-    // employee/department lookups will miss real data since the actual
-    // records live in Postgres. Already fails soft (try/catch below,
-    // pre-existing), so this degrades to no AI risk context rather than
-    // breaking leave submission -- but the risk score/suggestion will be
-    // empty on Postgres until hrAIService.js itself is converted.
+    // AI Risk Analysis -- fails soft (try/catch below): a failure here
+    // degrades to no AI risk context rather than breaking leave submission.
     let ai_risk_score = null, ai_risk_level = null, ai_risk_reason = null, ai_suggestion_id = null, ai_recommendation = null;
     try {
       const aiService = require('../services/hrAIService');
@@ -234,8 +205,7 @@ router.put('/:id/approve', async (req, res, next) => {
     if (!leave) return res.status(404).json({ error: 'Leave request not found' });
     if (leave.status !== 'pending') return res.status(400).json({ error: 'Only pending requests can be approved' });
 
-    const nowExpr = engine() === 'postgres' ? 'now()' : "datetime('now')";
-    await dbGet(`UPDATE leave_requests SET status = 'approved', approved_by = ?, approved_at = ${nowExpr} WHERE id = ?`,
+    await dbGet(`UPDATE leave_requests SET status = 'approved', approved_by = ?, approved_at = now() WHERE id = ?`,
       [req.user.userId, req.params.id]);
 
     // Deduct from leave balance. leave_balances has no UNIQUE constraint on

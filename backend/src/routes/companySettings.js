@@ -7,11 +7,9 @@
  * No dual-read/write of company_settings.
  */
 const express = require('express');
-const { getDb } = require('../config/db');
 const { requirePermission } = require('../middleware/auth');
-const { dbGet, engine } = require('../config/dbEngine');
+const { dbGet } = require('../config/dbEngine');
 const { withTransaction } = require('../config/pgDb');
-const { upsertGstSettings, upsertBranding } = require('../services/companyProfileService');
 
 const router = express.Router();
 
@@ -88,8 +86,7 @@ router.put('/', requirePermission('settings.manage'), async (req, res, next) => 
       inclusive_pricing: inclusive_pricing != null ? (inclusive_pricing ? 1 : 0) : null,
     }).filter(([_, v]) => v != null));
 
-    if (engine() === 'postgres') {
-      await withTransaction(async (tx) => {
+    await withTransaction(async (tx) => {
         await tx.query(`
           UPDATE companies SET
             gstin               = COALESCE(?, gstin),
@@ -158,59 +155,6 @@ router.put('/', requirePermission('settings.manage'), async (req, res, next) => 
           }
         }
       });
-    } else {
-      const db = getDb();
-      try {
-        db.exec('BEGIN TRANSACTION');
-
-        db.prepare(`
-          UPDATE companies SET
-            gstin               = COALESCE(?, gstin),
-            name                = COALESCE(?, name),
-            phone               = COALESCE(?, phone),
-            email               = COALESCE(?, email),
-            legal_business_name = COALESCE(?, legal_business_name),
-            trade_name          = COALESCE(?, trade_name),
-            pan                 = COALESCE(?, pan),
-            updated_at          = datetime('now')
-          WHERE id = ?
-        `).run(gstin, company_name, phone, email, legal_name, trade_name, pan, companyId);
-
-        if (Object.keys(gstFields).length > 0) {
-          upsertGstSettings(db, companyId, gstFields);
-        }
-
-        if (logo != null) {
-          upsertBranding(db, companyId, { logo_url: logo });
-        }
-
-        if (address != null || pincode != null || state != null) {
-          const existingAddr = db.prepare("SELECT id FROM company_addresses WHERE company_id = ? AND address_type = 'registered'").get(companyId);
-          if (existingAddr) {
-            db.prepare(`
-              UPDATE company_addresses SET
-                address_line1 = COALESCE(?, address_line1),
-                state         = COALESCE(?, state),
-                pincode       = COALESCE(?, pincode)
-              WHERE id = ?
-            `).run(address, state, pincode, existingAddr.id);
-          } else if (address && state && pincode) {
-            const cityFallback = state;
-            db.prepare(`
-              INSERT INTO company_addresses (company_id, address_type, address_line1, city, state, pincode, is_primary)
-              VALUES (?, 'registered', ?, ?, ?, ?, 1)
-            `).run(companyId, address, cityFallback, state, pincode);
-          }
-        }
-
-        db.exec('COMMIT');
-      } catch (txErr) {
-        try { db.exec('ROLLBACK'); } catch (_) {}
-        throw txErr;
-      } finally {
-        db.close();
-      }
-    }
 
     res.json({ message: 'Company settings saved' });
   } catch (err) {

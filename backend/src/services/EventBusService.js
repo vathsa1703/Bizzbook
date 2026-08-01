@@ -1,6 +1,6 @@
 const EventEmitter = require('events');
 const crypto = require('crypto');
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 
 class EventBusService {
   constructor() {
@@ -56,7 +56,7 @@ class EventBusService {
   }
 
   async markProcessed(eventId) {
-    const now = engine() === 'postgres' ? 'now()' : "datetime('now')";
+    const now = 'now()';
     await dbGet(`UPDATE system_events SET status = 'completed', processed_at = ${now} WHERE id = ?`, [eventId]);
   }
 
@@ -69,10 +69,7 @@ class EventBusService {
    * (e.g. if the server crashed right after emit before the handler completed)
    */
   async sweep() {
-    // created_at < now - 1 minute: SQLite modifier vs Postgres interval.
-    const staleExpr = engine() === 'postgres'
-      ? `(now() - interval '1 minutes')`
-      : `datetime('now', '-1 minutes')`;
+    const staleExpr = `(now() - interval '1 minutes')`;
     const stranded = await dbAll(`
       SELECT id, company_id, correlation_id, event_type, entity_id, payload
       FROM system_events

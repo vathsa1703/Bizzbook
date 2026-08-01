@@ -1,20 +1,18 @@
 const express = require('express');
-const { getDb } = require('../config/db');
 const gstEngine = require('../services/gstEngine');
 const pdfService = require('../services/pdfService');
 const eventBusService = require('../services/EventBusService');
 const { Events } = require('../constants/events');
 const { withBranchScope } = require('../utils/BranchScopedQuery');
-const { dbGet, dbAll, engine, isOn } = require('../config/dbEngine');
-const { withTransaction } = require('../config/pgDb');
+const { dbGet, dbAll, isOn } = require('../config/dbEngine');
+const { withTransaction, query } = require('../config/pgDb');
 
 const router = express.Router();
 
-// SQLite's UNIQUE constraint error message vs Postgres's error code (23505 =
-// unique_violation) for the invoice_number collision-retry loop below.
+// Postgres error code 23505 = unique_violation, for the invoice_number
+// collision-retry loop below.
 function isUniqueViolation(err) {
-  if (err && err.code === '23505') return true; // Postgres
-  return !!(err && err.message && err.message.includes('UNIQUE constraint failed') && err.message.includes('invoice_number'));
+  return !!(err && err.code === '23505');
 }
 
 // GET all sales with pagination & filters — scoped to company
@@ -260,7 +258,7 @@ router.post('/', async (req, res, next) => {
     // customer totals + credit + snapshot, all atomic. ────────────────────────
     let invoiceId, snapshot;
 
-    if (engine() === 'postgres') {
+    {
       const result = await withTransaction(async (tx) => {
         // invoices.invoice_number is now UNIQUE(company_id, invoice_number)
         // (migration 32 / PG migration 4 -- it used to be a bare database-wide
@@ -403,144 +401,6 @@ router.post('/', async (req, res, next) => {
       });
       invoiceId = result.invoiceId;
       snapshot = result.snapshot;
-    } else {
-      const db = getDb();
-      try {
-        db.exec('BEGIN TRANSACTION');
-
-        let invoiceRes;
-        let invoiceInsertAttempts = 0;
-        const invoiceNumberPrefix = finalInvoiceNumber.slice(0, -4);
-        let invoiceSeq = parseInt(finalInvoiceNumber.slice(-4), 10);
-        for (;;) {
-          try {
-            invoiceRes = db.prepare(`
-              INSERT INTO invoices (
-                invoice_number, customer_id, invoice_date, status, payment_status,
-                subtotal, taxable_value, cgst, sgst, igst, grand_total, amount,
-                place_of_supply, company_id
-              ) VALUES (?, ?, ?, 'issued', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `).run(
-              finalInvoiceNumber, customer_id || null, sale_date,
-              payment_status.toUpperCase(),
-              totals.subtotal, totals.taxable_value,
-              totals.cgst, totals.sgst, totals.igst,
-              totals.grand_total, totals.grand_total,
-              placeOfSupply, companyId
-            );
-            break;
-          } catch (insErr) {
-            if (!isUniqueViolation(insErr) || invoiceInsertAttempts >= 20) throw insErr;
-            invoiceInsertAttempts++;
-            invoiceSeq++;
-            finalInvoiceNumber = `${invoiceNumberPrefix}${String(invoiceSeq).padStart(4, '0')}`;
-          }
-        }
-        invoiceId = invoiceRes.lastInsertRowid;
-
-        const snapshotItems = [];
-        const createdSaleIds = [];
-
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-
-          const saleInsertRes = db.prepare(`
-            INSERT INTO sales (
-              product_id, customer_id, employee_id, quantity, revenue,
-              sale_date, payment_status, invoice_number, invoice_id,
-              taxable_value, gst_amount, cgst, sgst, igst, company_id, branch_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).run(
-            line.product_id, customer_id || null, employee_id || null,
-            line.quantity, line.total,
-            sale_date, payment_status.toLowerCase(), finalInvoiceNumber, invoiceId,
-            line.taxable_value, line.gst_amount || 0, line.cgst, line.sgst, line.igst, companyId, branchId
-          );
-          createdSaleIds.push(saleInsertRes.lastInsertRowid);
-
-          db.prepare(`
-            INSERT INTO invoice_items (
-              invoice_id, product_id, quantity, rate,
-              taxable_value, cgst, sgst, igst, total, company_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).run(
-            invoiceId, line.product_id, line.quantity, line.rate,
-            line.taxable_value, line.cgst, line.sgst, line.igst, line.total, companyId
-          );
-
-          db.prepare('UPDATE inventory SET stock_quantity = stock_quantity - ? WHERE product_id = ? AND company_id = ?')
-            .run(line.quantity, line.product_id, companyId);
-
-          if (employee_id) {
-            db.prepare('UPDATE employees SET revenue_generated = revenue_generated + ? WHERE id = ? AND company_id = ?')
-              .run(line.total, employee_id, companyId);
-          }
-
-          snapshotItems.push({
-            product_id    : line.product_id,
-            product_name  : line.product_name,
-            hsn_code      : line.hsn_code,
-            uqc           : line.uqc,
-            quantity      : line.quantity,
-            rate          : line.rate,
-            gst_rate      : line.gst_rate,
-            taxable_value : line.taxable_value,
-            cgst          : line.cgst,
-            sgst          : line.sgst,
-            igst          : line.igst,
-            cess          : line.cess,
-            total         : line.total,
-          });
-        }
-
-        if (customer_id) {
-          db.prepare(`
-            UPDATE customers
-            SET total_purchases = total_purchases + ?, last_purchase_date = ?
-            WHERE id = ? AND company_id = ?
-          `).run(totals.grand_total, sale_date, customer_id, companyId);
-        }
-
-        if (payment_status.toLowerCase() === 'unpaid' && customer_id) {
-          const finalDueDate = due_date || new Date(
-            new Date(sale_date).getTime() + 30 * 24 * 60 * 60 * 1000
-          ).toISOString().split('T')[0];
-          const creditSaleId = createdSaleIds.length > 0 ? createdSaleIds[0] : null;
-          db.prepare(`
-            INSERT INTO credits (customer_id, sale_id, total_amount, paid_amount, due_date, status, notes, company_id)
-            VALUES (?, ?, ?, 0, ?, 'pending', ?, ?)
-          `).run(customer_id, creditSaleId, totals.grand_total, finalDueDate, `Credit for invoice ${finalInvoiceNumber}`, companyId);
-        }
-
-        snapshot = {
-          company  : companySetting,
-          customer : customer || { name: 'Cash Customer' },
-          invoice  : {
-            invoice_number  : finalInvoiceNumber,
-            invoice_date    : sale_date,
-            payment_status  : payment_status.toUpperCase(),
-            transaction_type: transactionType,
-            place_of_supply : placeOfSupply,
-            subtotal        : totals.subtotal,
-            taxable_value   : totals.taxable_value,
-            cgst            : totals.cgst,
-            sgst            : totals.sgst,
-            igst            : totals.igst,
-            cess            : totals.cess,
-            grand_total     : totals.grand_total,
-          },
-          items: snapshotItems,
-        };
-        db.prepare('UPDATE invoices SET snapshot = ? WHERE id = ?')
-          .run(JSON.stringify(snapshot), invoiceId);
-
-        db.exec('COMMIT');
-      } catch (err) {
-        try { db.exec('ROLLBACK'); } catch (_) {}
-        throw err;
-      } finally {
-        db.close();
-      }
     }
 
     // Emit domain event
@@ -560,14 +420,7 @@ router.post('/', async (req, res, next) => {
     let pdfPath = null;
     try {
       pdfPath = await pdfService.generateInvoicePDF(snapshot);
-      if (engine() === 'postgres') {
-        const { query } = require('../config/pgDb');
-        await query('UPDATE invoices SET pdf_path = ? WHERE id = ?', [pdfPath, invoiceId]);
-      } else {
-        const db2 = getDb();
-        db2.prepare('UPDATE invoices SET pdf_path = ? WHERE id = ?').run(pdfPath, invoiceId);
-        db2.close();
-      }
+      await query('UPDATE invoices SET pdf_path = ? WHERE id = ?', [pdfPath, invoiceId]);
     } catch (pdfErr) {
       console.error('PDF generation failed, sale recorded:', pdfErr.message);
     }
@@ -623,117 +476,55 @@ router.put('/:id', async (req, res, next) => {
 
     const finalInvoiceNumber = invoice_number || oldSale.invoice_number;
 
-    if (engine() === 'postgres') {
-      await withTransaction(async (tx) => {
-        // --- REVERSE old sale side-effects ---
-        await tx.query('UPDATE inventory SET stock_quantity = stock_quantity + ? WHERE product_id = ? AND company_id = ?',
-          [oldSale.quantity, oldSale.product_id, companyId]);
+    await withTransaction(async (tx) => {
+      // --- REVERSE old sale side-effects ---
+      await tx.query('UPDATE inventory SET stock_quantity = stock_quantity + ? WHERE product_id = ? AND company_id = ?',
+        [oldSale.quantity, oldSale.product_id, companyId]);
 
-        if (oldSale.customer_id) {
-          await tx.query('UPDATE customers SET total_purchases = GREATEST(0, total_purchases - ?) WHERE id = ? AND company_id = ?',
-            [oldSale.revenue, oldSale.customer_id, companyId]);
-        }
-        if (oldSale.employee_id) {
-          await tx.query('UPDATE employees SET revenue_generated = GREATEST(0, revenue_generated - ?) WHERE id = ? AND company_id = ?',
-            [oldSale.revenue, oldSale.employee_id, companyId]);
-        }
-        await tx.query('DELETE FROM credits WHERE sale_id = ?', [saleId]);
-
-        // --- APPLY new sale values ---
-        await tx.query(`
-          UPDATE sales
-          SET product_id = ?, customer_id = ?, employee_id = ?, quantity = ?, revenue = ?,
-              sale_date = ?, payment_status = ?, invoice_number = ?
-          WHERE id = ?
-        `, [product_id, customer_id || null, employee_id || null, quantity, revenue,
-            sale_date, payment_status, finalInvoiceNumber, saleId]);
-
-        await tx.query('UPDATE inventory SET stock_quantity = stock_quantity - ? WHERE product_id = ? AND company_id = ?',
-          [quantity, product_id, companyId]);
-
-        if (customer_id) {
-          await tx.query(`
-            UPDATE customers
-            SET total_purchases = total_purchases + ?,
-                last_purchase_date = ?
-            WHERE id = ? AND company_id = ?
-          `, [revenue, sale_date, customer_id, companyId]);
-        }
-
-        if (employee_id) {
-          await tx.query('UPDATE employees SET revenue_generated = revenue_generated + ? WHERE id = ? AND company_id = ?',
-            [revenue, employee_id, companyId]);
-        }
-
-        if (payment_status === 'unpaid' && customer_id) {
-          const finalDueDate = due_date || new Date(new Date(sale_date).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-          await tx.query(`
-            INSERT INTO credits (customer_id, sale_id, total_amount, paid_amount, due_date, status, notes, company_id)
-            VALUES (?, ?, ?, 0, ?, 'pending', ?, ?)
-          `, [customer_id, saleId, revenue, finalDueDate, `Credit for invoice ${finalInvoiceNumber}`, companyId]);
-        }
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.exec('BEGIN TRANSACTION');
-
-        // --- REVERSE old sale side-effects ---
-        db.prepare('UPDATE inventory SET stock_quantity = stock_quantity + ? WHERE product_id = ? AND company_id = ?')
-          .run(oldSale.quantity, oldSale.product_id, companyId);
-
-        if (oldSale.customer_id) {
-          db.prepare('UPDATE customers SET total_purchases = MAX(0, total_purchases - ?) WHERE id = ? AND company_id = ?')
-            .run(oldSale.revenue, oldSale.customer_id, companyId);
-        }
-        if (oldSale.employee_id) {
-          db.prepare('UPDATE employees SET revenue_generated = MAX(0, revenue_generated - ?) WHERE id = ? AND company_id = ?')
-            .run(oldSale.revenue, oldSale.employee_id, companyId);
-        }
-        db.prepare('DELETE FROM credits WHERE sale_id = ?').run(saleId);
-
-        // --- APPLY new sale values ---
-        db.prepare(`
-          UPDATE sales
-          SET product_id = ?, customer_id = ?, employee_id = ?, quantity = ?, revenue = ?,
-              sale_date = ?, payment_status = ?, invoice_number = ?
-          WHERE id = ?
-        `).run(product_id, customer_id || null, employee_id || null, quantity, revenue,
-               sale_date, payment_status, finalInvoiceNumber, saleId);
-
-        db.prepare('UPDATE inventory SET stock_quantity = stock_quantity - ? WHERE product_id = ? AND company_id = ?')
-          .run(quantity, product_id, companyId);
-
-        if (customer_id) {
-          db.prepare(`
-            UPDATE customers
-            SET total_purchases = total_purchases + ?,
-                last_purchase_date = ?
-            WHERE id = ? AND company_id = ?
-          `).run(revenue, sale_date, customer_id, companyId);
-        }
-
-        if (employee_id) {
-          db.prepare('UPDATE employees SET revenue_generated = revenue_generated + ? WHERE id = ? AND company_id = ?')
-            .run(revenue, employee_id, companyId);
-        }
-
-        if (payment_status === 'unpaid' && customer_id) {
-          const finalDueDate = due_date || new Date(new Date(sale_date).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-          db.prepare(`
-            INSERT INTO credits (customer_id, sale_id, total_amount, paid_amount, due_date, status, notes, company_id)
-            VALUES (?, ?, ?, 0, ?, 'pending', ?, ?)
-          `).run(customer_id, saleId, revenue, finalDueDate, `Credit for invoice ${finalInvoiceNumber}`, companyId);
-        }
-
-        db.exec('COMMIT');
-      } catch (err) {
-        try { db.exec('ROLLBACK'); } catch (_) {}
-        throw err;
-      } finally {
-        db.close();
+      if (oldSale.customer_id) {
+        await tx.query('UPDATE customers SET total_purchases = GREATEST(0, total_purchases - ?) WHERE id = ? AND company_id = ?',
+          [oldSale.revenue, oldSale.customer_id, companyId]);
       }
-    }
+      if (oldSale.employee_id) {
+        await tx.query('UPDATE employees SET revenue_generated = GREATEST(0, revenue_generated - ?) WHERE id = ? AND company_id = ?',
+          [oldSale.revenue, oldSale.employee_id, companyId]);
+      }
+      await tx.query('DELETE FROM credits WHERE sale_id = ?', [saleId]);
+
+      // --- APPLY new sale values ---
+      await tx.query(`
+        UPDATE sales
+        SET product_id = ?, customer_id = ?, employee_id = ?, quantity = ?, revenue = ?,
+            sale_date = ?, payment_status = ?, invoice_number = ?
+        WHERE id = ?
+      `, [product_id, customer_id || null, employee_id || null, quantity, revenue,
+          sale_date, payment_status, finalInvoiceNumber, saleId]);
+
+      await tx.query('UPDATE inventory SET stock_quantity = stock_quantity - ? WHERE product_id = ? AND company_id = ?',
+        [quantity, product_id, companyId]);
+
+      if (customer_id) {
+        await tx.query(`
+          UPDATE customers
+          SET total_purchases = total_purchases + ?,
+              last_purchase_date = ?
+          WHERE id = ? AND company_id = ?
+        `, [revenue, sale_date, customer_id, companyId]);
+      }
+
+      if (employee_id) {
+        await tx.query('UPDATE employees SET revenue_generated = revenue_generated + ? WHERE id = ? AND company_id = ?',
+          [revenue, employee_id, companyId]);
+      }
+
+      if (payment_status === 'unpaid' && customer_id) {
+        const finalDueDate = due_date || new Date(new Date(sale_date).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        await tx.query(`
+          INSERT INTO credits (customer_id, sale_id, total_amount, paid_amount, due_date, status, notes, company_id)
+          VALUES (?, ?, ?, 0, ?, 'pending', ?, ?)
+        `, [customer_id, saleId, revenue, finalDueDate, `Credit for invoice ${finalInvoiceNumber}`, companyId]);
+      }
+    });
 
     res.json({ message: 'Sale updated successfully', id: saleId, invoice_number: finalInvoiceNumber });
   } catch (err) {
@@ -752,51 +543,22 @@ router.delete('/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Sale not found' });
     }
 
-    if (engine() === 'postgres') {
-      await withTransaction(async (tx) => {
-        await tx.query('UPDATE inventory SET stock_quantity = stock_quantity + ? WHERE product_id = ? AND company_id = ?',
-          [sale.quantity, sale.product_id, companyId]);
+    await withTransaction(async (tx) => {
+      await tx.query('UPDATE inventory SET stock_quantity = stock_quantity + ? WHERE product_id = ? AND company_id = ?',
+        [sale.quantity, sale.product_id, companyId]);
 
-        if (sale.customer_id) {
-          await tx.query('UPDATE customers SET total_purchases = GREATEST(0, total_purchases - ?) WHERE id = ? AND company_id = ?',
-            [sale.revenue, sale.customer_id, companyId]);
-        }
-        if (sale.employee_id) {
-          await tx.query('UPDATE employees SET revenue_generated = GREATEST(0, revenue_generated - ?) WHERE id = ? AND company_id = ?',
-            [sale.revenue, sale.employee_id, companyId]);
-        }
-
-        await tx.query('DELETE FROM credits WHERE sale_id = ? AND company_id = ?', [saleId, companyId]);
-        await tx.query('DELETE FROM sales WHERE id = ? AND company_id = ?', [saleId, companyId]);
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.exec('BEGIN TRANSACTION');
-
-        db.prepare('UPDATE inventory SET stock_quantity = stock_quantity + ? WHERE product_id = ? AND company_id = ?')
-          .run(sale.quantity, sale.product_id, companyId);
-
-        if (sale.customer_id) {
-          db.prepare('UPDATE customers SET total_purchases = MAX(0, total_purchases - ?) WHERE id = ? AND company_id = ?')
-            .run(sale.revenue, sale.customer_id, companyId);
-        }
-        if (sale.employee_id) {
-          db.prepare('UPDATE employees SET revenue_generated = MAX(0, revenue_generated - ?) WHERE id = ? AND company_id = ?')
-            .run(sale.revenue, sale.employee_id, companyId);
-        }
-
-        db.prepare('DELETE FROM credits WHERE sale_id = ? AND company_id = ?').run(saleId, companyId);
-        db.prepare('DELETE FROM sales WHERE id = ? AND company_id = ?').run(saleId, companyId);
-
-        db.exec('COMMIT');
-      } catch (err) {
-        try { db.exec('ROLLBACK'); } catch (_) {}
-        throw err;
-      } finally {
-        db.close();
+      if (sale.customer_id) {
+        await tx.query('UPDATE customers SET total_purchases = GREATEST(0, total_purchases - ?) WHERE id = ? AND company_id = ?',
+          [sale.revenue, sale.customer_id, companyId]);
       }
-    }
+      if (sale.employee_id) {
+        await tx.query('UPDATE employees SET revenue_generated = GREATEST(0, revenue_generated - ?) WHERE id = ? AND company_id = ?',
+          [sale.revenue, sale.employee_id, companyId]);
+      }
+
+      await tx.query('DELETE FROM credits WHERE sale_id = ? AND company_id = ?', [saleId, companyId]);
+      await tx.query('DELETE FROM sales WHERE id = ? AND company_id = ?', [saleId, companyId]);
+    });
 
     res.status(204).end();
   } catch (err) {

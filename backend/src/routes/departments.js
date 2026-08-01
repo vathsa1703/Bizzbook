@@ -1,5 +1,5 @@
 const express = require('express');
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 
 const router = express.Router();
 
@@ -120,7 +120,7 @@ router.delete('/:id', async (req, res, next) => {
     }
 
     // Soft delete
-    const nowExpr = engine() === 'postgres' ? 'now()' : "datetime('now')";
+    const nowExpr = 'now()';
     await dbGet(`UPDATE departments SET deleted_at = ${nowExpr}, status = 'Archived' WHERE id = ? AND company_id = ?`, [deptId, companyId]);
 
     res.json({ message: 'Department archived successfully' });

@@ -1,23 +1,19 @@
 const express = require('express');
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 const { hashPassword } = require('../services/authService');
 
 const router = express.Router();
 
 // ROI = ((revenue_generated - salary) / salary) * 100, rounded to 1 decimal.
-// salary/revenue_generated are DOUBLE PRECISION on Postgres -- Postgres's
-// 2-argument round() only has a numeric overload (round(numeric, integer));
-// there is no round(double precision, integer), so the double-precision
-// expression must be cast to numeric first or Postgres errors with
-// "function round(double precision, integer) does not exist". SQLite has no
-// such restriction (ROUND() accepts anything numeric-like), so the cast is a
-// no-op there. `p` is the column prefix ('e.' when the query aliases the
-// table, '' when it doesn't) so every call site stays a plain expression
-// instead of a per-query cast/ternary.
+// salary/revenue_generated are DOUBLE PRECISION -- Postgres's 2-argument
+// round() only has a numeric overload (round(numeric, integer)); there is no
+// round(double precision, integer), so the double-precision expression must
+// be cast to numeric first or Postgres errors with "function round(double
+// precision, integer) does not exist". `p` is the column prefix ('e.' when
+// the query aliases the table, '' when it doesn't) so every call site stays
+// a plain expression instead of a per-query cast.
 function roiExpr(p = '') {
-  return engine() === 'postgres'
-    ? `CASE WHEN ${p}salary > 0 THEN ROUND((((${p}revenue_generated - ${p}salary) / ${p}salary) * 100)::numeric, 1) ELSE 0 END`
-    : `CASE WHEN ${p}salary > 0 THEN ROUND(((${p}revenue_generated - ${p}salary) / ${p}salary) * 100, 1) ELSE 0 END`;
+  return `CASE WHEN ${p}salary > 0 THEN ROUND((((${p}revenue_generated - ${p}salary) / ${p}salary) * 100)::numeric, 1) ELSE 0 END`;
 }
 
 // GET employee analytics (ranking, dept stats, etc.) — scoped to company
@@ -394,7 +390,7 @@ router.delete('/:id', async (req, res, next) => {
     }
 
     // Soft delete: keep historical links (sales, invoices) but mark as deleted
-    const nowExpr = engine() === 'postgres' ? 'now()' : "datetime('now')";
+    const nowExpr = 'now()';
     const resDelete = await dbGet(`UPDATE employees SET deleted_at = ${nowExpr} WHERE id = ? AND company_id = ? RETURNING id`, [empId, companyId]);
     if (!resDelete) {
       return res.status(404).json({ error: 'Employee not found' });

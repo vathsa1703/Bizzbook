@@ -4,14 +4,12 @@
 // computed from structured data, never guessed. (LLM is only a last-resort
 // fallback for free-text questions, and never invents legal requirements.)
 //
-// Phase 2 dual-engine: every exported function is async and runs through
-// config/dbEngine.js's withExecutor/withTxExecutor so it works on both SQLite
-// and Postgres, gated by process.env.DB_ENGINE. See dbEngine.js's own header
+// Every exported function is async and runs through config/dbEngine.js's
+// withExecutor/withTxExecutor (Postgres-only). See dbEngine.js's own header
 // comment for the shared {get,all,run,insert} executor shape.
 // ============================================================================
 
 const { dbGet, dbAll, withExecutor, withTxExecutor, isOn } = require('../config/dbEngine');
-const { seedCompliance } = require('../db/complianceSeed');
 const engine = require('./complianceRuleEngine');
 
 // NOTE: business_compliance_profile is shared with the Trade module
@@ -37,12 +35,8 @@ function daysBetween(fromStr) {
   return Math.round((d - today()) / 86400000);
 }
 
-// datetime('now')/date('now') are SQLite-only; Postgres equivalents are
-// now()/CURRENT_DATE. Both forms are plain SQL text (no bound params), so this
-// mirrors credits.js's inline `today` pattern rather than dbEngine.js's dateSub
-// (which is for the two-arg date(?, '-N days') form only).
-function sqlNow(x) { return x.engine === 'postgres' ? 'now()' : "datetime('now')"; }
-function sqlToday(x) { return x.engine === 'postgres' ? 'CURRENT_DATE' : "date('now')"; }
+function sqlNow() { return 'now()'; }
+function sqlToday() { return 'CURRENT_DATE'; }
 
 async function logEvent(x, companyId, { itemId = null, ruleId = null, eventType, detail = null }) {
   await x.run(
@@ -54,24 +48,18 @@ async function logEvent(x, companyId, { itemId = null, ruleId = null, eventType,
 // Defensive, idempotent seed so the module works even if migration 21 hasn't run
 // for some reason. seedCompliance is keyed by rule code, so this is a no-op once seeded.
 //
-// Postgres note: seedCompliance (src/db/complianceSeed.js) is written directly
-// against node:sqlite's synchronous db.prepare() API and is out of scope for this
-// Phase 2 conversion pass. On Postgres, bootstrapPostgresSchema() (config/pgDb.js)
-// only replays schema.postgres.sql's DDL and does not run this seed, so an empty
+// seedCompliance (src/db/complianceSeed.js) is written directly against
+// node:sqlite's synchronous db.prepare() API and has not been ported to
+// Postgres. bootstrapPostgresSchema() (config/pgDb.js) only replays
+// schema.postgres.sql's DDL and does not run this seed, so an empty
 // compliance_rules table cannot be defensively re-seeded here — flagged for a
-// follow-up (either a dual-engine complianceSeed.js, or a Postgres-side seed step
-// wired into the bootstrap).
+// follow-up (either a Postgres-native complianceSeed.js, or a Postgres-side
+// seed step wired into the bootstrap).
 async function ensureSeed() {
   return withExecutor(async (x) => {
     const row = await x.get('SELECT COUNT(*) AS c FROM compliance_rules', []);
     if (row && Number(row.c) === 0) {
-      if (x.engine === 'postgres') {
-        console.warn('[complianceService] compliance_rules is empty on Postgres and cannot be auto-seeded here (complianceSeed.js is SQLite-only).');
-        return;
-      }
-      const { getDb } = require('../config/db');
-      const db = getDb();
-      try { seedCompliance(db); } finally { db.close(); }
+      console.warn('[complianceService] compliance_rules is empty and cannot be auto-seeded here (complianceSeed.js is SQLite-only, not ported to Postgres).');
     }
   });
 }

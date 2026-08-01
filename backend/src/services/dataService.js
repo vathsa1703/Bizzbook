@@ -2,11 +2,10 @@
 // All functions now accept a companyId parameter for multi-tenant data isolation,
 // and a scopeContext parameter for branch filtering.
 //
-// Phase 2: all functions are async and route through dbEngine.js's dbGet/dbAll,
-// which dispatch to SQLite (default) or Postgres (DB_ENGINE=postgres). Query
-// text is unchanged — still plain '?' placeholders; the Postgres conversion
-// happens inside dbEngine.js on the fully-assembled string, after
-// withBranchScope has already appended its predicate. See dbEngine.js for why.
+// All functions are async and route through dbEngine.js's dbGet/dbAll (Postgres-
+// only). Query text is written in plain '?' placeholders; the conversion to
+// Postgres's '$1, $2, ...' happens inside dbEngine.js on the fully-assembled
+// string, after withBranchScope has already appended its predicate.
 
 const { dbGet, dbAll } = require('../config/dbEngine');
 const { withBranchScope } = require('../utils/BranchScopedQuery');

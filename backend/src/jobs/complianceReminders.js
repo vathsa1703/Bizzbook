@@ -10,8 +10,7 @@
  * so this generates the dashboard channel now and leaves a single well-defined
  * emission point to extend.
  */
-const { getDb } = require('../config/db');
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 const { withTransaction } = require('../config/pgDb');
 
 const THRESHOLDS = [1, 3, 7, 15, 30, 60, 90]; // ascending
@@ -33,12 +32,8 @@ async function runComplianceReminders() {
   try {
     console.log('[ComplianceReminders] Running daily compliance reminder scan...');
 
-    const pg = engine() === 'postgres';
-    const today = pg ? 'CURRENT_DATE' : "date('now')";
-    // julianday() is SQLite-only; next_due_date is a real DATE column on
-    // Postgres, so a plain date subtraction against CURRENT_DATE gives the
-    // day-count integer directly.
-    const daysRemainingExpr = pg ? `(i.next_due_date::date - CURRENT_DATE)` : `CAST(julianday(i.next_due_date) - julianday('now') AS INTEGER)`;
+    const today = 'CURRENT_DATE';
+    const daysRemainingExpr = `(i.next_due_date::date - CURRENT_DATE)`;
 
     // Mark newly-overdue items so the score & UI stay accurate.
     await dbGet(`
@@ -80,33 +75,13 @@ async function runComplianceReminders() {
         : `${it.title} is due in ${it.days_remaining} day(s) on ${it.next_due_date}.`;
 
       try {
-        if (pg) {
-          await withTransaction(async (tx) => {
-            await tx.query(`
-              INSERT INTO notifications (company_id, user_id, type, title, body, related_type, related_id)
-              VALUES (?, ?, 'compliance', ?, ?, 'compliance_item', ?)
-            `, [it.company_id, uid, title, body, it.id]);
-            await tx.query("INSERT INTO compliance_events (company_id, item_id, rule_id, event_type, detail) VALUES (?, ?, ?, 'reminder_sent', ?)", [it.company_id, it.id, it.rule_id, bucket]);
-          });
-        } else {
-          const db = getDb();
-          try {
-            db.exec('BEGIN TRANSACTION');
-            try {
-              db.prepare(`
-                INSERT INTO notifications (company_id, user_id, type, title, body, related_type, related_id)
-                VALUES (?, ?, 'compliance', ?, ?, 'compliance_item', ?)
-              `).run(it.company_id, uid, title, body, it.id);
-              db.prepare("INSERT INTO compliance_events (company_id, item_id, rule_id, event_type, detail) VALUES (?, ?, ?, 'reminder_sent', ?)").run(it.company_id, it.id, it.rule_id, bucket);
-              db.exec('COMMIT');
-            } catch (e) {
-              db.exec('ROLLBACK');
-              throw e;
-            }
-          } finally {
-            db.close();
-          }
-        }
+        await withTransaction(async (tx) => {
+          await tx.query(`
+            INSERT INTO notifications (company_id, user_id, type, title, body, related_type, related_id)
+            VALUES (?, ?, 'compliance', ?, ?, 'compliance_item', ?)
+          `, [it.company_id, uid, title, body, it.id]);
+          await tx.query("INSERT INTO compliance_events (company_id, item_id, rule_id, event_type, detail) VALUES (?, ?, ?, 'reminder_sent', ?)", [it.company_id, it.id, it.rule_id, bucket]);
+        });
         created++;
       } catch (e) {
         console.error('[ComplianceReminders] failed for item', it.id, e.message);

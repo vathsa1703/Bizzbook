@@ -18,8 +18,6 @@
 // transactions this file backs) pass their `tx`-bound executor into every
 // helper they call, so nothing can escape onto a different connection.
 // ============================================================================
-const { getDb } = require('../config/db');
-const { engine } = require('../config/dbEngine');
 const pgDb = require('../config/pgDb');
 
 const STATUSES = new Set(['todo', 'in_progress', 'review', 'blocked', 'completed', 'cancelled']);
@@ -32,22 +30,7 @@ const isPrivileged = (user) => ['admin', 'OWNER'].includes(user.role);
 function safeJsonArr(s) { try { const v = JSON.parse(s); return Array.isArray(v) ? v : []; } catch (_) { return []; } }
 function placeholders(arr) { return arr.map(() => '?').join(','); }
 
-// ── Engine-agnostic query executor ──────────────────────────────────────────
-function sqliteExecutor(db) {
-  return {
-    engine: 'sqlite',
-    get: async (sql, params = []) => db.prepare(sql).get(...params) ?? null,
-    all: async (sql, params = []) => db.prepare(sql).all(...params),
-    run: async (sql, params = []) => {
-      const info = db.prepare(sql).run(...params);
-      return { id: info.lastInsertRowid, changes: info.changes };
-    },
-    // INSERT that needs the new row's id back, without every call site
-    // needing its own isPg branch for RETURNING vs lastInsertRowid.
-    insert: async (sql, params = []) => db.prepare(sql).run(...params).lastInsertRowid,
-  };
-}
-
+// ── Query executor ───────────────────────────────────────────────────────────
 function pgExecutor(client) {
   return {
     engine: 'postgres',
@@ -64,30 +47,14 @@ function pgExecutor(client) {
   };
 }
 
-// Runs fn(x) against a plain (non-transactional) connection.
+// Runs fn(x) against the shared (non-transactional) Postgres pool.
 async function withExecutor(fn) {
-  if (engine() === 'postgres') {
-    return fn(pgExecutor({ query: pgDb.query, getOne: pgDb.getOne, getAll: pgDb.getAll }));
-  }
-  const db = getDb();
-  try { return await fn(sqliteExecutor(db)); }
-  finally { db.close(); }
+  return fn(pgExecutor({ query: pgDb.query, getOne: pgDb.getOne, getAll: pgDb.getAll }));
 }
 
-// Runs fn(x) as a single atomic transaction, on both engines.
+// Runs fn(x) as a single atomic transaction.
 async function withTx(fn) {
-  if (engine() === 'postgres') {
-    return pgDb.withTransaction((tx) => fn(pgExecutor(tx)));
-  }
-  const db = getDb();
-  try {
-    db.exec('BEGIN TRANSACTION');
-    try {
-      const result = await fn(sqliteExecutor(db));
-      db.exec('COMMIT');
-      return result;
-    } catch (e) { db.exec('ROLLBACK'); throw e; }
-  } finally { db.close(); }
+  return pgDb.withTransaction((tx) => fn(pgExecutor(tx)));
 }
 
 // The caller's own employee record (employees.user_id = the JWT userId).
@@ -218,7 +185,7 @@ async function recomputeProgress(x, taskId) {
   const c = await x.get('SELECT COUNT(*) total, SUM(CASE WHEN is_done THEN 1 ELSE 0 END) done FROM task_checklist_items WHERE task_id = ?', [taskId]);
   if (c && c.total > 0) {
     const pct = Math.round(((c.done || 0) / c.total) * 100);
-    const nowExpr = x.engine === 'postgres' ? 'now()' : "datetime('now')";
+    const nowExpr = 'now()';
     await x.run(`UPDATE tasks SET progress = ?, updated_at = ${nowExpr} WHERE id = ?`, [pct, taskId]);
     return pct;
   }
@@ -362,7 +329,7 @@ async function updateTask(user, taskId, patch = {}) {
     }
     if (patch.labels !== undefined) { sets.push('labels = ?'); params.push(JSON.stringify(patch.labels || [])); }
 
-    const nowExpr = x.engine === 'postgres' ? 'now()' : "datetime('now')";
+    const nowExpr = 'now()';
     const becomingComplete = patch.status === 'completed' && task.status !== 'completed';
     if (becomingComplete) { sets.push(`completed_at = ${nowExpr}`, 'progress = 100'); }
 
@@ -419,7 +386,7 @@ async function deleteTask(user, taskId) {
     const task = await x.get('SELECT id, assigned_by FROM tasks WHERE id = ? AND company_id = ? AND deleted_at IS NULL', [taskId, user.companyId]);
     if (!task) return { error: 'not_found', code: 404 };
     if (!canManage(user) && task.assigned_by !== user.userId) return { error: 'forbidden', code: 403 };
-    const nowExpr = x.engine === 'postgres' ? 'now()' : "datetime('now')";
+    const nowExpr = 'now()';
     await x.run(`UPDATE tasks SET deleted_at = ${nowExpr} WHERE id = ?`, [taskId]);
     return { deleted: true };
   });
@@ -498,14 +465,7 @@ async function toggleChecklistItem(user, taskId, itemId, isDone) {
     if (!task) return { error: 'not_found', code: 404 };
     const item = await x.get('SELECT id FROM task_checklist_items WHERE id = ? AND task_id = ?', [itemId, taskId]);
     if (!item) return { error: 'not_found', code: 404 };
-    // is_done is BOOLEAN on Postgres (Phase 1) but INTEGER 0/1 on SQLite --
-    // binding the literal-integer-vs-bound-parameter booleans mismatch found
-    // 3x already (auth.js/company.js/branches.js): a bound `1`/`0` fails
-    // against a Postgres boolean column, so the bound value itself must match
-    // the column's real type per engine, not just the SQL text around it.
-    const done = isDone
-      ? (x.engine === 'postgres' ? true : 1)
-      : (x.engine === 'postgres' ? false : 0);
+    const done = isDone ? true : false;
     await x.run('UPDATE task_checklist_items SET is_done = ?, done_at = ? WHERE id = ?', [done, isDone ? new Date().toISOString() : null, itemId]);
     const progress = await recomputeProgress(x, taskId);
     await logActivity(x, taskId, user.userId, isDone ? 'checklist_done' : 'checklist_undone', null);
@@ -546,7 +506,7 @@ async function deleteAttachment(user, attId) {
   return withExecutor(async (x) => {
     const att = await x.get('SELECT id, task_id FROM task_attachments WHERE id = ? AND company_id = ? AND deleted_at IS NULL', [attId, user.companyId]);
     if (!att) return { error: 'not_found', code: 404 };
-    const nowExpr = x.engine === 'postgres' ? 'now()' : "datetime('now')";
+    const nowExpr = 'now()';
     await x.run(`UPDATE task_attachments SET deleted_at = ${nowExpr} WHERE id = ?`, [attId]);
     await logActivity(x, att.task_id, user.userId, 'attachment_removed', null);
     return { deleted: true };
@@ -556,7 +516,6 @@ async function deleteAttachment(user, attId) {
 // ── Workforce/Task analytics (deterministic SQL) ─────────────────────────────
 async function analytics(user) {
   return withExecutor(async (x) => {
-    const isPg = x.engine === 'postgres';
     const vis = await buildVisibility(x, user);
     const base = `FROM tasks t WHERE t.company_id = ? AND t.deleted_at IS NULL${vis.clause}`;
     const p = [user.companyId, ...vis.params];
@@ -564,16 +523,11 @@ async function analytics(user) {
     const byStatus = await x.all(`SELECT status, COUNT(*) c ${base} GROUP BY status`, p);
     const byPriority = await x.all(`SELECT priority, COUNT(*) c ${base} GROUP BY priority`, p);
     const completed = (await x.get(`SELECT COUNT(*) c ${base} AND t.status='completed'`, p)).c;
-    // date('now') / julianday() are SQLite-only; Postgres equivalents are
-    // CURRENT_DATE and plain date subtraction (both due_date/completed_at-as-
-    // date are real DATE/TIMESTAMPTZ columns there).
-    const todayExpr = isPg ? 'CURRENT_DATE' : "date('now')";
+    const todayExpr = 'CURRENT_DATE';
     const overdue = (await x.get(`SELECT COUNT(*) c ${base} AND t.status NOT IN ('completed','cancelled') AND t.due_date IS NOT NULL AND t.due_date < ${todayExpr}`, p)).c;
-    const completedDateExpr = isPg ? 't.completed_at::date' : "date(t.completed_at)";
+    const completedDateExpr = 't.completed_at::date';
     const lateCompleted = (await x.get(`SELECT COUNT(*) c ${base} AND t.status='completed' AND t.due_date IS NOT NULL AND ${completedDateExpr} > t.due_date`, p)).c;
-    const avgExpr = isPg
-      ? `AVG(EXTRACT(EPOCH FROM (t.completed_at - t.created_at)) / 86400.0)`
-      : `AVG(julianday(t.completed_at) - julianday(t.created_at))`;
+    const avgExpr = `AVG(EXTRACT(EPOCH FROM (t.completed_at - t.created_at)) / 86400.0)`;
     const avgRow = await x.get(`SELECT ${avgExpr} d ${base} AND t.status='completed' AND t.completed_at IS NOT NULL`, p);
     const avgCompletionDays = avgRow.d != null ? Math.round(avgRow.d * 10) / 10 : null;
     return {

@@ -1,14 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { getDb } = require('../config/db');
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 const { withTransaction } = require('../config/pgDb');
 
 // List attendance records
 router.get('/', async (req, res, next) => {
   try {
     const { date, employee_id, month, year, status, branch_id, department_id } = req.query;
-    const isPg = engine() === 'postgres';
     let sql = `
       SELECT ar.*, e.name as employee_name, e.employee_code, e.avatar, e.job_title,
              d.name as department_name, b.name as branch_name
@@ -25,14 +23,8 @@ router.get('/', async (req, res, next) => {
     if (branch_id) { sql += ' AND ar.branch_id = ?'; params.push(branch_id); }
     if (department_id) { sql += ' AND e.department_id = ?'; params.push(department_id); }
     if (month && year) {
-      // strftime() is SQLite-only; ar.date is a real DATE column on Postgres.
-      if (isPg) {
-        sql += ' AND EXTRACT(MONTH FROM ar.date) = ? AND EXTRACT(YEAR FROM ar.date) = ?';
-        params.push(Number(month), Number(year));
-      } else {
-        sql += " AND strftime('%m',ar.date) = ? AND strftime('%Y',ar.date) = ?";
-        params.push(String(month).padStart(2,'0'), String(year));
-      }
+      sql += ' AND EXTRACT(MONTH FROM ar.date) = ? AND EXTRACT(YEAR FROM ar.date) = ?';
+      params.push(Number(month), Number(year));
     }
     sql += ' ORDER BY ar.date DESC, e.name ASC LIMIT 500';
     res.json(await dbAll(sql, params));
@@ -71,12 +63,9 @@ router.get('/report', async (req, res, next) => {
   try {
     const { month, year, employee_id } = req.query;
     if (!month || !year) return res.status(400).json({ error: 'month and year required' });
-    const isPg = engine() === 'postgres';
 
-    const joinCond = isPg
-      ? 'EXTRACT(MONTH FROM ar.date) = ? AND EXTRACT(YEAR FROM ar.date) = ?'
-      : "strftime('%m', ar.date) = ? AND strftime('%Y', ar.date) = ?";
-    const joinParams = isPg ? [Number(month), Number(year)] : [String(month).padStart(2, '0'), String(year)];
+    const joinCond = 'EXTRACT(MONTH FROM ar.date) = ? AND EXTRACT(YEAR FROM ar.date) = ?';
+    const joinParams = [Number(month), Number(year)];
 
     let sql = `
       SELECT e.id as employee_id, e.name, e.employee_code, e.avatar,
@@ -86,8 +75,8 @@ router.get('/report', async (req, res, next) => {
              SUM(CASE WHEN ar.status = 'late' THEN 1 ELSE 0 END) as late_days,
              SUM(CASE WHEN ar.status = 'half_day' THEN 1 ELSE 0 END) as half_days,
              SUM(CASE WHEN ar.status = 'on_leave' THEN 1 ELSE 0 END) as leave_days,
-             ROUND(SUM(COALESCE(ar.total_hours, 0))${isPg ? '::numeric' : ''}, 2) as total_hours,
-             ROUND(SUM(COALESCE(ar.overtime_hours, 0))${isPg ? '::numeric' : ''}, 2) as overtime_hours
+             ROUND(SUM(COALESCE(ar.total_hours, 0))::numeric, 2) as total_hours,
+             ROUND(SUM(COALESCE(ar.overtime_hours, 0))::numeric, 2) as overtime_hours
       FROM employees e
       LEFT JOIN attendance_records ar ON ar.employee_id = e.id
         AND ${joinCond}
@@ -167,22 +156,9 @@ router.post('/mark', async (req, res, next) => {
       }
     };
 
-    if (engine() === 'postgres') {
-      await withTransaction(async (tx) => {
-        for (const r of records) await markOne(tx.getOne, tx.query, r);
-      });
-    } else {
-      const db = getDb();
-      try {
-        db.exec('BEGIN TRANSACTION');
-        try {
-          const get = async (sql, params) => db.prepare(sql).get(...params) ?? null;
-          const run = async (sql, params) => db.prepare(sql).run(...params);
-          for (const r of records) await markOne(get, run, r);
-          db.exec('COMMIT');
-        } catch (e) { db.exec('ROLLBACK'); throw e; }
-      } finally { db.close(); }
-    }
+    await withTransaction(async (tx) => {
+      for (const r of records) await markOne(tx.getOne, tx.query, r);
+    });
 
     res.json({ success: true, marked: records.length });
   } catch (err) { next(err); }

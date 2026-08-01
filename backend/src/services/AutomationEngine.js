@@ -1,6 +1,6 @@
 const eventBusService = require('./EventBusService');
 const jobQueueService = require('./JobQueueService');
-const { dbGet, dbAll, engine } = require('../config/dbEngine');
+const { dbGet, dbAll } = require('../config/dbEngine');
 
 class AutomationEngine {
   async init() {
@@ -14,10 +14,7 @@ class AutomationEngine {
   }
 
   async reloadAutomations() {
-    // is_active is BOOLEAN on Postgres vs INTEGER 0/1 on SQLite -- bind as a
-    // param rather than a literal `1` so each engine gets its own native type.
-    const activeVal = engine() === 'postgres' ? true : 1;
-    const rules = await dbAll('SELECT id, company_id, event_type, conditions, delay_minutes, action_type, action_payload FROM marketing_automations WHERE is_active = ?', [activeVal]);
+    const rules = await dbAll('SELECT id, company_id, event_type, conditions, delay_minutes, action_type, action_payload FROM marketing_automations WHERE is_active = ?', [true]);
 
     // Group rules by event_type
     this.rulesByEvent = {};
