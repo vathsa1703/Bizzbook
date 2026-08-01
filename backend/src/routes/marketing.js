@@ -569,6 +569,19 @@ router.post('/referrals/redeem', async (req, res) => {
       await tx.query('INSERT INTO wallet_transactions (company_id, wallet_id, amount, transaction_type, description) VALUES (?, ?, ?, ?, ?)',
         [companyId, rWallet.id, referral.reward_referrer, 'earn', 'Referral reward']);
 
+      // Credit Referee -- the response has always claimed this happens
+      // (`reward_referee` in the JSON), but nothing ever actually applied it;
+      // mirrors the referrer-crediting block above exactly.
+      let refereeWallet = await tx.getOne('SELECT id, balance FROM customer_wallets WHERE customer_id = ? AND balance_type = ?', [new_customer_id, 'reward_points']);
+      if (!refereeWallet) {
+        const row = await tx.getOne('INSERT INTO customer_wallets (company_id, customer_id, balance_type, balance) VALUES (?, ?, ?, 0) RETURNING id',
+          [companyId, new_customer_id, 'reward_points']);
+        refereeWallet = { id: row.id, balance: 0 };
+      }
+      await tx.query('UPDATE customer_wallets SET balance = balance + ? WHERE id = ?', [referral.reward_referee, refereeWallet.id]);
+      await tx.query('INSERT INTO wallet_transactions (company_id, wallet_id, amount, transaction_type, description) VALUES (?, ?, ?, ?, ?)',
+        [companyId, refereeWallet.id, referral.reward_referee, 'earn', 'Referral welcome reward']);
+
       // Knowledge Graph
       await tx.query('INSERT INTO knowledge_graph_edges (company_id, node_a_type, node_a_id, relationship_type, node_b_type, node_b_id, weight) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [companyId, 'customer', referral.customer_id, 'referred', 'customer', new_customer_id, referral.reward_referrer]);
