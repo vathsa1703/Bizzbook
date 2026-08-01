@@ -1,9 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const { dbGet, dbAll } = require('../config/dbEngine');
+const { requirePermission } = require('../middleware/auth');
+
+// Audit logs expose every user's actions company-wide -- gated the same as
+// other admin-facing read surfaces (routes/roles.js, routes/company.js), not
+// left open to any authenticated user. Found ungated during the final
+// client-readiness audit: a plain employee token could retrieve the full
+// company audit trail.
+const requireAuditLogsView = requirePermission('audit_logs.view');
 
 // Paginated audit log list
-router.get('/', async (req, res, next) => {
+router.get('/', requireAuditLogsView, async (req, res, next) => {
   try {
     const { module, user_id, target_type, page = 1, limit = 50 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -28,7 +36,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // Timeline for a specific record
-router.get('/:targetType/:targetId', async (req, res, next) => {
+router.get('/:targetType/:targetId', requireAuditLogsView, async (req, res, next) => {
   try {
     const logs = await dbAll(`
       SELECT al.*, u.name as user_name

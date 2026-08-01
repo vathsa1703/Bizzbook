@@ -151,7 +151,7 @@ function requirePermission(action) {
     const isAdmin = role === 'OWNER' || role === 'MANAGER';
 
     // For specific modules, check legacy rules
-    if (action.startsWith('employees.') || action.startsWith('suppliers.') || action.startsWith('settings.') || action.startsWith('roles.')) {
+    if (action.startsWith('employees.') || action.startsWith('suppliers.') || action.startsWith('settings.') || action.startsWith('roles.') || action.startsWith('audit_logs.')) {
        if (isAdmin) return next();
     } else {
        // Regular read access for other modules allowed for all legacy roles
