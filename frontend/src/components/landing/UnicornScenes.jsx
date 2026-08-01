@@ -147,4 +147,13 @@ export function AccentScene() {
   return <SceneLayer projectId="1aAAMXD3rwBaXSLJk1Pa" className="us-accent" opacity={0.55} defer />;
 }
 
+// Closing CTA: reuses the Hero's "Scroll Orb" scene (same projectId) rather
+// than a third licensed asset, deliberately -- the same orb bookending the
+// very top and very bottom of the page reads as a visual signature, not a
+// re-run. Deferred (it's far below the fold) and dimmer than the hero so it
+// doesn't compete with the closing headline.
+export function CtaScene() {
+  return <SceneLayer projectId="FELkKlm6WXOBwEooSzZg" className="us-cta" opacity={0.6} defer />;
+}
+
 export default SceneLayer;

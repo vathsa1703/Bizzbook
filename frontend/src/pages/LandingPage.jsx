@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { HeroScene, AccentScene, shouldRenderScene } from '../components/landing/UnicornScenes';
+import { HeroScene, AccentScene, CtaScene, shouldRenderScene } from '../components/landing/UnicornScenes';
+import { BirdsScene, TopologyScene } from '../components/landing/VantaScenes';
 
 // Marketing landing page shown to unauthenticated visitors before
 // BusinessSelection/Login/Register. Pure presentational component — all
@@ -23,7 +24,7 @@ const FEATURES = [
       </svg>
     ),
     title: 'GST Invoicing',
-    desc: "CGST and SGST inside your state, IGST outside it — worked out from the HSN code and the buyer's state code. GSTR-1 exports as JSON, Excel or CSV when filing is due.",
+    desc: "Correct tax, every time. CGST/SGST in-state, IGST out — worked out automatically from the HSN code and the buyer's state. GSTR-1 exports the moment filing is due.",
     bars: [0.4, 0.55, 0.35, 0.7, 0.5, 0.9],
   },
   {
@@ -34,7 +35,7 @@ const FEATURES = [
       </svg>
     ),
     title: 'Stock',
-    desc: 'Stock drops the moment you bill. Reorder alerts fire before a fast mover runs out, and anything that has not sold in 60 days gets flagged as dead stock.',
+    desc: 'Stock drops the second you bill. Reorder alerts fire before a fast mover runs out — anything untouched for 60 days gets called out as dead weight.',
     bars: [0.8, 0.6, 0.7, 0.3, 0.2, 0.15],
   },
   {
@@ -46,7 +47,7 @@ const FEATURES = [
       </svg>
     ),
     title: 'Staff & Payroll',
-    desc: 'Attendance, leave, salary runs and employee records. Payroll goes out on the 1st without anyone rebuilding a spreadsheet.',
+    desc: 'Attendance, leave, salary, records — payroll goes out on the 1st. No spreadsheet gymnastics required.',
     bars: [0.5, 0.5, 0.6, 0.55, 0.65, 0.6],
   },
   {
@@ -57,7 +58,7 @@ const FEATURES = [
       </svg>
     ),
     title: 'AI Business Advisor',
-    desc: 'Ask in plain words. The answer is assembled from a query on your own sales, stock and payments — the model writes the sentence, not the number.',
+    desc: 'Ask it anything, in plain words. Every answer comes from a real query on your own sales and stock — the AI writes the sentence, never the number.',
     bars: [0.3, 0.45, 0.4, 0.7, 0.85, 0.95],
   },
   {
@@ -68,7 +69,7 @@ const FEATURES = [
       </svg>
     ),
     title: 'Marketing Opportunities',
-    desc: 'Scans for money already sitting in your data: overdue balances, customers who stopped coming, stock that will not move. Each one costed before you act on it.',
+    desc: "Finds the money already sitting in your data — overdue balances, ghosted customers, stock that won't move. Every opportunity comes pre-costed.",
     bars: [0.6, 0.4, 0.75, 0.5, 0.8, 0.65],
   },
   {
@@ -80,7 +81,7 @@ const FEATURES = [
       </svg>
     ),
     title: 'Udhaar & Payments',
-    desc: "Every customer's khata in one list — what is outstanding, how long it has been outstanding, and a reminder you can send from the same screen.",
+    desc: "Every customer's khata, one list. What's owed, how overdue, and a reminder button right there.",
     bars: [0.9, 0.85, 0.8, 0.75, 0.7, 0.7],
   },
 ];
@@ -164,6 +165,26 @@ const LANDING_CSS = `
 .bizbook-landing .us-canvas canvas { display: block; }
 .bizbook-landing .us-hero { mask-image: linear-gradient(to bottom, #000 55%, transparent 96%); -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 96%); }
 .bizbook-landing .us-accent { mask-image: radial-gradient(90% 70% at 50% 40%, #000 30%, transparent 78%); -webkit-mask-image: radial-gradient(90% 70% at 50% 40%, #000 30%, transparent 78%); }
+.bizbook-landing .us-cta { mask-image: radial-gradient(85% 65% at 50% 55%, #000 25%, transparent 76%); -webkit-mask-image: radial-gradient(85% 65% at 50% 55%, #000 25%, transparent 76%); }
+
+/* Vanta.js layers (Features/Stats) -- same absolute/z-0/no-pointer-events
+   contract as .us-layer above, distinct class since Vanta manages its own
+   canvas inside this host div rather than a React-rendered <canvas>. */
+.bizbook-landing .vanta-layer { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; opacity: .5; }
+.bizbook-landing .vanta-layer canvas { display: block; }
+.bizbook-landing #features .vanta-layer { mask-image: radial-gradient(95% 80% at 50% 30%, #000 35%, transparent 82%); -webkit-mask-image: radial-gradient(95% 80% at 50% 30%, #000 35%, transparent 82%); }
+.bizbook-landing #stats-section .vanta-layer { mask-image: radial-gradient(90% 100% at 50% 50%, #000 20%, transparent 74%); -webkit-mask-image: radial-gradient(90% 100% at 50% 50%, #000 20%, transparent 74%); opacity: .35; }
+
+/* Positioning context for the three newly-backgrounded sections, matching
+   .hero / .spotlight's existing position:relative + overflow:hidden +
+   isolation:isolate + z-2 content pattern so the scene layer stays behind
+   the cards/copy instead of on top of them. */
+.bizbook-landing #features, .bizbook-landing #stats-section, .bizbook-landing #pricing {
+  position: relative; overflow: hidden; isolation: isolate;
+}
+.bizbook-landing #features .wrap, .bizbook-landing #stats-section .wrap, .bizbook-landing #pricing .wrap {
+  position: relative; z-index: 2;
+}
 
 /* The never-blank floor. Painted whether or not WebGL ever comes up. */
 .bizbook-landing .bg-fallback {
@@ -1010,12 +1031,12 @@ export default function LandingPage({ onGetStarted }) {
         <div className="bg-fallback" />
         {sceneOn ? <HeroScene /> : <canvas id="mesh" ref={meshCanvasRef} />}
         <div className="wrap hero-inner">
-          <div className="eyebrow" ref={eyebrowRef}><span className="pulse" />Built for Indian MSMEs · GST-ready</div>
+          <div className="eyebrow" ref={eyebrowRef}><span className="pulse" />Built for Indian MSMEs · Zero busywork</div>
           <h1 className="headline" ref={headlineRef}>
-            Run your entire business<br />from <span className="grad-text">one place.</span>
+            Stop stitching<br /><span className="grad-text">six apps</span> together.
           </h1>
           <p className="sub" ref={subRef}>
-            GST invoicing, inventory, HR and payroll, and an AI advisor that reads your real numbers — instead of six subscriptions that don't talk to each other.
+            Sales, stock, GST, payroll, and an AI that actually reads your books — one system, zero duct tape.
           </p>
           <div className="hero-ctas" ref={heroCtasRef}>
             <button
@@ -1034,7 +1055,7 @@ export default function LandingPage({ onGetStarted }) {
               onMouseMove={handleMagnetMove}
               onMouseLeave={handleMagnetLeave}
             >
-              See it in action →
+              Watch it think →
             </a>
           </div>
 
@@ -1087,18 +1108,20 @@ export default function LandingPage({ onGetStarted }) {
       <div className="trust">
         <div className="wrap trust-inner">
           <div className="trust-item reveal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>GST-compliant</div>
-          <div className="trust-item reveal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" /></svg>Multi-branch ready</div>
-          <div className="trust-item reveal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>Role-based access</div>
-          <div className="trust-item reveal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>Made for Indian MSMEs</div>
+          <div className="trust-item reveal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" /></svg>Multi-branch, one login</div>
+          <div className="trust-item reveal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>Locked down by role</div>
+          <div className="trust-item reveal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>Built in India, for India</div>
         </div>
       </div>
 
       <section className="block" id="features">
+        <div className="bg-fallback" />
+        {sceneOn && <BirdsScene />}
         <div className="wrap">
           <div className="head reveal">
-            <div className="kicker">The whole back office</div>
-            <h2>Six systems shops usually run separately. We built them as one.</h2>
-            <p>Every module reads from the same ledger, so a sale updates stock, a payroll run updates cash flow, and the AI advisor sees all of it.</p>
+            <div className="kicker">The whole back office, minus the back office</div>
+            <h2>Six tools you're paying for.<br />One you actually need.</h2>
+            <p>One sale updates stock. One payroll run updates cash flow. Nothing here waits on anything else.</p>
           </div>
           <div className="grid6" id="featureGrid">
             {FEATURES.map((f) => (
@@ -1124,9 +1147,9 @@ export default function LandingPage({ onGetStarted }) {
         <div className="wrap block">
           <div className="spot-grid">
             <div className="head reveal" style={{ marginBottom: 0 }}>
-              <div className="kicker">AI Business Advisor</div>
-              <h2>It doesn't guess.<br />It reads your ledger.</h2>
-              <p>Every insight comes from a real query against your sales, stock, and payments — the model only writes the sentence, never the number.</p>
+              <div className="kicker">Not a chatbot. An advisor.</div>
+              <h2>It doesn't guess.<br />It just reads the ledger.</h2>
+              <p>Every insight is a real query against your sales, stock, and payments. The model only writes the sentence — never the number.</p>
             </div>
 
             <div className="chatcard reveal">
@@ -1168,29 +1191,33 @@ export default function LandingPage({ onGetStarted }) {
               </div>
               <div className="grounding-note">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>
-                Revenue, product, and stock figures above are pulled live from your database — not generated by the model. Try the questions above.
+                Every number above came from your database, live. Not generated, not guessed. Try it yourself.
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="block tight">
+      <section className="block tight" id="stats-section">
+        <div className="bg-fallback" />
+        {sceneOn && <TopologyScene />}
         <div className="wrap">
           <div className="stats reveal">
-            <div className="stat"><div className="v" data-count="24000000" data-prefix="₹" data-suffix="+" data-compact="cr">₹0</div><div className="l">GST-compliant invoices filed</div><div className="detail">Across GSTR-1 exports, every month</div></div>
-            <div className="stat"><div className="v" data-count="1200" data-suffix="+">0</div><div className="l">Businesses run on BizBook</div><div className="detail">14 states, 30+ trade categories</div></div>
-            <div className="stat"><div className="v" data-count="38" data-suffix=" hrs">0</div><div className="l">Saved per month, per business</div><div className="detail">vs. spreadsheets + 3 separate apps</div></div>
-            <div className="stat"><div className="v" data-count="999" data-suffix="%" data-decimal="1">0</div><div className="l">Platform uptime</div><div className="detail">Measured over trailing 12 months</div></div>
+            <div className="stat"><div className="v" data-count="24000000" data-prefix="₹" data-suffix="+" data-compact="cr">₹0</div><div className="l">GST invoices filed</div><div className="detail">Every one of them audit-ready</div></div>
+            <div className="stat"><div className="v" data-count="1200" data-suffix="+">0</div><div className="l">Businesses running on BizBook</div><div className="detail">14 states. 30+ trade categories.</div></div>
+            <div className="stat"><div className="v" data-count="38" data-suffix=" hrs">0</div><div className="l">Hours back, per business, per month</div><div className="detail">A full workday, every month</div></div>
+            <div className="stat"><div className="v" data-count="999" data-suffix="%" data-decimal="1">0</div><div className="l">Uptime</div><div className="detail">12 months straight. No excuses.</div></div>
           </div>
         </div>
       </section>
 
       <section className="block closer" id="pricing">
+        <div className="bg-fallback" />
+        {sceneOn && <CtaScene />}
         <div className="wrap">
           <div className="cta-card reveal">
-            <h2>Start running your business<br />on one system.</h2>
-            <p>Set up your first invoice in under 10 minutes. No card required.</p>
+            <h2>Stop juggling apps.<br />Start running one system.</h2>
+            <p>First invoice in under 10 minutes. No card, no catch.</p>
             <div className="hero-ctas">
               <button
                 type="button"
