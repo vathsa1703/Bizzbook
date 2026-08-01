@@ -120,26 +120,22 @@ function OpportunityCard({ opp, onGenerate }) {
 function GenerateCampaignModal({ opportunity, onClose, onCreated }) {
   const [objective, setObjective] = useState(opportunity?.type === 'revenue_recovery' ? 'Recover pending payments' : 'Win Back Customers');
   const [segmentId, setSegmentId] = useState('');
-  const [couponId, setCouponId] = useState('');
   const [channel, setChannel] = useState('sms');
   const [generating, setGenerating] = useState(false);
 
   const [segments, setSegments] = useState([]);
-  const [coupons, setCoupons] = useState([]);
 
   useEffect(() => {
     api.marketing.getSegments().then(r => setSegments(r.segments || [])).catch(()=>null);
-    api.marketing.getCoupons().then(r => setCoupons(r.coupons || [])).catch(()=>null);
   }, []);
 
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      await api.marketing.generateCampaign({ 
-        opportunityId: opportunity.id, 
+      await api.marketing.generateCampaign({
+        opportunityId: opportunity.id,
         objective,
         segmentId: segmentId ? Number(segmentId) : undefined,
-        coupon_id: couponId ? Number(couponId) : undefined,
         channel
       });
       onCreated();
@@ -178,11 +174,10 @@ function GenerateCampaignModal({ opportunity, onClose, onCreated }) {
           {segments.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
 
-        <label className="block text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-2">Attach Coupon (Optional)</label>
-        <select value={couponId} onChange={e=>setCouponId(e.target.value)} className="w-full border rounded-xl px-3 py-2 text-sm mb-4 bg-panel2 dark:bg-panel2-dark">
-          <option value="">-- No Coupon --</option>
-          {coupons.map(c => <option key={c.id} value={c.id}>{c.code} ({c.discount_type})</option>)}
-        </select>
+        {/* Coupon attachment removed 2026-08-01: not yet wired to any real
+            discount application (see CouponsView.jsx's banner) -- attaching
+            one here only set the coupon's campaign_id, it never reduced any
+            customer's actual bill. Don't re-add until that's built. */}
 
         <label className="block text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest mb-2">Delivery Channel</label>
         <select value={channel} onChange={e=>setChannel(e.target.value)} className="w-full border rounded-xl px-3 py-2 text-sm mb-6 bg-panel2 dark:bg-panel2-dark">
@@ -458,7 +453,7 @@ export default function Marketing() {
             { id: 'opportunities', label: 'Legacy Overview' },
             { id: 'campaigns', label: 'Campaigns' },
             { id: 'segments', label: 'Customer Segments' },
-            { id: 'coupons', label: 'Coupons & Promotions' },
+            { id: 'coupons', label: 'Coupons & Promotions (Coming Soon)' },
             { id: 'wallet', label: 'Loyalty & Wallet' },
             { id: 'referrals', label: 'Referrals' },
             { id: 'surveys', label: 'Surveys & Feedback' },

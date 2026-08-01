@@ -29,6 +29,14 @@ export default function CouponsView() {
 
   return (
     <div className="space-y-4">
+      <div className="p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 rounded-xl">
+        <p className="text-xs font-bold text-amber-800 dark:text-amber-400">Not yet active — coming soon</p>
+        <p className="text-xs text-amber-700 dark:text-amber-500 mt-1">
+          Coupons can be created and tracked here, but redeeming one does not
+          yet reduce the total on a real sale or invoice. Don't rely on this
+          for live discounting until that's wired up.
+        </p>
+      </div>
       <h3 className="font-bold text-inkA dark:text-inkA-dark">Active Coupons</h3>
       {loading ? <Loader2 className="animate-spin" /> : (
         <div className="grid gap-2">
