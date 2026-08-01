@@ -160,30 +160,62 @@ const LANDING_CSS = `
    Always sits UNDER a static gradient painted by the section itself, so a
    device with no WebGL / a blocked CDN / reduced-motion loses the motion
    but never the composition. */
-.bizbook-landing .us-layer { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+/* top/bottom overshoot + overflow:visible so the scene bleeds past its own
+   section's edge into the next one, same reasoning as .vanta-layer below. */
+.bizbook-landing .us-layer { position: absolute; top: -18vh; left: 0; right: 0; bottom: -18vh; z-index: 0; pointer-events: none; overflow: visible; }
 .bizbook-landing .us-canvas { position: absolute; inset: 0; transition: opacity 1.1s ease; }
 .bizbook-landing .us-canvas canvas { display: block; }
-.bizbook-landing .us-hero { mask-image: linear-gradient(to bottom, #000 55%, transparent 96%); -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 96%); }
-.bizbook-landing .us-accent { mask-image: radial-gradient(90% 70% at 50% 40%, #000 30%, transparent 78%); -webkit-mask-image: radial-gradient(90% 70% at 50% 40%, #000 30%, transparent 78%); }
-.bizbook-landing .us-cta { mask-image: radial-gradient(85% 65% at 50% 55%, #000 25%, transparent 76%); -webkit-mask-image: radial-gradient(85% 65% at 50% 55%, #000 25%, transparent 76%); }
+.bizbook-landing .us-hero { mask-image: linear-gradient(to bottom, #000 45%, transparent 98%); -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent 98%); }
+.bizbook-landing .us-accent { mask-image: radial-gradient(95% 130% at 50% 50%, #000 12%, transparent 92%); -webkit-mask-image: radial-gradient(95% 130% at 50% 50%, #000 12%, transparent 92%); }
+.bizbook-landing .us-cta { mask-image: radial-gradient(90% 130% at 50% 50%, #000 12%, transparent 92%); -webkit-mask-image: radial-gradient(90% 130% at 50% 50%, #000 12%, transparent 92%); }
 
 /* Vanta.js layers (Features/Stats) -- same absolute/z-0/no-pointer-events
    contract as .us-layer above, distinct class since Vanta manages its own
-   canvas inside this host div rather than a React-rendered <canvas>. */
-.bizbook-landing .vanta-layer { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; opacity: .5; }
+   canvas inside this host div rather than a React-rendered <canvas>.
+   Masks reach further to the top/bottom edges here than the first pass
+   (35%/20% solid core down to a much longer fade) specifically so each
+   section's scene visually overlaps into its neighbour's fade zone instead
+   of cutting off exactly at the section boundary -- that hard cutoff was
+   what made the page read as stacked blocks instead of one continuous
+   piece. */
+.bizbook-landing .vanta-layer { position: absolute; top: -18vh; left: 0; right: 0; bottom: -18vh; z-index: 0; pointer-events: none; overflow: visible; opacity: .5; }
 .bizbook-landing .vanta-layer canvas { display: block; }
-.bizbook-landing #features .vanta-layer { mask-image: radial-gradient(95% 80% at 50% 30%, #000 35%, transparent 82%); -webkit-mask-image: radial-gradient(95% 80% at 50% 30%, #000 35%, transparent 82%); }
-.bizbook-landing #stats-section .vanta-layer { mask-image: radial-gradient(90% 100% at 50% 50%, #000 20%, transparent 74%); -webkit-mask-image: radial-gradient(90% 100% at 50% 50%, #000 20%, transparent 74%); opacity: .35; }
+.bizbook-landing #features .vanta-layer { mask-image: radial-gradient(95% 115% at 50% 40%, #000 15%, transparent 92%); -webkit-mask-image: radial-gradient(95% 115% at 50% 40%, #000 15%, transparent 92%); }
+.bizbook-landing #stats-section .vanta-layer { mask-image: radial-gradient(90% 160% at 50% 50%, #000 8%, transparent 92%); -webkit-mask-image: radial-gradient(90% 160% at 50% 50%, #000 8%, transparent 92%); opacity: .4; }
 
 /* Positioning context for the three newly-backgrounded sections, matching
-   .hero / .spotlight's existing position:relative + overflow:hidden +
-   isolation:isolate + z-2 content pattern so the scene layer stays behind
-   the cards/copy instead of on top of them. */
+   .hero / .spotlight's existing position:relative + z-2 content pattern so
+   the scene layer stays behind the cards/copy instead of on top of them.
+   overflow is deliberately NOT hidden here (unlike the original .hero/
+   .spotlight pattern) -- the whole point of the taller vanta-layer above is
+   to bleed past this section's own box into its neighbours, so clipping it
+   here would defeat that. isolation:isolate still scopes z-index without
+   needing overflow:hidden. */
 .bizbook-landing #features, .bizbook-landing #stats-section, .bizbook-landing #pricing {
-  position: relative; overflow: hidden; isolation: isolate;
+  position: relative; isolation: isolate;
 }
 .bizbook-landing #features .wrap, .bizbook-landing #stats-section .wrap, .bizbook-landing #pricing .wrap {
   position: relative; z-index: 2;
+}
+
+/* One continuous ambient wash behind the entire scroll, fixed to the
+   viewport rather than any one section. Previously every section's colour
+   only ever came from its own boxed-in scene, so the space between/around
+   scenes (trust bar, section padding, anywhere a WebGL layer hadn't loaded
+   yet) was flat neutral -- that flat gap between colourful boxes is what
+   read as "segments." This sits at the very back (z-index -1) under
+   everything, all the time, so there's always a shared ambient tone tying
+   every section together regardless of which scene is currently in view. */
+.bizbook-landing .page-wash {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(1100px 700px at 20% 0%, color-mix(in srgb, var(--accent-1) 10%, transparent), transparent 70%),
+    radial-gradient(1000px 650px at 85% 100%, color-mix(in srgb, var(--accent-2) 9%, transparent), transparent 70%);
+}
+.dark .bizbook-landing .page-wash {
+  background:
+    radial-gradient(1100px 700px at 20% 0%, color-mix(in srgb, var(--accent-1) 16%, transparent), transparent 70%),
+    radial-gradient(1000px 650px at 85% 100%, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 70%);
 }
 
 /* The never-blank floor. Painted whether or not WebGL ever comes up. */
@@ -277,7 +309,7 @@ const LANDING_CSS = `
 .bizbook-landing .btn-lg { padding: 13px 26px; font-size: 14.5px; border-radius: var(--radius-sm); }
 
 /* Hero */
-.bizbook-landing .hero { position: relative; padding: 108px 0 96px; text-align: center; overflow: hidden; }
+.bizbook-landing .hero { position: relative; padding: 108px 0 96px; text-align: center; isolation: isolate; }
 .bizbook-landing #mesh { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; opacity: .28; }
 .dark .bizbook-landing #mesh { opacity: .55; }
 .bizbook-landing .hero::after {
@@ -353,7 +385,8 @@ const LANDING_CSS = `
 .bizbook-landing .opp-card .amt { font-family: var(--mono); font-weight: 700; color: var(--text); }
 
 /* Trust bar */
-.bizbook-landing .trust { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+/* Hard top/bottom rule lines removed here too, same reasoning as .spotlight. */
+.bizbook-landing .trust { }
 .bizbook-landing .trust-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 40px; padding: 26px 0; }
 .bizbook-landing .trust-item { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--text-dim); font-family: var(--mono); letter-spacing: .01em; }
 .bizbook-landing .trust-item svg { flex-shrink: 0; opacity: .8; }
@@ -417,7 +450,12 @@ const LANDING_CSS = `
 @keyframes bbBar { to { transform: scaleY(var(--h)); opacity: .9; } }
 
 /* AI spotlight */
-.bizbook-landing .spotlight { background: var(--surface-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); position: relative; overflow: hidden; isolation: isolate; }
+/* No flat background-color and no border lines here anymore (previously
+   var(--surface-2) + top/bottom borders) -- those drew a hard, literal seam
+   at exactly this section's edges. The shared .page-wash plus this
+   section's own bled-in Droplets scene now carry the tone shift instead, so
+   scrolling into/out of this section is a gradient, not a cut. */
+.bizbook-landing .spotlight { position: relative; isolation: isolate; }
 .bizbook-landing .spotlight .wrap { position: relative; z-index: 2; }
 .bizbook-landing .spot-grid { display: grid; grid-template-columns: .85fr 1.15fr; gap: 56px; align-items: center; }
 @media (max-width: 860px) { .bizbook-landing .spot-grid { grid-template-columns: 1fr; gap: 40px; } }
@@ -994,6 +1032,7 @@ export default function LandingPage({ onGetStarted }) {
     <div className="bizbook-landing" ref={containerRef}>
       <style>{LANDING_CSS}</style>
 
+      <div className="page-wash" aria-hidden="true" />
       <div id="scrollbar" ref={scrollbarRef} />
       <div id="cursorGlow" ref={cursorGlowRef} />
 
