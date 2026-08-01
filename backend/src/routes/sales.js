@@ -118,7 +118,10 @@ router.post('/', async (req, res, next) => {
       // OWNER with no X-Branch-ID header. Only acceptable while the company has
       // no branches configured at all (single-store default, stays branchless);
       // once branches exist, the frontend's branch selector supplies the header.
-      const hasBranches = await dbGet('SELECT 1 FROM branches WHERE company_id = ?', [companyId]);
+      // Excludes soft-deleted branches (status = 'Deleted', see routes/branches.js's
+      // DELETE handler) -- otherwise a company whose only branch was ever
+      // deleted could never create a sale through this default path again.
+      const hasBranches = await dbGet("SELECT 1 FROM branches WHERE company_id = ? AND status != 'Deleted'", [companyId]);
       if (hasBranches) {
         return res.status(400).json({ error: 'This company has multiple branches configured. Please select a branch before creating a sale.' });
       }

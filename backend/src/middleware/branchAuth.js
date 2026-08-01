@@ -15,8 +15,11 @@ async function branchAuth(req, res, next) {
     let allowedBranchIds = [];
 
     if (isOwner) {
-      // Owner can access all company branches
-      const branches = await dbAll('SELECT id FROM branches WHERE company_id = ?', [user.companyId]);
+      // Owner can access all company branches. Excludes soft-deleted branches
+      // (status = 'Deleted') -- otherwise a deleted branch still counts as
+      // "this company has branches" everywhere downstream that consults this
+      // list, incorrectly blocking the owner's default no-header scope.
+      const branches = await dbAll("SELECT id FROM branches WHERE company_id = ? AND status != 'Deleted'", [user.companyId]);
       allowedBranchIds = branches.map(b => b.id);
     } else {
       // Other roles restricted to assigned branches
