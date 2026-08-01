@@ -107,7 +107,7 @@ export function BirdsScene({ className = '' }) {
     quantity: 5,
     birdSize: 1,
     wingSpan: 30,
-    speedLimit: 5,
+    speedLimit: 2.5,
     separation: 20,
     alignment: 20,
     cohesion: 20,

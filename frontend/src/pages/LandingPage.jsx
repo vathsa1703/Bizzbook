@@ -163,7 +163,7 @@ const LANDING_CSS = `
 /* top/bottom overshoot + overflow:visible so the scene bleeds past its own
    section's edge into the next one, same reasoning as .vanta-layer below. */
 .bizbook-landing .us-layer { position: absolute; top: -18vh; left: 0; right: 0; bottom: -18vh; z-index: 0; pointer-events: none; overflow: visible; }
-.bizbook-landing .us-canvas { position: absolute; inset: 0; transition: opacity 1.1s ease; }
+.bizbook-landing .us-canvas { position: absolute; inset: 0; transition: opacity 1.8s ease; }
 .bizbook-landing .us-canvas canvas { display: block; }
 .bizbook-landing .us-hero { mask-image: linear-gradient(to bottom, #000 45%, transparent 98%); -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent 98%); }
 .bizbook-landing .us-accent { mask-image: radial-gradient(95% 130% at 50% 50%, #000 12%, transparent 92%); -webkit-mask-image: radial-gradient(95% 130% at 50% 50%, #000 12%, transparent 92%); }
@@ -334,7 +334,7 @@ const LANDING_CSS = `
 .bizbook-landing .sub { font-size: clamp(15.5px, 1.9vw, 18.5px); color: var(--text-dim); max-width: 58ch; margin: 24px auto 0; line-height: 1.6; opacity: 0; transform: translateY(16px); }
 .bizbook-landing .hero-ctas { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 34px; opacity: 0; transform: translateY(16px); }
 
-.bizbook-landing .fade-in-up { animation: bbFadeInUp .8s cubic-bezier(.2,.7,.3,1) forwards; }
+.bizbook-landing .fade-in-up { animation: bbFadeInUp 1.15s cubic-bezier(.2,.7,.3,1) forwards; }
 
 @keyframes bbFadeInUp { to { opacity: 1; transform: translateY(0); } }
 @keyframes bbPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(1.4); } }
@@ -390,7 +390,7 @@ const LANDING_CSS = `
 .bizbook-landing .trust-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 40px; padding: 26px 0; }
 .bizbook-landing .trust-item { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--text-dim); font-family: var(--mono); letter-spacing: .01em; }
 .bizbook-landing .trust-item svg { flex-shrink: 0; opacity: .8; }
-.bizbook-landing .reveal { opacity: 0; transform: translateY(20px); transition: opacity .7s cubic-bezier(.2,.7,.3,1), transform .7s cubic-bezier(.2,.7,.3,1); }
+.bizbook-landing .reveal { opacity: 0; transform: translateY(20px); transition: opacity 1.15s cubic-bezier(.2,.7,.3,1), transform 1.15s cubic-bezier(.2,.7,.3,1); }
 .bizbook-landing .reveal.in { opacity: 1; transform: translateY(0); }
 
 /* Section shell. Rhythm is intentionally not uniform — the AI section gets
@@ -672,7 +672,7 @@ export default function LandingPage({ onGetStarted }) {
         setTO(() => el.classList.add('fade-in-up'), reduced ? 0 : i * delay);
       });
     }
-    stagger([eyebrowRef.current, headlineRef.current, subRef.current, heroCtasRef.current], 110);
+    stagger([eyebrowRef.current, headlineRef.current, subRef.current, heroCtasRef.current], 170);
 
     // ── app window entrance + counters + chart draw ──────────────────
     const appWindow = appWindowRef.current;
@@ -725,23 +725,23 @@ export default function LandingPage({ onGetStarted }) {
     setTO(() => {
       if (cancelled) return;
       if (appWindow) {
-        appWindow.style.transition = 'opacity .9s cubic-bezier(.2,.7,.3,1), transform .9s cubic-bezier(.2,.7,.3,1)';
+        appWindow.style.transition = 'opacity 1.3s cubic-bezier(.2,.7,.3,1), transform 1.3s cubic-bezier(.2,.7,.3,1)';
         appWindow.style.opacity = 1;
         appWindow.style.transform = 'translateY(0) rotateX(0)';
       }
-      countUp(revNum, 10425, { prefix: '₹', dur: 1500 });
+      countUp(revNum, 10425, { prefix: '₹', dur: 1900 });
       if (revDelta) revDelta.textContent = '+89%';
       if (chartPath) {
-        chartPath.style.transition = reduced ? 'none' : 'stroke-dashoffset 1.6s cubic-bezier(.2,.8,.2,1)';
+        chartPath.style.transition = reduced ? 'none' : 'stroke-dashoffset 2.1s cubic-bezier(.2,.8,.2,1)';
         chartPath.style.strokeDashoffset = 0;
       }
       setTO(() => {
         if (cancelled || !oppCard) return;
-        oppCard.style.transition = 'opacity .6s ease, transform .6s cubic-bezier(.2,.7,.3,1)';
+        oppCard.style.transition = 'opacity .9s ease, transform .9s cubic-bezier(.2,.7,.3,1)';
         oppCard.style.opacity = 1;
         oppCard.style.transform = 'translateX(0)';
-      }, reduced ? 0 : 900);
-    }, reduced ? 0 : 500);
+      }, reduced ? 0 : 1200);
+    }, reduced ? 0 : 650);
 
     // ── subtle tilt on the hero app window ────────────────────────────
     const stage = stageRef.current;
@@ -794,7 +794,7 @@ export default function LandingPage({ onGetStarted }) {
           const group = featureGrid && featureGrid.contains(el) ? featureGrid : null;
           let delay = 0;
           if (group) {
-            delay = Array.prototype.indexOf.call(group.children, el) * 90;
+            delay = Array.prototype.indexOf.call(group.children, el) * 130;
           }
           setTO(() => {
             if (cancelled) return;
@@ -812,7 +812,7 @@ export default function LandingPage({ onGetStarted }) {
                   const d = parseInt(node.getAttribute('data-decimal'), 10);
                   countUpDecimal(node, target / 10, d, opts);
                 } else {
-                  countUp(node, target, { dur: 1400, ...opts });
+                  countUp(node, target, { dur: 1800, ...opts });
                 }
               });
             }
