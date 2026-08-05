@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Zap, Play, CheckCircle, Activity, Power, PowerOff, Copy, Trash2, Edit, History } from 'lucide-react';
-import { api } from '../../api/client';
+import { api, BASE } from '../../api/client';
 import AutomationHistory from './AutomationHistory';
 
 export default function AutomationList({ onNew, onEdit }) {
@@ -17,7 +17,7 @@ export default function AutomationList({ onNew, onEdit }) {
     try {
       const [autoRes, statRes] = await Promise.all([
         api.automations.getAll(),
-        fetch('/api/automations/dashboard', { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }).then(r => r.json())
+        fetch(`${BASE}/automations/dashboard`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } }).then(r => r.json())
       ]);
       setAutomations(autoRes.automations || []);
       if (statRes.success) setStats(statRes.stats);

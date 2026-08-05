@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ORUDINA</string>
+    <string name="title_activity_main">ORUDINA</string>
+    <string name="package_name">com.orudina.app</string>
+    <string name="custom_url_scheme">com.orudina.app</string>
+</resources>

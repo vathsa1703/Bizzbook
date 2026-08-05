@@ -1038,7 +1038,7 @@ export default function LandingPage({ onGetStarted }) {
 
       <nav id="nav" ref={navRef}>
         <div className="wrap nav-inner">
-          <div className="wordmark"><span className="dot" />bizbook</div>
+          <div className="wordmark"><span className="dot" />ORUDINA</div>
           <div className="nav-links" ref={navLinksRef}>
             <span className="nav-pill" ref={navPillRef} />
             <a href="#features" data-section="features">Product</a>
@@ -1243,7 +1243,7 @@ export default function LandingPage({ onGetStarted }) {
         <div className="wrap">
           <div className="stats reveal">
             <div className="stat"><div className="v" data-count="24000000" data-prefix="₹" data-suffix="+" data-compact="cr">₹0</div><div className="l">GST invoices filed</div><div className="detail">Every one of them audit-ready</div></div>
-            <div className="stat"><div className="v" data-count="1200" data-suffix="+">0</div><div className="l">Businesses running on BizBook</div><div className="detail">14 states. 30+ trade categories.</div></div>
+            <div className="stat"><div className="v" data-count="1200" data-suffix="+">0</div><div className="l">Businesses running on ORUDINA</div><div className="detail">14 states. 30+ trade categories.</div></div>
             <div className="stat"><div className="v" data-count="38" data-suffix=" hrs">0</div><div className="l">Hours back, per business, per month</div><div className="detail">A full workday, every month</div></div>
             <div className="stat"><div className="v" data-count="999" data-suffix="%" data-decimal="1">0</div><div className="l">Uptime</div><div className="detail">12 months straight. No excuses.</div></div>
           </div>
@@ -1284,7 +1284,7 @@ export default function LandingPage({ onGetStarted }) {
 
       <footer>
         <div className="wrap foot-inner">
-          <div className="wordmark"><span className="dot" />bizbook</div>
+          <div className="wordmark"><span className="dot" />ORUDINA</div>
           <div className="foot-links">
             <a href="#features">Product</a>
             <a href="#ai">AI Advisor</a>
@@ -1292,7 +1292,7 @@ export default function LandingPage({ onGetStarted }) {
             <a href="#">Privacy</a>
             <a href="#">Terms</a>
           </div>
-          <div className="foot-copy">© 2026 BizBook. Made for Indian MSMEs.</div>
+          <div className="foot-copy">© 2026 ORUDINA. Made for Indian MSMEs.</div>
         </div>
       </footer>
     </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BASE } from '../../../api/client';
 import { Loader2, Wallet } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -13,7 +14,7 @@ export default function LoyaltyAnalytics({ dateFilter }) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      let url = `/api/reports/loyalty?range=${dateFilter.range}`;
+      let url = `${BASE}/reports/loyalty?range=${dateFilter.range}`;
       if (dateFilter.start) url += `&start=${dateFilter.start}`;
       if (dateFilter.end) url += `&end=${dateFilter.end}`;
       

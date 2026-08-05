@@ -46,7 +46,7 @@ export default function BottomNav({ active, onChange }) {
       {/* Desktop: same nav items revealed as a left sidebar */}
       <aside className="hidden md:flex fixed left-0 top-0 h-full w-56 flex-col bg-panel dark:bg-panel-dark border-r border-edge dark:border-edge-dark z-50">
         <div className="px-5 pt-6 pb-4 border-b border-edge dark:border-edge-dark">
-          <p className="text-lg font-bold text-inkA dark:text-inkA-dark">BizBook</p>
+          <p className="text-lg font-bold text-inkA dark:text-inkA-dark">ORUDINA</p>
           <p className="text-[11px] text-inkB dark:text-inkB-dark">Business Assistant</p>
         </div>
         <div className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">

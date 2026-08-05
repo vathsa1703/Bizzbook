@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Plus, Edit2, Trash2, Search, Filter } from 'lucide-react';
-import { api } from '../api/client';
+import { api, BASE } from '../api/client';
 import { useToast } from '../components/ToastContext';
 
 export default function ProductGroups({ onNavigate }) {
@@ -112,7 +112,7 @@ export default function ProductGroups({ onNavigate }) {
       // Let's modify client.js or do direct fetch here since it's a specific route feature.
       
       const token = localStorage.getItem('token');
-      const res = await fetch(`/api/product-groups/${groupId}${actionStr ? '?action=' + actionStr : ''}`, {
+      const res = await fetch(`${BASE}/product-groups/${groupId}${actionStr ? '?action=' + actionStr : ''}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

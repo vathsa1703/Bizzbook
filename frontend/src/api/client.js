@@ -1,6 +1,22 @@
+import { Capacitor } from '@capacitor/core';
 import { getPlaceholderData } from './placeholders';
 
-const BASE = '/api';
+// A relative '/api' only resolves correctly when something at the current
+// origin proxies it to the backend -- true for the Vite dev server and for
+// the deployed web app (frontend + backend share one Render origin). Inside
+// a Capacitor-wrapped native app the WebView loads bundled local files with
+// no server behind that origin at all, so the same relative path would 404
+// on every request, including login. Same dist/ build serves both: native
+// builds resolve to the real deployed API absolutely, everything else keeps
+// the existing relative-path behavior unchanged.
+const BASE = Capacitor.isNativePlatform() ? 'https://orudina.onrender.com/api' : '/api';
+
+// Exported so the handful of components that call fetch() directly instead
+// of going through the api object (ScanModal.jsx, the marketing analytics
+// report views, AutomationHistory/List, ProductGroups.jsx) can resolve the
+// same native-vs-web base instead of hardcoding '/api' themselves and
+// breaking the same way inside the native shell.
+export { BASE };
 
 let jwtToken = null;
 
@@ -330,7 +346,7 @@ const rawApi = {
   // let the browser fill in the multipart boundary).
   uploadEmployeePhoto: (id, formData) => {
     const token = localStorage.getItem('token');
-    return fetch(`/api/employees/${id}/photo`, {
+    return fetch(`${BASE}/employees/${id}/photo`, {
       method: 'POST', body: formData, headers: { Authorization: `Bearer ${token}` }
     }).then(async r => {
       const data = await r.json().catch(() => ({ error: 'Upload failed' }));
@@ -495,11 +511,11 @@ const rawApi = {
   getEmployeeDocuments: (employeeId) => request(`/employee-documents/${employeeId}`),
   uploadEmployeeDocument: (employeeId, formData) => {
     const token = localStorage.getItem('token');
-    return fetch(`/api/employee-documents/${employeeId}`, {
+    return fetch(`${BASE}/employee-documents/${employeeId}`, {
       method: 'POST', body: formData, headers: { Authorization: `Bearer ${token}` }
     }).then(r => r.json());
   },
-  getDocumentUrl: (id) => `/api/employee-documents/file/${id}`,
+  getDocumentUrl: (id) => `${BASE}/employee-documents/file/${id}`,
   deleteEmployeeDocument: (id) => request(`/employee-documents/${id}`, { method: 'DELETE' }),
 
   // ─── Phase 2: Audit Logs ─────────────────────────────────────────────────────

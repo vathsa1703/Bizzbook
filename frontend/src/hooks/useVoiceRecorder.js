@@ -1,5 +1,24 @@
 import { useState, useRef, useCallback } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { VoiceRecorder } from 'capacitor-voice-recorder';
 import { api } from '../api/client';
+
+// Inside a real browser, getUserMedia's OWN permission prompt is enough --
+// the browser app already holds the OS-level microphone permission and
+// manages per-site grants itself. Inside a Capacitor WebView, this app IS
+// effectively "the browser," and Android's runtime permission system (6.0+)
+// requires an explicit native permission request before getUserMedia can
+// succeed at all -- plain web JS has no way to trigger that native dialog on
+// its own. capacitor-voice-recorder's request call exists specifically to
+// bridge that gap; its actual recording feature is unused here, the
+// MediaRecorder flow below is unchanged.
+async function ensureNativeMicPermission() {
+  if (!Capacitor.isNativePlatform()) return true;
+  const { value: already } = await VoiceRecorder.hasAudioRecordingPermission();
+  if (already) return true;
+  const { value: granted } = await VoiceRecorder.requestAudioRecordingPermission();
+  return granted;
+}
 
 /**
  * useVoiceRecorder — toggle-mode voice recorder with cancel support.
@@ -27,6 +46,11 @@ export function useVoiceRecorder(onTranscript) {
     cancelledRef.current = false;
 
     try {
+      const nativeOk = await ensureNativeMicPermission();
+      if (!nativeOk) {
+        setError('mic_denied');
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 

@@ -95,9 +95,9 @@ export default function InvoiceView({ invoiceId, onBack }) {
       <div className="max-w-4xl mx-auto mt-8 bg-white border border-gray-200 p-10 rounded-lg shadow-sm print:shadow-none print:border-none print:mt-0 print:p-0">
         <div className="flex justify-between items-start border-b border-gray-200 pb-6 mb-6">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-gray-900">{company.company_name || 'BizzBook Tech'}</h1>
+            <h1 className="text-3xl font-black tracking-tight text-gray-900">{company.company_name || 'ORUDINA'}</h1>
             <p className="text-sm text-gray-500 mt-1">{company.address || '123 Tech Park, Block A'}</p>
-            <p className="text-sm text-gray-500">Phone: {company.phone || '+91 9876543210'} | Email: {company.email || 'billing@bizzbook.com'}</p>
+            <p className="text-sm text-gray-500">Phone: {company.phone || '+91 9876543210'} | Email: {company.email || 'billing@orudina.com'}</p>
             <p className="text-sm font-bold text-gray-700 mt-2">GSTIN: {company.gstin || '29ABCDE1234F1Z5'}</p>
           </div>
           <div className="text-right">

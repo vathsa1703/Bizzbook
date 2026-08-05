@@ -101,7 +101,7 @@ function isStrategicQuery(message) {
   return keywords.some(k => lowerMsg.includes(k));
 }
 
-const getSystemPrompt = (businessType) => `You are the AI Business Advisor for BIZZBOOK Voice, an ERP platform for small Indian retail shops and MSMEs.
+const getSystemPrompt = (businessType) => `You are the AI Business Advisor for ORUDINA Voice, an ERP platform for small Indian retail shops and MSMEs.
 The user is running a ${businessType} business. Tailor your terminology and advice to fit this industry.
 
 Your role: Analyze actual business data and give specific, actionable recommendations.

@@ -1,0 +1,24 @@
+// Foojay Toolchains Resolver -- the standard Gradle-endorsed mechanism for
+// toolchain auto-provisioning (https://github.com/gradle/foojay-toolchains),
+// backed by the Foojay Disco API (api.foojay.io), an open index of official
+// OpenJDK vendor builds (Temurin, Microsoft, Amazon Corretto, etc.), not an
+// arbitrary/unofficial source. Needed because @capacitor/camera's Android
+// module pins sourceCompatibility=21 and no complete JDK 21 (with jlink) is
+// installed on this machine -- only a stripped IDE-bundled JBR that's
+// missing it.
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+    }
+}
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
+}
+
+include ':app'
+include ':capacitor-cordova-android-plugins'
+project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
+
+apply from: 'capacitor.settings.gradle'

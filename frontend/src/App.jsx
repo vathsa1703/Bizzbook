@@ -69,7 +69,7 @@ export default function App() {
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-violet-600 shadow-lg shadow-blue-500/20 ring-1 ring-white/20 animate-pulse mb-4">
           <Sparkles className="w-8 h-8 text-white animate-spin" />
         </div>
-        <div className="text-inkA dark:text-inkA-dark font-bold text-lg">BIZZ BOOK</div>
+        <div className="text-inkA dark:text-inkA-dark font-bold text-lg">ORUDINA</div>
         <div className="text-inkB dark:text-inkB-dark text-xs mt-1">Restoring secure session...</div>
       </div>
     );

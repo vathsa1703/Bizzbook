@@ -672,7 +672,7 @@ async function copilot(companyId, question) {
 
     // No structured rule matched — say so honestly instead of guessing with a
     // generic status summary that wouldn't actually address the question.
-    return { source: 'structured', answer: "This topic is not currently available in the BizBook knowledge base.", items: [] };
+    return { source: 'structured', answer: "This topic is not currently available in the ORUDINA knowledge base.", items: [] };
   });
 }
 

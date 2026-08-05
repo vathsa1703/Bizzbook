@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BASE } from '../../../api/client';
 import { Loader2, TrendingUp, Users, Target, Activity } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -13,7 +14,7 @@ export default function ExecutiveDashboard({ dateFilter }) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      let url = `/api/reports/executive?range=${dateFilter.range}`;
+      let url = `${BASE}/reports/executive?range=${dateFilter.range}`;
       if (dateFilter.start) url += `&start=${dateFilter.start}`;
       if (dateFilter.end) url += `&end=${dateFilter.end}`;
       

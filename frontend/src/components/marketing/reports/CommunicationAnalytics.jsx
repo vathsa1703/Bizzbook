@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BASE } from '../../../api/client';
 import { Loader2, MessageSquare, Send, XCircle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
@@ -13,7 +14,7 @@ export default function CommunicationAnalytics({ dateFilter }) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      let url = `/api/reports/communications?range=${dateFilter.range}`;
+      let url = `${BASE}/reports/communications?range=${dateFilter.range}`;
       if (dateFilter.start) url += `&start=${dateFilter.start}`;
       if (dateFilter.end) url += `&end=${dateFilter.end}`;
       

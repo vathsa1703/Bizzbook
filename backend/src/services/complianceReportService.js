@@ -86,7 +86,7 @@ function toHtml(type, rows) {
     td{padding:7px 10px;border-bottom:1px solid #f1f5f9}
     tr:nth-child(even) td{background:#fafafa} .empty{color:#9ca3af;font-size:13px}
   </style></head><body>
-    <p class="brand">BizBook · Compliance</p>
+    <p class="brand">ORUDINA · Compliance</p>
     <h1>${esc(title)}</h1>
     <p class="sub">Generated ${new Date().toLocaleString('en-IN')} · ${rows.length} row(s)</p>
     ${body}

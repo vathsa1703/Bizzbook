@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BASE } from '../../api/client';
 import { 
   BarChart, PieChart, Users, Tag, 
   Wallet, Gift, MessageSquare, Download, Activity 
@@ -29,7 +30,7 @@ export default function ReportsView() {
   ];
 
   const handleExport = (format) => {
-    let url = `/api/reports/export/${activeTab}?format=${format}&range=${dateFilter.range}`;
+    let url = `${BASE}/reports/export/${activeTab}?format=${format}&range=${dateFilter.range}`;
     if (dateFilter.start) url += `&start=${dateFilter.start}`;
     if (dateFilter.end) url += `&end=${dateFilter.end}`;
     window.open(url, '_blank');

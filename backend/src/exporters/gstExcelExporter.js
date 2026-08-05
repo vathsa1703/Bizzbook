@@ -168,7 +168,7 @@ async function generateGstrExcel(gstrData) {
   const { b2b, b2cl, b2cs, hsn, docs } = gstrData;
 
   const wb = new ExcelJS.Workbook();
-  wb.creator  = 'BizzBook GST Filing Module';
+  wb.creator  = 'ORUDINA GST Filing Module';
   wb.created  = new Date();
   wb.modified = new Date();
 

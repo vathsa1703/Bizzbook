@@ -34,7 +34,7 @@ export default function BusinessSelection({ onNavigate }) {
           </div>
           <div className="space-y-1">
             <h1 className="text-3xl font-extrabold tracking-tight text-inkA dark:text-inkA-dark">
-              BIZZBOOK <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-violet-400">Voice</span>
+              ORUDINA <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-violet-400">Voice</span>
             </h1>
             <p className="text-sm text-inkB dark:text-inkB-dark font-medium">Welcome! Let's personalize your experience.</p>
           </div>

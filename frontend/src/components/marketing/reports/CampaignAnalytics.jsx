@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BASE } from '../../../api/client';
 import { Loader2, Send, Activity, DollarSign } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -13,7 +14,7 @@ export default function CampaignAnalytics({ dateFilter }) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      let url = `/api/reports/campaigns?range=${dateFilter.range}`;
+      let url = `${BASE}/reports/campaigns?range=${dateFilter.range}`;
       if (dateFilter.start) url += `&start=${dateFilter.start}`;
       if (dateFilter.end) url += `&end=${dateFilter.end}`;
       

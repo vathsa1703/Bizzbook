@@ -62,7 +62,7 @@ const GUIDELINES = [
     penalty_info: 'Misclassification of HSN code can trigger differential duty demand and penalty under the Customs Act.',
     frequency: 'one_time',
     ai_explanation: 'Every shipment needs the correct HSN classification to determine duty — worth confirming this once for your product range.',
-    faq: [{ q: 'Where do I find my product\'s HSN code?', a: 'Check your product catalog — HSN codes are already captured per-product in BizBook, or look up the code on the CBIC customs tariff.' }],
+    faq: [{ q: 'Where do I find my product\'s HSN code?', a: 'Check your product catalog — HSN codes are already captured per-product in ORUDINA, or look up the code on the CBIC customs tariff.' }],
     conditions: [{ attribute: 'trade_active', operator: 'is_true' }],
     documents: ['Product HSN Classification List', 'Commercial Invoice Template'],
   },

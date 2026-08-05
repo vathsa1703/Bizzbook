@@ -1,6 +1,23 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, X, Upload, Loader2, Check, RotateCcw } from 'lucide-react';
 import { useToast } from './ToastContext';
+import { BASE } from '../api/client';
+import { Capacitor } from '@capacitor/core';
+import { Camera as CapacitorCamera } from '@capacitor/camera';
+
+// Same reasoning as useVoiceRecorder.js's mic permission gate: a Capacitor
+// WebView needs the native Android CAMERA runtime permission requested and
+// granted before getUserMedia's live-preview path can succeed -- plain web
+// JS can't trigger that dialog itself. @capacitor/camera's permission API
+// bridges it; the plugin's own capture UI is NOT used here, this keeps the
+// existing in-page live-preview + file-input-fallback flow unchanged.
+async function ensureNativeCameraPermission() {
+  if (!Capacitor.isNativePlatform()) return true;
+  const status = await CapacitorCamera.checkPermissions();
+  if (status.camera === 'granted') return true;
+  const requested = await CapacitorCamera.requestPermissions({ permissions: ['camera'] });
+  return requested.camera === 'granted';
+}
 
 export default function ScanModal({ type, onClose, onParsed }) {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -37,6 +54,11 @@ export default function ScanModal({ type, onClose, onParsed }) {
     }
     
     try {
+      const nativeOk = await ensureNativeCameraPermission();
+      if (!nativeOk) {
+        cameraInputRef.current?.click();
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' },
         audio: false
@@ -104,7 +126,7 @@ export default function ScanModal({ type, onClose, onParsed }) {
 
     try {
       const endpoint = type === 'sales' ? '/ocr/sales' : '/ocr/stock';
-      const res = await fetch(`/api${endpoint}`, {
+      const res = await fetch(`${BASE}${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`

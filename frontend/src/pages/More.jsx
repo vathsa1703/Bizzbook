@@ -223,7 +223,7 @@ export default function More({ onNavigate }) {
           Log Out
         </button>
 
-        <p className="text-center text-xs text-gray-400 dark:text-slate-500 pb-2">Version 1.0.0 · AI Business Assistant</p>
+        <p className="text-center text-xs text-gray-400 dark:text-slate-500 pb-2">Version 1.0.0 · ORUDINA</p>
       </div>
     </div>
   );

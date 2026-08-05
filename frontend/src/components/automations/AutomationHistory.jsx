@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
-import { api } from '../../api/client';
+import { api, BASE } from '../../api/client';
 
 export default function AutomationHistory({ automationId, onClose }) {
   const [logs, setLogs] = useState([]);
@@ -12,7 +12,7 @@ export default function AutomationHistory({ automationId, onClose }) {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`/api/automations/${automationId}/history`, {
+      const res = await fetch(`${BASE}/automations/${automationId}/history`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       const data = await res.json();

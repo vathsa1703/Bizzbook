@@ -105,7 +105,7 @@ export default function Employees({ onNavigate }) {
           </div>
           <div>
             <div className="text-sm font-bold text-inkA dark:text-inkA-dark">HR Hub</div>
-            <div className="text-xs text-inkB dark:text-inkB-dark">BizBook AI</div>
+            <div className="text-xs text-inkB dark:text-inkB-dark">ORUDINA AI</div>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="ml-auto lg:hidden text-inkB dark:text-inkB-dark">
             <X className="w-5 h-5" />
