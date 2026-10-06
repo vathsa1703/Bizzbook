@@ -35,7 +35,7 @@ Return ONLY valid JSON matching this schema:
 If a field is missing, omit it or set it to null/0. Do not wrap the JSON in markdown code blocks, return raw JSON string.`;
 
   const response = await client.chat.completions.create({
-    model: process.env.CHAT_MODEL || 'llama-3.3-70b-versatile',
+    model: process.env.CHAT_MODEL || 'openai/gpt-oss-120b',
     messages: [
       { role: 'system', content: prompt },
       { role: 'user', content: text }
@@ -153,7 +153,7 @@ async function callLLM(userId, companyId, sessionId, userMessage, businessType =
     messages[1]
   ];
 
-  const CHAT_MODEL = process.env.CHAT_MODEL || 'llama-3.3-70b-versatile';
+  const CHAT_MODEL = process.env.CHAT_MODEL || 'openai/gpt-oss-120b';
   let client = null;
   if (process.env.OPENAI_API_KEY) {
     client = getClient();
@@ -211,7 +211,7 @@ async function chatCompletion(messages, { maxTokens = 800, temperature = 0.7 } =
   if (!client) {
     throw new Error('OpenAI client not initialized (missing API key)');
   }
-  const CHAT_MODEL = process.env.CHAT_MODEL || 'llama-3.3-70b-versatile';
+  const CHAT_MODEL = process.env.CHAT_MODEL || 'openai/gpt-oss-120b';
   try {
     const response = await client.chat.completions.create({
       model: CHAT_MODEL,

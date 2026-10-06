@@ -1,4 +1,6 @@
 databases:
+  # Retained to avoid deleting or mutating an existing Render resource during
+  # Blueprint synchronization. The BizBook service below does not use this DB.
   - name: orudina-db
     plan: free
     databaseName: orudina
@@ -24,36 +26,10 @@ services:
       - key: OPENAI_BASE_URL
         value: https://api.groq.com/openai/v1
       - key: CHAT_MODEL
-        value: llama-3.3-70b-versatile
+        value: openai/gpt-oss-120b
       - key: WHISPER_MODEL
         value: whisper-large-v3
+      # Set this to the NEW BizBook PostgreSQL connection string in Render.
+      # Keep the value out of this repository and do not link the legacy DB.
       - key: DATABASE_URL
-        fromDatabase:
-          name: orudina-db
-          property: connectionString
-
-# The frontend install uses --include=dev deliberately: NODE_ENV=production (set below)
-# is applied by Render during the build phase too, and npm omits devDependencies by
-# default when NODE_ENV=production. vite/@vitejs/plugin-react/tailwindcss/postcss/
-# autoprefixer are (correctly) devDependencies in frontend/package.json since they're
-# build-time-only tools — without --include=dev, `vite` never gets installed and
-# `npm run build` fails with "vite: not found". The backend install does NOT need this
-# flag: its only devDependency (nodemon) is dev-server tooling, not needed to run
-# `node src/server.js`.
-#
-# PORT is injected automatically by Render for web services; the app already reads
-# process.env.PORT, so it does not need to be declared here.
-#
-# DB_PATH is intentionally NOT set here. It defaults to backend/data/business.db inside
-# the service's own filesystem, which works fine on the free plan for demo/testing. If
-# you later add a Render persistent disk (paid plan required), mount it and set DB_PATH
-# to a path on that disk — no code change needed, see backend/src/config/db.js.
-#
-# `databases: bizbook-db` above provisions a free Render Postgres instance and wires its
-# connection string into DATABASE_URL automatically on blueprint sync. It's declared here
-# ahead of the actual code cutover (see docs/postgres-migration-checklist.md) so the
-# instance exists and is reachable before the app's data layer is switched over --
-# DATABASE_URL is inert until backend/src/config/dbEngine.js (or equivalent) is wired in
-# as the live path. Render's free Postgres plan expires 30 days after creation and does
-# not auto-renew -- fine for finishing this migration, not for a production cutover;
-# upgrade the `plan:` under `databases:` before relying on it long-term.
+        sync: false

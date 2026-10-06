@@ -1,103 +1,39 @@
-# SQLite → PostgreSQL migration checklist
+# PostgreSQL deployment notes
 
-Snapshot of what actually needs to change, based on the current codebase (not a generic guide).
-Numbers below are from a grep of `backend/src` at the time this was written.
+The application currently uses PostgreSQL as its only live database engine.
+This document replaces the earlier cutover checklist, which described a
+SQLite-only implementation and is no longer accurate.
 
-## 1. Connection layer — the biggest change
+## Runtime database path
 
-- `backend/src/config/db.js` currently opens a **synchronous** `node:sqlite` `DatabaseSync`
-  connection per `getDb()` call. Postgres via `pg` (node-postgres) is **fully async** — every
-  `db.prepare(sql).get()/.run()/.all()` call becomes an `await pool.query(sql, params)` call.
-- **~1,271 call sites** across **72 files** call `db.prepare(...)`/`db.exec(...)` synchronously.
-  Every one of those functions — and every caller up the chain to the route handler — needs to
-  become `async`/`await`. This is the largest single line-item, not a config change.
-- Replace the current "open a fresh connection, expect the caller to `db.close()`" pattern with a
-  shared `pg.Pool`, initialized once and reused across requests. Remove all `db.close()` calls.
-- Placeholder syntax changes: `node:sqlite` uses positional `?` placeholders; `pg` uses `$1, $2, …`.
-  Every one of the ~1,271 query strings needs its placeholders rewritten (or route all queries
-  through a query builder like Knex/Kysely that abstracts this — worth evaluating given the
-  volume).
+- `backend/src/server.js` calls `validateSystem()` before listening.
+- `backend/src/services/systemValidator.js` runs schema bootstrap, versioned
+  migrations, a connection query, core-table checks, and an auth transaction.
+- `backend/src/config/pgPool.js` creates the shared `pg.Pool` from
+  `DATABASE_URL`, or local `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, and
+  `PGDATABASE` values.
+- `backend/src/config/pgDb.js` owns query execution, transactions, bootstrap,
+  migrations, and reference-data setup.
+- `backend/src/db/schema.postgres.sql` is the fresh-database DDL.
+- `backend/src/db/seed.js` runs the idempotent bootstrap/migrations and checks
+  required tables and seeded reference data. It does not create demo accounts.
 
-## 2. `DB_PATH` → `DATABASE_URL`
+## New Render database cutover
 
-- `DB_PATH` (added for this deployment, see `backend/src/config/db.js`) is replaced by a Postgres
-  connection string, conventionally `DATABASE_URL` (`postgres://user:pass@host:port/dbname`).
-- This is exactly the seam that was isolated for this purpose — only `db.js`'s connection-opening
-  code and the Render env var change; no other file references `DB_PATH` directly.
-- Managed Postgres providers (Render Postgres, RDS, Supabase, etc.) typically require
-  `?sslmode=require` on the connection string — confirm before first connect.
+Create a new PostgreSQL database for BizBook and set its connection string as
+the Render service's `DATABASE_URL`. Do not put the value in this repository.
+The old `orudina-db` Blueprint declaration is retained so Blueprint sync does
+not remove or alter that existing resource; the service is not linked to it.
+The new database is initialized automatically before the service listens, or
+can be initialized manually by running `npm run seed` from `backend` with the
+new connection string configured.
 
-## 3. Schema syntax (`backend/src/db/schema.sql`)
+The current Render service uses `node backend/src/server.js`, builds the
+frontend and backend from the repository, and checks `GET /api/health`.
 
-- **`AUTOINCREMENT`** appears **116 times**. Postgres equivalent is
-  `GENERATED ALWAYS AS IDENTITY` (preferred) or `SERIAL` (legacy but simpler to search/replace).
-- **`datetime('now')`** appears **100 times** as a column default. Postgres equivalent is
-  `now()` or `CURRENT_TIMESTAMP`.
-- SQLite has no real `BOOLEAN` type — booleans are stored as `INTEGER` `0`/`1` throughout. Decide
-  whether to migrate to native Postgres `BOOLEAN` (cleaner, but every JS call site that does
-  `=== 1` / `=== 0` truthiness checks on these columns needs auditing) or keep `INTEGER` for a
-  faster 1:1 port and revisit later.
-- SQLite is dynamically typed (columns don't strictly enforce declared types); Postgres enforces
-  types strictly. Expect to hit rows where a numeric column has a stray empty-string or similar —
-  worth a data-quality pass before the real migration, not during it.
-- `CREATE TABLE IF NOT EXISTS` — supported identically in Postgres, no change needed there.
+## Legacy SQLite files
 
-## 4. Migration runner (`runMigrations()` in `db.js`)
-
-- `addColumnIfNotExists()` currently checks `PRAGMA table_info(table)` to see if a column exists.
-  Postgres equivalent: query `information_schema.columns WHERE table_name = ? AND column_name = ?`.
-- Actually simpler in Postgres: `ALTER TABLE x ADD COLUMN IF NOT EXISTS y TYPE` is natively
-  supported (SQLite's `ALTER TABLE ADD COLUMN` has no `IF NOT EXISTS`, which is why this codebase
-  built the `PRAGMA`-based existence check in the first place). This whole helper can likely be
-  simplified once on Postgres.
-- The `schema_versions` tracking table and the `if (!hasVersion(N))` numbered-migration pattern
-  carries over conceptually unchanged — just rewrite the SQL bodies per the above.
-- `db.exec('BEGIN TRANSACTION')` / `COMMIT` / `ROLLBACK` — syntactically similar in `pg`
-  (`client.query('BEGIN')` etc.), but must be run on a single **checked-out client** from the pool,
-  not the pool itself (the pool distributes queries across connections; a transaction needs one
-  fixed connection for its duration).
-
-## 5. Data migration (the actual cutover)
-
-- Export the live `backend/data/business.db` and load it into the target Postgres database.
-  `pgloader` (supports SQLite → Postgres directly, handles type coercion) is the standard tool —
-  simpler than hand-writing a dump/import script given ~40+ tables.
-- Verify foreign-key integrity explicitly — but note this is **not** the speculative risk it looks
-  like at first: confirmed directly (`PRAGMA foreign_keys` queried against a fresh `node:sqlite`
-  `DatabaseSync` instance) that it **defaults to `1`/ON**. That's `node:sqlite`'s own default,
-  different from the `better-sqlite3`/`sqlite3` npm bindings (default OFF) this assumption is
-  usually made against. No code in the live path sets this pragma explicitly (`backend/seed_demo.js`
-  toggles it, but that script is unwired legacy, never run by the app). Practical effect: FK
-  constraints are **already enforced today**, on the current SQLite app, not just a
-  migration-time risk — see the `PUT /api/employees/:id` "FOREIGN KEY constraint failed" bug fixed
-  on `fix/employee-fk-and-credits` for a real example. This actually makes the Postgres cutover
-  *safer* than the original framing here suggested: Postgres enforcing FKs by default won't newly
-  reject data that SQLite was silently accepting — SQLite already rejects it too.
-- Re-verify GST/financial numeric columns after import — confirm `REAL`/`INTEGER` columns landed as
-  the intended Postgres numeric type (`NUMERIC` for currency amounts is safer than `REAL`/`FLOAT`
-  for GST math; this is a good opportunity to fix precision issues if any exist).
-
-## 6. Multi-tenant scoping — verify, don't assume
-
-- `backend/src/utils/BranchScopedQuery.js` builds SQL fragments (`withBranchScope`) that get
-  concatenated into the base queries. Audit this file specifically for `?`-placeholder assumptions
-  once query construction moves to `$n` style.
-
-## 7. Deployment config changes
-
-- Render: either provision a Render Postgres instance (or external managed Postgres), set
-  `DATABASE_URL` in the dashboard, and remove/ignore `DB_PATH`.
-- `render.yaml` (this repo's root) will need a `databases:` block if using Render's managed
-  Postgres, or just the new env var if pointing at an external instance.
-- Drop the free-tier "data resets on redeploy" caveat entirely once on managed Postgres — that's
-  one of the actual wins of doing this migration.
-
-## 8. Testing after cutover
-
-- There is no automated test suite in this repo. Verification will be manual:
-  `npm run validate-system`, then exercise core flows per module (sales, GST invoice creation,
-  multi-branch scoping, RBAC) via the `backend/scratch/*.js` scripts or direct API calls — same
-  approach used to verify this deployment.
-- Specifically re-check anything gated by `gstEngine.js` (tax math) and `BranchScopedQuery.js`
-  (tenant isolation) — these are the two areas where a silent type/placeholder bug would be most
-  costly.
+`backend/src/db/schema.sql`, `schema_growth.sql`, and `schema_sprint11.sql`,
+SQLite inspection/migration utilities, and `backend/seed_demo.js` are retained
+historical/local artifacts. They are not part of production startup. Use
+`schema.postgres.sql`, `pgDb.js`, and `npm run seed` for PostgreSQL setup.

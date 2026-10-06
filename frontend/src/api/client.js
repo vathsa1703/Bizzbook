@@ -1,5 +1,4 @@
 import { Capacitor } from '@capacitor/core';
-import { getPlaceholderData } from './placeholders';
 
 // A relative '/api' only resolves correctly when something at the current
 // origin proxies it to the backend -- true for the Vite dev server and for
@@ -37,31 +36,6 @@ async function request(endpoint, options = {}) {
     if (response.status === 204) return null;
 
     const data = await response.json().catch(() => ({ error: 'Invalid server response' }));
-
-    if (response.ok && (!options.method || options.method === 'GET')) {
-      const type = localStorage.getItem('businessType');
-      if (type) {
-        let isEmpty = false;
-        
-        // Determine if response is effectively empty based on common shapes
-        if (Array.isArray(data)) {
-          isEmpty = data.length === 0;
-        } else if (data && Array.isArray(data.data)) {
-          isEmpty = data.data.length === 0;
-        } else if (endpoint.includes('/analytics/sales-summary') && data && data.transaction_count === 0) {
-          isEmpty = true;
-        } else if (endpoint.includes('/credits/summary') && data && data.outstanding_amount === 0) {
-          isEmpty = true;
-        }
-
-        if (isEmpty) {
-          const placeholderData = getPlaceholderData(endpoint, type);
-          if (placeholderData) {
-            return placeholderData;
-          }
-        }
-      }
-    }
 
     if (!response.ok) {
       if (response.status === 401) {

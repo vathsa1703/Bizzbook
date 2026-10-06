@@ -7,7 +7,7 @@ const { getClient, safeParseJSON } = require('./marketingAI');
 
 async function draftCampaign(intent, companyId) {
   const client = getClient();
-  const CHAT_MODEL = process.env.CHAT_MODEL || 'llama-3.3-70b-versatile';
+  const CHAT_MODEL = process.env.CHAT_MODEL || 'openai/gpt-oss-120b';
 
   const prompt = `You are an expert Marketing Copilot for a small retail business in India.
 The business owner has provided this goal/intent for a new campaign:

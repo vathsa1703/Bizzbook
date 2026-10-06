@@ -29,32 +29,34 @@ async function authenticate(req, res, next) {
     token: token
   };
 
-  // Phase 2: Check if session is still active in database
+  // Session lookup must succeed before a valid JWT is accepted, so revocation
+  // remains enforceable during database failures.
+  let session;
   try {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const session = await dbGet('SELECT id, is_active FROM sessions WHERE token_hash = ?', [tokenHash]);
-    // is_active is boolean under Postgres (Phase 1), 0/1 under SQLite. This is
-    // a check FOR revocation, not "is on" -- session.is_active === 0 only
-    // ever matched SQLite's literal 0; Postgres's real `false` needs the same
-    // treatment as dbEngine.js's isOn() but inverted (isOff), since the code
-    // wants to act specifically when the flag is off, not when it's on.
-    const isRevoked = session && (session.is_active === 0 || session.is_active === false);
-    if (isRevoked) {
-      return res.status(401).json({ error: 'Session has been revoked' });
-    }
-
-    // Update last activity periodically (e.g. 10% chance to avoid heavy writes on every request)
-    if (session && Math.random() < 0.1) {
-      await dbGet('UPDATE sessions SET last_activity = now() WHERE id = ?', [session.id]);
-    }
+    session = await dbGet('SELECT id, is_active FROM sessions WHERE token_hash = ?', [tokenHash]);
   } catch (err) {
     console.error('Session check error:', err);
-    // Proceed if DB fails here, fallback to JWT validity
+    return res.status(503).json({ error: 'Authentication service temporarily unavailable' });
   }
 
-  next();
-}
+  // is_active is boolean under Postgres, 0/1 under SQLite.
+  const isRevoked = session && (session.is_active === 0 || session.is_active === false);
+  if (isRevoked) {
+    return res.status(401).json({ error: 'Session has been revoked' });
+  }
 
+  // Update last activity periodically; this best-effort write does not affect authentication.
+  if (session && Math.random() < 0.1) {
+    try {
+      await dbGet('UPDATE sessions SET last_activity = now() WHERE id = ?', [session.id]);
+    } catch (err) {
+      console.error('Session activity update error:', err);
+    }
+  }
+
+  return next();
+}
 function authorize(roles = []) {
   if (typeof roles === 'string') {
     roles = [roles];

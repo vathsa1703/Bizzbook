@@ -26,7 +26,7 @@ async function validateSystem(app) {
 
   // 1b. AI Environment Variables
   const apiKey = process.env.OPENAI_API_KEY;
-  const aiModel = process.env.CHAT_MODEL || 'llama-3.3-70b-versatile';
+  const aiModel = process.env.CHAT_MODEL || 'openai/gpt-oss-120b';
   const aiBaseUrl = process.env.OPENAI_BASE_URL || '';
   const provider = aiBaseUrl.includes('groq') ? 'groq' : (aiBaseUrl ? 'custom' : 'openai');
   
@@ -78,6 +78,7 @@ async function validateSystem(app) {
     }
   }
   if (tablesPassed) logResult('Core Tables Check', true);
+  else passed = false;
   if (app && app.setHealthStatus) app.setHealthStatus('migrations', tablesPassed ? 'passed' : 'failed');
 
   // 4. Auth Functionality Validation — exercises withTransaction(), the piece
@@ -100,6 +101,7 @@ async function validateSystem(app) {
       if (app && app.setHealthStatus) app.setHealthStatus('auth', 'ready');
     } else {
       logResult('Auth Functionality (Read/Write)', false, e.message);
+      passed = false;
       if (app && app.setHealthStatus) app.setHealthStatus('auth', 'failed');
     }
   }

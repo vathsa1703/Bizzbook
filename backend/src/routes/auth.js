@@ -218,23 +218,29 @@ router.get('/me', authenticate, async (req, res) => {
 // POST /bootstrap - One‑time admin creation (public, but only works when no admin exists)
 router.post('/bootstrap', async (req, res, next) => {
   try {
-    // Check if any admin already exists
-    const adminCountRow = await dbGet('SELECT COUNT(*) as cnt FROM users WHERE role = ?', ['admin']);
-    const adminCount = Number(adminCountRow.cnt);
-    if (adminCount > 0) {
-      return res.status(400).json({ error: 'Admin account already created' });
-    }
     const { name, email, password } = req.body;
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required' });
     }
     const passwordHash = hashPassword(password);
-    const result = await dbGet(`
-      INSERT INTO users (name, email, password_hash, role)
-      VALUES (?, ?, ?, ?)
-      RETURNING id
-    `, [name, email, passwordHash, 'admin']);
-    const userId = result.id;
+    const createdUser = await withTransaction(async (tx) => {
+      // Serialize bootstrap attempts and block concurrent user creation while
+      // checking emptiness, so a normal OWNER signup permanently closes this
+      // public global-admin bootstrap endpoint.
+      await tx.query('LOCK TABLE users IN EXCLUSIVE MODE');
+      const userCount = await tx.getOne('SELECT COUNT(*) AS count FROM users');
+      if (Number(userCount.count) > 0) return null;
+
+      return tx.getOne(`
+        INSERT INTO users (name, email, password_hash, role)
+        VALUES (?, ?, ?, ?)
+        RETURNING id
+      `, [name, email, passwordHash, 'admin']);
+    });
+    if (!createdUser) {
+      return res.status(409).json({ error: 'Bootstrap is only available before the first user is created' });
+    }
+    const userId = createdUser.id;
     const user = { id: userId, name, email, role: 'admin' };
     const token = generateToken(user);
     res.status(201).json({ token, user });

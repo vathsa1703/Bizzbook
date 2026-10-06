@@ -79,7 +79,7 @@ Return ONLY valid JSON in this exact structure:
 
 async function generateCampaign(opportunity, objective) {
   const client = getClient();
-  const CHAT_MODEL = process.env.CHAT_MODEL || 'llama-3.3-70b-versatile';
+  const CHAT_MODEL = process.env.CHAT_MODEL || 'openai/gpt-oss-120b';
 
   if (!client) {
     console.log('[MarketingAI] No API key — using mock campaign.');
